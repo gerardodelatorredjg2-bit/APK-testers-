@@ -1,18 +1,17 @@
 name: Download APK and attach to private Release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       download_url:
         description: "Direct HTTPS download URL for the APK"
-        required: true
+        required: false
+        default: "https://ts.buzzheavier.com/d/gavgm8mls4sf?v=HP2qnDxcNunRtBcII66KLTAIUJTvjs9Ks-F1D23NKEppp_eTvBMJb00QWmNSG4BA4yqJn2BelfEoI5lLLek6RwVSjro8-b0r-LlGHn6H2AUEGUb8XV1ZK_FZmwKrIE7vIrdWTKmeq-gTTJQD8Ft3mzzus0Ne70rlZeFvsjo"
         type: string
       file_name:
         description: "APK filename (optional)"
         required: false
-        default: "app.apk"
+        default: "machine-party-v1.0.0.apk"
         type: string
 
 permissions:
@@ -27,8 +26,8 @@ jobs:
         id: input
         shell: bash
         env:
-          DOWNLOAD_URL: ${{ github.event.inputs.download_url || 'https://ts.buzzheavier.com/d/gavgm8mls4sf?v=HP2qnDxcNunRtBcII66KLTAIUJTvjs9Ks-F1D23NKEppp_eTvBMJb00QWmNSG4BA4yqJn2BelfEoI5lLLek6RwVSjro8-b0r-LlGHn6H2AUEGUb8XV1ZK_FZmwKrIE7vIrdWTKmeq-gTTJQD8Ft3mzzus0Ne70rlZeFvsjo' }}
-          REQUESTED_NAME: ${{ github.event.inputs.file_name || 'machine-party-v1.0.0.apk' }}
+          DOWNLOAD_URL: ${{ inputs.download_url }}
+          REQUESTED_NAME: ${{ inputs.file_name }}
         run: |
           set -euo pipefail
           case "$DOWNLOAD_URL" in
@@ -44,7 +43,7 @@ jobs:
       - name: Download APK
         shell: bash
         env:
-          DOWNLOAD_URL: ${{ github.event.inputs.download_url || 'https://ts.buzzheavier.com/d/gavgm8mls4sf?v=HP2qnDxcNunRtBcII66KLTAIUJTvjs9Ks-F1D23NKEppp_eTvBMJb00QWmNSG4BA4yqJn2BelfEoI5lLLek6RwVSjro8-b0r-LlGHn6H2AUEGUb8XV1ZK_FZmwKrIE7vIrdWTKmeq-gTTJQD8Ft3mzzus0Ne70rlZeFvsjo' }}
+          DOWNLOAD_URL: ${{ inputs.download_url }}
           FILE_NAME: ${{ steps.input.outputs.file_name }}
         run: |
           set -euo pipefail
