@@ -26,7 +26,7 @@ jobs:
             --repo "$GH_REPO" \
             --name machine-party-lan-android \
             --dir release-assets
-          test -s release-assets/MachineParty-LAN.7z
+          test -s release-assets/MachineParty-LAN-armv7.7z
           test -s release-assets/SHA256SUMS.txt
           ls -lh release-assets/
 
@@ -37,8 +37,8 @@ jobs:
         run: |
           TAG="machine-party-lan-${{ github.event.workflow_run.id }}"
           gh release create "$TAG" \
-            release-assets/MachineParty-LAN.7z \
+            release-assets/MachineParty-LAN-armv7.7z \
             release-assets/SHA256SUMS.txt \
             --repo "$GH_REPO" \
             --title "Machine Party LAN Android build" \
-            --notes "Reconstructed from the original APK. Local ENet multiplayer over Wi-Fi/hotspot, OpenGL ES 3.0 Compatibility renderer, ARM64 build. The APK is debug-signed for sideload testing."
+            --notes "Reconstructed from the original APK. Local ENet multiplayer over Wi-Fi/hotspot, OpenGL ES 3.0 Compatibility renderer, ARMv7 (armeabi-v7a) build. The APK is debug-signed for sideload testing."
