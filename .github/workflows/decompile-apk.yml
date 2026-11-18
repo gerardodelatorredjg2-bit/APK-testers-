@@ -1,0 +1,95 @@
+name: Decompile APK for inspection
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag de la Release privada que contiene la APK"
+        required: true
+        default: "machine-party-1-44240595372"
+        type: string
+      apk_name:
+        description: "Nombre exacto del archivo APK"
+        required: true
+        default: "machine-party-v1.0.0.apk"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  decompile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Install JADX, APKTool and utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jadx apktool unzip zip file
+          jadx --version
+          apktool --version
+
+      - name: Download APK from private Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release_tag }}
+          APK_NAME: ${{ inputs.apk_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p input results
+          gh release download "$TAG" --repo "$REPO" --pattern "$APK_NAME" --dir input
+          APK="input/$APK_NAME"
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          sha256sum "$APK" | tee results/SHA256SUMS.txt
+          echo "APK descargada: $(du -h "$APK" | cut -f1)"
+
+      - name: Decompile DEX with JADX
+        run: |
+          set -euo pipefail
+          mkdir -p results/jadx
+          jadx --show-bad-code -d results/jadx "input/${{ inputs.apk_name }}" 2>&1 | tee results/jadx.log
+
+      - name: Decode resources and Smali with APKTool
+        run: |
+          set -euo pipefail
+          apktool d -f "input/${{ inputs.apk_name }}" -o results/apktool 2>&1 | tee results/apktool.log
+
+      - name: Inspect package, manifest, ABIs and native libraries
+        run: |
+          set -euo pipefail
+          {
+            echo "## Información de la APK"
+            echo
+            echo '### Archivos DEX'
+            unzip -Z1 "input/${{ inputs.apk_name }}" | grep -E '^classes([0-9]+)?\\.dex$' || true
+            echo
+            echo '### Bibliotecas nativas por ABI'
+            unzip -Z1 "input/${{ inputs.apk_name }}" | grep '^lib/.*\\.so$' || true
+            echo
+            echo '### Archivos principales'
+            unzip -Z1 "input/${{ inputs.apk_name }}" | grep -E '^(AndroidManifest.xml|lib/|assets/)' | head -n 250 || true
+          } > results/INVENTORY.txt
+          mkdir -p results/native-libs
+          unzip -j "input/${{ inputs.apk_name }}" 'lib/*/*.so' -d results/native-libs || true
+          {
+            echo "## Análisis de APK completado"
+            echo
+            echo "- Release: ${{ inputs.release_tag }}"
+            echo "- APK: ${{ inputs.apk_name }}"
+            echo "- Hash SHA-256: $(cut -d' ' -f1 results/SHA256SUMS.txt)"
+            echo "- JADX: código Java aproximado en results/jadx/"
+            echo "- APKTool: recursos, manifiesto y Smali en results/apktool/"
+            echo "- Inventario: results/INVENTORY.txt"
+            echo
+            echo "La APK original no se modifica ni se incluye en el artefacto."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-decompilation-results
+          path: results/
+          if-no-files-found: error
+          retention-days: 7
