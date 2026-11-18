@@ -1,0 +1,67 @@
+name: Export recovered source for review
+
+on:
+  push:
+    branches:
+      - "recovery/**"
+    paths:
+      - ".github/workflows/export-recovery-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Download recovered project artifact from the completed recovery run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh run download 44350091150 \
+            --repo "$GH_REPO" \
+            --name machine-party-recovery \
+            --dir downloaded
+          test -f downloaded/recovered/project.godot
+          mkdir -p source-review
+
+      - name: Package source, scenes and project settings only
+        run: |
+          cd downloaded/recovered
+          find . -type f \\
+            \( -name 'project.godot' \
+            -o -name '*.gd' \
+            -o -name '*.tscn' \
+            -o -name '*.tres' \
+            -o -name '*.gdshader' \
+            -o -name '*.gdshaderinc' \
+            -o -name '*.gdextension' \
+            -o -name '*.translation' \
+            -o -name '*.import' \
+            -o -name '*.remap' \
+            -o -name '*.json' \
+            -o -name '*.cfg' \
+            -o -name '*.csv' \
+            -o -name '*.po' \
+            -o -name '*.txt' \\
+            \) -print0 | tar --null -czf ../../source-review/machine-party-source-review.tar.gz -T -
+          find . -type f -printf '%P\t%s bytes\n' | sort > ../../source-review/full-file-inventory.tsv
+          printf 'GDScript files: ' >> ../../source-review/summary.txt
+          find . -type f -name '*.gd' | wc -l >> ../../source-review/summary.txt
+          printf 'Scene files: ' >> ../../source-review/summary.txt
+          find . -type f -name '*.tscn' | wc -l >> ../../source-review/summary.txt
+          printf 'Text resources: ' >> ../../source-review/summary.txt
+          find . -type f \( -name '*.tres' -o -name '*.gdshader' -o -name '*.gdshaderinc' \) | wc -l >> ../../source-review/summary.txt
+          du -h ../../source-review/machine-party-source-review.tar.gz
+
+      - name: Upload compact source review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-review
+          path: source-review/
+          compression-level: 1
+          retention-days: 30
