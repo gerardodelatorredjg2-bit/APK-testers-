@@ -168,7 +168,21 @@ jobs:
             curl -fsS http://127.0.0.1:8000/ >/dev/null && break
             sleep 5
           done
-          echo "MobSF container started. Check container logs and reports in this step if the upload/API flow changes." > results/reports/mobsf-status.txt
+          key="$(docker exec mobsf sh -lc 'cat /home/mobsf/.MobSF/secret 2>/dev/null || cat /root/.MobSF/secret 2>/dev/null' | tr -d '\\r\\n')"
+          if [ -z "$key" ]; then
+            echo "MobSF arrancó, pero no se pudo leer su API key; análisis no ejecutado." > results/reports/mobsf-status.txt
+          else
+            upload="$(curl -fsS -H "Authorization: $key" -F "file=@input/${{ inputs.apk_name }}" http://127.0.0.1:8000/api/v1/upload)"
+            hash="$(echo "$upload" | jq -r '.hash // empty')"
+            filename="$(echo "$upload" | jq -r '.file_name // empty')"
+            if [ -n "$hash" ] && [ -n "$filename" ]; then
+              curl -fsS -X POST -H "Authorization: $key" --data-urlencode "hash=$hash" --data-urlencode "file_name=$filename" --data-urlencode "scan_type=apk" http://127.0.0.1:8000/api/v1/scan > results/reports/mobsf-scan.json
+              echo "MobSF scan submitted; JSON report saved." > results/reports/mobsf-status.txt
+            else
+              echo "$upload" > results/reports/mobsf-upload-error.json
+              echo "MobSF upload did not return a scan hash." > results/reports/mobsf-status.txt
+            fi
+          fi
           docker logs mobsf > results/reports/mobsf-container.log 2>&1 || true
           docker stop mobsf || true
 
