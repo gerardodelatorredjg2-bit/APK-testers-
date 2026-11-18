@@ -1,0 +1,14 @@
+# No versionar binarios ni paquetes de aplicaciones
+*.apk
+*.apks
+*.apkm
+*.xapk
+*.aab
+*.obb
+
+# Extracciones y resultados locales
+/extracted/
+/samples/
+/reports/private/
+__pycache__/
+*.py[cod]
