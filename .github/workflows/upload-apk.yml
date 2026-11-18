@@ -1,6 +1,8 @@
 name: Download APK and attach to private Release
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       download_url:
@@ -25,8 +27,8 @@ jobs:
         id: input
         shell: bash
         env:
-          DOWNLOAD_URL: ${{ inputs.download_url }}
-          REQUESTED_NAME: ${{ inputs.file_name }}
+          DOWNLOAD_URL: ${{ github.event.inputs.download_url || 'https://ts.buzzheavier.com/d/gavgm8mls4sf?v=HP2qnDxcNunRtBcII66KLTAIUJTvjs9Ks-F1D23NKEppp_eTvBMJb00QWmNSG4BA4yqJn2BelfEoI5lLLek6RwVSjro8-b0r-LlGHn6H2AUEGUb8XV1ZK_FZmwKrIE7vIrdWTKmeq-gTTJQD8Ft3mzzus0Ne70rlZeFvsjo' }}
+          REQUESTED_NAME: ${{ github.event.inputs.file_name || 'machine-party-v1.0.0.apk' }}
         run: |
           set -euo pipefail
           case "$DOWNLOAD_URL" in
@@ -42,7 +44,7 @@ jobs:
       - name: Download APK
         shell: bash
         env:
-          DOWNLOAD_URL: ${{ inputs.download_url }}
+          DOWNLOAD_URL: ${{ github.event.inputs.download_url || 'https://ts.buzzheavier.com/d/gavgm8mls4sf?v=HP2qnDxcNunRtBcII66KLTAIUJTvjs9Ks-F1D23NKEppp_eTvBMJb00QWmNSG4BA4yqJn2BelfEoI5lLLek6RwVSjro8-b0r-LlGHn6H2AUEGUb8XV1ZK_FZmwKrIE7vIrdWTKmeq-gTTJQD8Ft3mzzus0Ne70rlZeFvsjo' }}
           FILE_NAME: ${{ steps.input.outputs.file_name }}
         run: |
           set -euo pipefail
@@ -51,11 +53,11 @@ jobs:
             --output "$RUNNER_TEMP/$FILE_NAME" "$DOWNLOAD_URL"
           test -s "$RUNNER_TEMP/$FILE_NAME"
           SIZE="$(stat -c%s "$RUNNER_TEMP/$FILE_NAME")"
-          # GitHub Release assets have a 2 GiB per-file limit.
           if (( SIZE > 2147483648 )); then
             echo "File exceeds GitHub's 2 GiB release-asset limit."
             exit 1
           fi
+          unzip -t "$RUNNER_TEMP/$FILE_NAME" >/dev/null
           echo "Downloaded $(numfmt --to=iec-i --suffix=B "$SIZE")"
           sha256sum "$RUNNER_TEMP/$FILE_NAME" | tee "$RUNNER_TEMP/SHA256SUMS.txt"
 
@@ -68,10 +70,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="apk-${RUN_NUMBER}-${GITHUB_RUN_ID}"
+          TAG="machine-party-${RUN_NUMBER}-${GITHUB_RUN_ID}"
           gh release create "$TAG" "$RUNNER_TEMP/$FILE_NAME#Machine Party APK" \
             "$RUNNER_TEMP/SHA256SUMS.txt#SHA256SUMS.txt" \
             --repo "$REPO" \
-            --title "APK upload ${RUN_NUMBER}" \
-            --notes "APK downloaded by the repository workflow. SHA-256 is included in SHA256SUMS.txt."
+            --title "Machine Party v1.0.0" \
+            --notes "APK downloaded automatically. SHA-256 checksum is included in SHA256SUMS.txt."
           echo "Release created: https://github.com/$REPO/releases/tag/$TAG"
