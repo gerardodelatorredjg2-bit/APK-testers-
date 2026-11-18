@@ -216,3 +216,5 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+
+# Rebuild requested: export a fresh LAN Android APK and LZMA2 archive.
