@@ -1,0 +1,83 @@
+name: Recover Machine Party Godot project
+
+on:
+  push:
+    branches:
+      - "recovery/**"
+    paths:
+      - ".github/workflows/recover-machine-party.yml"
+      - "recovery/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Prepare workspace
+        run: |
+          mkdir -p input gdre recovered recovery-output
+          sudo apt-get update
+          sudo apt-get install -y unzip zip
+
+      - name: Download original Machine Party APK from this repository release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release download machine-party-1-44240595372 \
+            --repo "$GH_REPO" \
+            --pattern "machine-party-v1.0.0.apk" \
+            --dir input
+          test -s input/machine-party-v1.0.0.apk
+          sha256sum input/machine-party-v1.0.0.apk | tee recovery-output/apk-sha256.txt
+
+      - name: Download GDRE Tools 2.7.4
+        run: |
+          curl -fL --retry 3 \
+            "https://github.com/GDRETools/gdsdecomp/releases/download/v2.7.4/GDRE_tools-v2.7.4-linux.zip" \
+            -o gdre-tools.zip
+          unzip -q gdre-tools.zip -d gdre
+          find gdre -maxdepth 4 -type f -printf '%p\n' | tee recovery-output/gdre-files.txt
+          GDRE_BIN="$(find gdre -type f -executable | head -n 1)"
+          test -n "$GDRE_BIN"
+          echo "GDRE_BIN=$GDRE_BIN" >> "$GITHUB_ENV"
+
+      - name: Recover Godot project from APK
+        id: recover
+        run: |
+          set -o pipefail
+          chmod +x "$GDRE_BIN"
+          LD_LIBRARY_PATH="$(dirname "$GDRE_BIN"):${LD_LIBRARY_PATH:-}" \
+            "$GDRE_BIN" --headless \
+            --recover="$PWD/input/machine-party-v1.0.0.apk" \
+            --output-dir="$PWD/recovered" 2>&1 | tee recovery-output/gdre-recovery.log
+          test -f recovered/project.godot
+          echo "project_found=true" >> "$GITHUB_OUTPUT"
+          echo "Scripts recovered: $(find recovered -type f -name '*.gd' | wc -l)" | tee recovery-output/summary.txt
+          echo "Scenes recovered: $(find recovered -type f -name '*.tscn' | wc -l)" | tee -a recovery-output/summary.txt
+          echo "Resources recovered: $(find recovered -type f \( -name '*.tres' -o -name '*.res' \) | wc -l)" | tee -a recovery-output/summary.txt
+
+      - name: Pack recovered project
+        if: steps.recover.outputs.project_found == 'true'
+        run: |
+          cd recovered
+          zip -qr -1 ../recovery-output/machine-party-recovered-project.zip .
+          cd ..
+          ls -lh recovery-output/machine-party-recovered-project.zip
+
+      - name: Upload recovered project and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery
+          path: |
+            recovery-output/
+            recovered/
+          if-no-files-found: warn
+          compression-level: 1
+          retention-days: 30
