@@ -1,0 +1,69 @@
+name: Recover Machine Party project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Download original APK from this repository release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p input recovered
+          gh release download machine-party-1-44240595372 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "machine-party-v1.0.0.apk" \
+            --dir input
+          test -s input/machine-party-v1.0.0.apk
+          sha256sum input/machine-party-v1.0.0.apk
+
+      - name: Download GDRE Tools standalone for Linux
+        run: |
+          set -euo pipefail
+          curl -fsSL https://api.github.com/repos/GDRETools/gdsdecomp/releases/latest -o /tmp/gdre-release.json
+          URL="$(jq -r '.assets[] | select(.name | test("standalone-linux.*\\.(zip|tar\\.gz)$"; "i")) | .browser_download_url' /tmp/gdre-release.json | head -n1)"
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "No Linux standalone archive found in the latest GDRE release."
+            jq -r '.assets[].name' /tmp/gdre-release.json
+            exit 1
+          fi
+          curl -fL "$URL" -o /tmp/gdre-linux.zip
+          mkdir -p /tmp/gdre
+          unzip -q /tmp/gdre-linux.zip -d /tmp/gdre
+          BIN="$(find /tmp/gdre -type f -name 'gdre_tools*' -perm -u+x | head -n1)"
+          if [ -z "$BIN" ]; then
+            BIN="$(find /tmp/gdre -type f -perm -u+x | head -n1)"
+          fi
+          test -n "$BIN"
+          echo "$BIN" > /tmp/gdre-bin-path
+          chmod +x "$BIN"
+          "$BIN" --headless --help || true
+
+      - name: Recover editable Godot project
+        run: |
+          set -euo pipefail
+          BIN="$(cat /tmp/gdre-bin-path)"
+          "$BIN" --headless --recover=input/machine-party-v1.0.0.apk --output=recovered
+          test -f recovered/project.godot
+          find recovered -type f | wc -l | tee recovered-file-count.txt
+          find recovered -type f -name '*.gd' | wc -l | tee recovered-script-count.txt
+          du -sh recovered
+
+      - name: Upload recovered project for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovered-project
+          path: |
+            recovered/
+            recovered-file-count.txt
+            recovered-script-count.txt
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 14
