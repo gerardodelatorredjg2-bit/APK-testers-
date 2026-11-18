@@ -284,6 +284,31 @@ patch(
     match_error_method + "func _on_load_timeout():",
 )
 
+# The original project uses a custom AudioEffectGate GDExtension that is not
+# available in the recovered Android package's standard desktop editor toolchain.
+# Voice gating is non-essential to LAN gameplay; remove only those two bus effects
+# so the stock Godot editor can import the recovered project.
+patch(
+    "bus_layout.tres",
+    '[sub_resource type="AudioEffectGate" id="AudioEffectGate_j3pel"]\nresource_name = "Gate"\n\n',
+    "",
+)
+patch(
+    "bus_layout.tres",
+    '[sub_resource type="AudioEffectGate" id="AudioEffectGate_g28q7"]\nresource_name = "Gate"\n\n',
+    "",
+)
+patch(
+    "bus_layout.tres",
+    'bus/6/effect/1/effect = SubResource("AudioEffectGate_j3pel")\nbus/6/effect/1/enabled = true\n',
+    "",
+)
+patch(
+    "bus_layout.tres",
+    'bus/7/effect/0/effect = SubResource("AudioEffectGate_g28q7")\nbus/7/effect/0/enabled = true\n',
+    "",
+)
+
 # Recovered scenes do not always include Godot's UID cache. Use the stable
 # res:// path for this scene preload so a clean import can resolve it.
 patch(
