@@ -1,6 +1,9 @@
 name: Recover Machine Party project
 
 on:
+  push:
+    branches:
+      - rebuild-machine-party-lan
   workflow_dispatch:
 
 permissions:
@@ -28,9 +31,9 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL https://api.github.com/repos/GDRETools/gdsdecomp/releases/latest -o /tmp/gdre-release.json
-          URL="$(jq -r '.assets[] | select(.name | test("standalone-linux.*\\.(zip|tar\\.gz)$"; "i")) | .browser_download_url' /tmp/gdre-release.json | head -n1)"
+          URL="$(jq -r '.assets[] | select(.name | test("standalone-linux.*\\.zip$"; "i")) | .browser_download_url' /tmp/gdre-release.json | head -n1)"
           if [ -z "$URL" ] || [ "$URL" = "null" ]; then
-            echo "No Linux standalone archive found in the latest GDRE release."
+            echo "No Linux standalone ZIP found in the latest GDRE release."
             jq -r '.assets[].name' /tmp/gdre-release.json
             exit 1
           fi
