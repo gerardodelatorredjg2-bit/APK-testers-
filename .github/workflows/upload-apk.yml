@@ -1,0 +1,77 @@
+name: Download APK and attach to private Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      download_url:
+        description: "Direct HTTPS download URL for the APK"
+        required: true
+        type: string
+      file_name:
+        description: "APK filename (optional)"
+        required: false
+        default: "app.apk"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  download-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Validate URL and filename
+        id: input
+        shell: bash
+        env:
+          DOWNLOAD_URL: ${{ inputs.download_url }}
+          REQUESTED_NAME: ${{ inputs.file_name }}
+        run: |
+          set -euo pipefail
+          case "$DOWNLOAD_URL" in
+            https://*) ;;
+            *) echo "Only HTTPS download URLs are accepted."; exit 1 ;;
+          esac
+          NAME="$(basename -- "$REQUESTED_NAME")"
+          NAME="${NAME//[^a-zA-Z0-9._-]/_}"
+          [[ "$NAME" == *.apk ]] || NAME="${NAME}.apk"
+          [[ -n "$NAME" && "$NAME" != ".apk" ]] || { echo "Invalid filename"; exit 1; }
+          echo "file_name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Download APK
+        shell: bash
+        env:
+          DOWNLOAD_URL: ${{ inputs.download_url }}
+          FILE_NAME: ${{ steps.input.outputs.file_name }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-all-errors \
+            --connect-timeout 30 --max-time 2400 \
+            --output "$RUNNER_TEMP/$FILE_NAME" "$DOWNLOAD_URL"
+          test -s "$RUNNER_TEMP/$FILE_NAME"
+          SIZE="$(stat -c%s "$RUNNER_TEMP/$FILE_NAME")"
+          # GitHub Release assets have a 2 GiB per-file limit.
+          if (( SIZE > 2147483648 )); then
+            echo "File exceeds GitHub's 2 GiB release-asset limit."
+            exit 1
+          fi
+          echo "Downloaded $(numfmt --to=iec-i --suffix=B "$SIZE")"
+          sha256sum "$RUNNER_TEMP/$FILE_NAME" | tee "$RUNNER_TEMP/SHA256SUMS.txt"
+
+      - name: Create private Release and upload APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FILE_NAME: ${{ steps.input.outputs.file_name }}
+          REPO: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="apk-${RUN_NUMBER}-${GITHUB_RUN_ID}"
+          gh release create "$TAG" "$RUNNER_TEMP/$FILE_NAME#Machine Party APK" \
+            "$RUNNER_TEMP/SHA256SUMS.txt#SHA256SUMS.txt" \
+            --repo "$REPO" \
+            --title "APK upload ${RUN_NUMBER}" \
+            --notes "APK downloaded by the repository workflow. SHA-256 is included in SHA256SUMS.txt."
+          echo "Release created: https://github.com/$REPO/releases/tag/$TAG"
