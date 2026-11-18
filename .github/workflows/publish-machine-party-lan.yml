@@ -1,0 +1,44 @@
+name: Publish compressed Machine Party LAN build
+
+on:
+  workflow_run:
+    workflows:
+      - "Build Machine Party LAN Android APK"
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'recovery/lan-multiplayer' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download verified build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p release-assets
+          gh run download "${{ github.event.workflow_run.id }}" \
+            --repo "$GH_REPO" \
+            --name machine-party-lan-android \
+            --dir release-assets
+          test -s release-assets/MachineParty-LAN.7z
+          test -s release-assets/SHA256SUMS.txt
+          ls -lh release-assets/
+
+      - name: Publish compressed package as a GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="machine-party-lan-${{ github.event.workflow_run.id }}"
+          gh release create "$TAG" \
+            release-assets/MachineParty-LAN.7z \
+            release-assets/SHA256SUMS.txt \
+            --repo "$GH_REPO" \
+            --title "Machine Party LAN Android build" \
+            --notes "Reconstructed from the original APK. Local ENet multiplayer over Wi-Fi/hotspot, OpenGL ES 3.0 Compatibility renderer, ARM64 build. The APK is debug-signed for sideload testing."
