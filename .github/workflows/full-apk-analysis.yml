@@ -1,0 +1,204 @@
+name: Full APK analysis suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag containing the APK"
+        required: true
+        default: "machine-party-1-44240595372"
+        type: string
+      apk_name:
+        description: "Exact APK filename"
+        required: true
+        default: "machine-party-v1.0.0.apk"
+        type: string
+      run_mobsf:
+        description: "Also run the heavier MobSF Docker scanner"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Install core Android and binary-analysis tools
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y jadx apktool unzip zip file binutils yara python3 python3-pip python3-venv git curl jq p7zip-full
+          mkdir -p input results/{jadx,apktool,native,ghidra,reports,tools}
+          jadx --version | tee results/tools/versions.txt
+          apktool --version | tee -a results/tools/versions.txt
+          file --version | head -n 1 | tee -a results/tools/versions.txt
+          strings --version | head -n 1 | tee -a results/tools/versions.txt
+
+      - name: Download and validate private release APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release_tag }}
+          APK_NAME: ${{ inputs.apk_name }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$REPO" --pattern "$APK_NAME" --dir input
+          APK="input/$APK_NAME"
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          sha256sum "$APK" | tee results/SHA256SUMS.txt
+          file "$APK" | tee results/reports/apk-file-type.txt
+          unzip -Z1 "$APK" > results/reports/apk-file-list.txt
+          {
+            echo "# APK inventory"
+            echo
+            echo "DEX:"
+            grep -E '^classes([0-9]+)?\.dex$' results/reports/apk-file-list.txt || true
+            echo
+            echo "Native libraries:"
+            grep -E '^lib/[^/]+/[^/]+\.so$' results/reports/apk-file-list.txt || true
+            echo
+            echo "ABIs:"
+            grep -oE '^lib/[^/]+' results/reports/apk-file-list.txt | sort -u || true
+            echo
+            echo "Assets count:"
+            grep -c '^assets/' results/reports/apk-file-list.txt || true
+          } > results/INVENTORY.md
+
+      - name: Decompile DEX to Java with JADX
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          jadx --show-bad-code -d results/jadx "input/${{ inputs.apk_name }}" 2>&1 | tee results/reports/jadx.log
+
+      - name: Decode resources, manifest and Smali with APKTool
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          apktool d -f "input/${{ inputs.apk_name }}" -o results/apktool 2>&1 | tee results/reports/apktool.log
+
+      - name: Extract native libraries and inspect symbols and strings
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p results/native
+          unzip -j "input/${{ inputs.apk_name }}" 'lib/*/*.so' -d results/native || true
+          for f in results/native/*.so; do
+            [ -f "$f" ] || continue
+            base="$(basename "$f")"
+            {
+              echo "## $base"
+              file "$f"
+              readelf -h "$f" || true
+              readelf -d "$f" || true
+              readelf -Ws "$f" || true
+            } > "results/reports/$base.elf.txt" 2>&1
+            strings -a -n 5 "$f" > "results/reports/$base.strings.txt" || true
+            nm -D "$f" > "results/reports/$base.symbols.txt" 2>&1 || true
+            objdump -d "$f" > "results/reports/$base.disassembly.txt" 2>&1 || true
+          done
+
+      - name: Run Androguard and APKiD
+        continue-on-error: true
+        run: |
+          set -euxo pipefail
+          python3 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install androguard apkid
+          apkid "input/${{ inputs.apk_name }}" --output results/reports/apkid.json || apkid "input/${{ inputs.apk_name }}" > results/reports/apkid.txt || true
+          python - <<'PY'
+          import json, traceback
+          from androguard.misc import AnalyzeAPK
+          apk = "input/${{ inputs.apk_name }}"
+          out = {}
+          try:
+              a, ds, dx = AnalyzeAPK(apk)
+              out["package"] = a.get_package()
+              out["app_name"] = a.get_app_name()
+              out["permissions"] = sorted(a.get_permissions())
+              out["activities"] = sorted(a.get_activities())
+              out["services"] = sorted(a.get_services())
+              out["receivers"] = sorted(a.get_receivers())
+              out["providers"] = sorted(a.get_providers())
+              out["dex_count"] = len(ds)
+              out["strings_sample"] = sorted(set(s for d in ds for s in d.get_strings()))[:5000]
+          except Exception:
+              out["error"] = traceback.format_exc()
+          with open("results/reports/androguard.json", "w") as f:
+              json.dump(out, f, indent=2, ensure_ascii=False)
+          PY
+
+      - name: Install Ghidra and analyze native ARM libraries
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="$(gh api repos/NationalSecurityAgency/ghidra/releases/latest)"
+          asset_url="$(echo "$api" | jq -r '.assets[] | select(.name | test("^ghidra_.*PUBLIC_.*\.zip$")) | .browser_download_url' | head -n 1)"
+          if [ -z "$asset_url" ] || [ "$asset_url" = "null" ]; then
+            echo "No se encontró el ZIP público de Ghidra" | tee results/reports/ghidra-status.txt
+            exit 0
+          fi
+          curl -L --fail "$asset_url" -o /tmp/ghidra.zip
+          mkdir -p /opt/ghidra
+          unzip -q /tmp/ghidra.zip -d /opt/ghidra
+          ghdir="$(find /opt/ghidra -maxdepth 2 -type f -name analyzeHeadless -printf '%h\n' | head -n 1)"
+          if [ -z "$ghdir" ]; then echo "Ghidra no quedó instalado" > results/reports/ghidra-status.txt; exit 0; fi
+          find results/native -maxdepth 1 -type f -name '*.so' -print0 | while IFS= read -r -d '' lib; do
+            name="$(basename "$lib" .so)"
+            mkdir -p "results/ghidra/$name"
+            "$ghdir/analyzeHeadless" "results/ghidra/$name" "$name" -import "$lib" -analysisTimeoutPerFile 900 -deleteProject 2>&1 | tee "results/reports/ghidra-$name.log" || true
+          done
+          echo "Ghidra headless analysis attempted for extracted .so libraries." > results/reports/ghidra-status.txt
+
+      - name: Optional MobSF static analysis
+        if: ${{ inputs.run_mobsf }}
+        continue-on-error: true
+        run: |
+          set -euxo pipefail
+          docker pull opensecurity/mobile-security-framework-mobsf:latest
+          docker run --rm -d --name mobsf -p 8000:8000 opensecurity/mobile-security-framework-mobsf:latest
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8000/ >/dev/null && break
+            sleep 5
+          done
+          echo "MobSF container started. Check container logs and reports in this step if the upload/API flow changes." > results/reports/mobsf-status.txt
+          docker logs mobsf > results/reports/mobsf-container.log 2>&1 || true
+          docker stop mobsf || true
+
+      - name: Create analysis summary
+        if: always()
+        run: |
+          {
+            echo "# Full APK analysis"
+            echo
+            echo "- Release: ${{ inputs.release_tag }}"
+            echo "- APK: ${{ inputs.apk_name }}"
+            echo "- SHA-256: $(cut -d' ' -f1 results/SHA256SUMS.txt 2>/dev/null || echo unavailable)"
+            echo
+            echo "## Tool outputs"
+            echo "- JADX: results/jadx/"
+            echo "- APKTool: results/apktool/"
+            echo "- Native ELF metadata, symbols, strings and disassembly: results/reports/"
+            echo "- Androguard/APKiD reports: results/reports/"
+            echo "- Ghidra projects: results/ghidra/"
+            echo "- APK inventory: results/INVENTORY.md"
+            echo
+            echo "The original APK is not modified and is not included in the artifact."
+            echo "Decompiler output is reconstructed/approximate, not the original source project."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload all analysis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-apk-analysis
+          path: results/
+          if-no-files-found: warn
+          retention-days: 14
