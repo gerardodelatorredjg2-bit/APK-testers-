@@ -322,6 +322,18 @@ patch(
     "",
 )
 
+# Keep resource load-step counts consistent after removing the two custom effects.
+patch(
+    "bus_layout.tres",
+    'load_steps=6 format=3',
+    'load_steps=4 format=3',
+)
+patch(
+    "default_bus_layout.tres",
+    'load_steps=5 format=3',
+    'load_steps=3 format=3',
+)
+
 # The decompiled Steam join path passes an integer even though the manager
 # and backend signatures consistently accept the lobby ID as a String.
 patch(
