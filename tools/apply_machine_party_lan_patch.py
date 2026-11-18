@@ -331,7 +331,7 @@ patch(
 )
 
 # The fallback bus layout also contains the unavailable custom gate effect.
-for bus_file in ("bus_layout.tres", "default_bus_layout.tres"):
+for bus_file in ("default_bus_layout.tres",):
     patch(
         bus_file,
         '[sub_resource type="AudioEffectGate" id="AudioEffectGate_j3pel"]\nresource_name = "Gate"\n\n',
