@@ -284,4 +284,12 @@ patch(
     match_error_method + "func _on_load_timeout():",
 )
 
+# Recovered scenes do not always include Godot's UID cache. Use the stable
+# res:// path for this scene preload so a clean import can resolve it.
+patch(
+    "minigames/intermission_new/components/intermission_briefing_screen.gd",
+    'preload("uid://bwixccr50fbc2")',
+    'preload("res://modules/user_interface/intermission_control_input_label/intermission_control_input_label.tscn")',
+)
+
 print("LAN patch applied successfully.")
