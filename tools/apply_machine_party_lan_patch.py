@@ -284,6 +284,19 @@ patch(
     match_error_method + "func _on_load_timeout():",
 )
 
+# The original Android package marks Vulkan as mandatory. The Compatibility
+# renderer uses OpenGL ES 3.0 and supports older Android GPUs without Vulkan.
+patch(
+    "project.godot",
+    'config/features=PackedStringArray("4.5", "Forward Plus")',
+    'config/features=PackedStringArray("4.5", "GL Compatibility")',
+)
+patch(
+    "project.godot",
+    'renderer/rendering_method="mobile"',
+    'renderer/rendering_method="gl_compatibility"',
+)
+
 # The original project uses a custom AudioEffectGate GDExtension that is not
 # available in the recovered Android package's standard desktop editor toolchain.
 # Voice gating is non-essential to LAN gameplay; remove only those two bus effects
