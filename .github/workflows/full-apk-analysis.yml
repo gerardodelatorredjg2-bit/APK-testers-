@@ -24,20 +24,37 @@ permissions:
 
 jobs:
   analyze:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 240
     steps:
-      - name: Install core Android and binary-analysis tools
+      - name: Prepare result folders and install core binary-analysis tools
         run: |
           set -euxo pipefail
-          sudo apt-get update
-          sudo apt-get install -y jadx apktool unzip zip file binutils yara python3 python3-pip python3-venv git curl jq p7zip-full
           mkdir -p input results/{jadx,apktool,native,ghidra,reports,tools}
-          jadx --version | tee results/tools/versions.txt
-          apktool --version | tee -a results/tools/versions.txt
+          sudo apt-get update
+          sudo apt-get install -y apktool unzip zip file binutils yara python3 python3-pip python3-venv git curl jq p7zip-full
+          apktool --version | tee results/tools/versions.txt
           file --version | head -n 1 | tee -a results/tools/versions.txt
           strings --version | head -n 1 | tee -a results/tools/versions.txt
 
+      - name: Install JADX from its official GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          api="$(gh api repos/skylot/jadx/releases/latest)"
+          asset_url="$(echo "$api" | jq -r '.assets[] | select(.name | test("^jadx-.*\\.zip$")) | .browser_download_url' | head -n 1)"
+          if [ -z "$asset_url" ] || [ "$asset_url" = "null" ]; then
+            echo "Could not find the official JADX release ZIP" >&2
+            exit 1
+          fi
+          curl -L --fail "$asset_url" -o /tmp/jadx.zip
+          mkdir -p /opt/jadx
+          unzip -q /tmp/jadx.zip -d /opt/jadx
+          JADX_LAUNCHER="$(find /opt/jadx -type f -path '*/bin/jadx' | head -n 1)"
+          test -n "$JADX_LAUNCHER"
+          sudo ln -sf "$JADX_LAUNCHER" /usr/local/bin/jadx
+          jadx --version | tee -a results/tools/versions.txt
       - name: Download and validate private release APK
         env:
           GH_TOKEN: ${{ github.token }}
