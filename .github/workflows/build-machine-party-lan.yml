@@ -88,7 +88,7 @@ jobs:
           mkdir -p "$PROJECT/build"
           cat > "$PROJECT/export_presets.cfg" <<'EOF'
           [preset.0]
-          name="Android"
+          name="Android ARMv7"
           platform="Android"
           runnable=true
           advanced_options=false
@@ -97,7 +97,7 @@ jobs:
           export_filter="all_resources"
           include_filter=""
           exclude_filter=""
-          export_path="build/MachineParty-LAN.apk"
+          export_path="build/MachineParty-LAN-armv7.apk"
           patches=PackedStringArray()
           encryption_include_filters=""
           encryption_exclude_filters=""
@@ -109,8 +109,8 @@ jobs:
           custom_template/debug=""
           custom_template/release=""
           gradle_build/use_gradle_build=false
-          architectures/armeabi-v7a=false
-          architectures/arm64-v8a=true
+          architectures/armeabi-v7a=true
+          architectures/arm64-v8a=false
           architectures/x86=false
           architectures/x86_64=false
           version/code=2
@@ -187,34 +187,34 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           export GODOT_SILENCE_ROOT_WARNING=1
           "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" \
-            --export-debug "Android" "$PWD/build/MachineParty-LAN.apk"
-          test -s build/MachineParty-LAN.apk
-          ls -lh build/MachineParty-LAN.apk
+            --export-debug "Android ARMv7" "$PWD/build/MachineParty-LAN-armv7.apk"
+          test -s build/MachineParty-LAN-armv7.apk
+          ls -lh build/MachineParty-LAN-armv7.apk
 
       - name: Verify APK and create compressed download
         run: |
           set -euo pipefail
           APKSIGNER="$(find "$ANDROID_HOME/build-tools/35.0.0" -name apksigner | head -n1)"
-          "$APKSIGNER" verify --verbose build/MachineParty-LAN.apk
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN.apk
-          sha256sum build/MachineParty-LAN.apk | tee build/SHA256SUMS.txt
+          "$APKSIGNER" verify --verbose build/MachineParty-LAN-armv7.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN-armv7.apk
+          sha256sum build/MachineParty-LAN-armv7.apk | tee build/SHA256SUMS.txt
 
           sudo apt-get update
           sudo apt-get install -y p7zip-full
           7z a -t7z -mx=9 -m0=lzma2 -ms=on \
-            build/MachineParty-LAN.7z build/MachineParty-LAN.apk build/SHA256SUMS.txt
-          ls -lh build/MachineParty-LAN.apk build/MachineParty-LAN.7z
+            build/MachineParty-LAN-armv7.7z build/MachineParty-LAN-armv7.apk build/SHA256SUMS.txt
+          ls -lh build/MachineParty-LAN-armv7.apk build/MachineParty-LAN-armv7.7z
 
       - name: Upload installable APK and compressed package
         uses: actions/upload-artifact@v4
         with:
           name: machine-party-lan-android
           path: |
-            build/MachineParty-LAN.apk
-            build/MachineParty-LAN.7z
+            build/MachineParty-LAN-armv7.apk
+            build/MachineParty-LAN-armv7.7z
             build/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
-# Rebuild requested: export a fresh LAN Android APK and LZMA2 archive.
+# Rebuild requested: ARMv7-only LAN APK, losslessly compressed with LZMA2.
