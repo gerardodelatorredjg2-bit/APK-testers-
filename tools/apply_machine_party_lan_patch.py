@@ -322,6 +322,37 @@ patch(
     "",
 )
 
+# The decompiled Steam join path passes an integer even though the manager
+# and backend signatures consistently accept the lobby ID as a String.
+patch(
+    "modules/multiplayer_lobby/multiplayer_menu.gd",
+    "NetworkManager.start_client(debug_lobby_handler.name_entry.text, int(clipboard))",
+    "NetworkManager.start_client(debug_lobby_handler.name_entry.text, clipboard)",
+)
+
+# The fallback bus layout also contains the unavailable custom gate effect.
+for bus_file in ("bus_layout.tres", "default_bus_layout.tres"):
+    patch(
+        bus_file,
+        '[sub_resource type="AudioEffectGate" id="AudioEffectGate_j3pel"]\nresource_name = "Gate"\n\n',
+        "",
+    )
+    patch(
+        bus_file,
+        '[sub_resource type="AudioEffectGate" id="AudioEffectGate_g28q7"]\nresource_name = "Gate"\n\n',
+        "",
+    )
+    patch(
+        bus_file,
+        'bus/6/effect/1/effect = SubResource("AudioEffectGate_j3pel")\nbus/6/effect/1/enabled = true\n',
+        "",
+    )
+    patch(
+        bus_file,
+        'bus/7/effect/0/effect = SubResource("AudioEffectGate_g28q7")\nbus/7/effect/0/enabled = true\n',
+        "",
+    )
+
 # Recovered scenes do not always include Godot's UID cache. Use the stable
 # res:// path for this scene preload so a clean import can resolve it.
 patch(
