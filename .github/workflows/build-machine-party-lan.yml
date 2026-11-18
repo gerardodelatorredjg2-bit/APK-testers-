@@ -1,0 +1,198 @@
+name: Build Machine Party LAN Android APK
+
+on:
+  push:
+    branches:
+      - "recovery/**"
+    paths:
+      - "tools/apply_machine_party_lan_patch.py"
+      - ".github/workflows/build-machine-party-lan.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout LAN patch tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install \
+            "platform-tools" \
+            "build-tools;35.0.0" \
+            "platforms;android-35" \
+            "ndk;28.1.13356709" \
+            "cmake;3.10.2.4988404"
+
+      - name: Download recovered Machine Party project
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p downloaded build
+          gh run download 44350091150 \
+            --repo "$GH_REPO" \
+            --name machine-party-recovery \
+            --dir downloaded
+          test -f downloaded/recovered/project.godot
+
+      - name: Apply LAN patch and prepare Android-compatible build
+        run: |
+          set -euo pipefail
+          python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
+          PROJECT="$PWD/downloaded/recovered"
+
+          # The local build does not use Steam or the unavailable native audio-gate extension.
+          rm -f "$PROJECT/addons/audio_gate/audio_gate.gdextension"
+          rm -f "$PROJECT/addons/godotsteam/godotsteam.gdextension"
+          rm -f "$PROJECT/addons/steam-multiplayer-peer/steam-multiplayer-peer.gdextension"
+
+          mkdir -p "$PROJECT/build"
+          cat > "$PROJECT/export_presets.cfg" <<'EOF'
+          [preset.0]
+          name="Android"
+          platform="Android"
+          runnable=true
+          advanced_options=false
+          dedicated_server=false
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+          export_path="build/MachineParty-LAN.apk"
+          patches=PackedStringArray()
+          encryption_include_filters=""
+          encryption_exclude_filters=""
+          seed=0
+          encrypt_pck=false
+          encrypt_directory=false
+
+          [preset.0.options]
+          custom_template/debug=""
+          custom_template/release=""
+          gradle_build/use_gradle_build=false
+          gradle_build/min_sdk="24"
+          gradle_build/target_sdk="35"
+          architectures/armeabi-v7a=false
+          architectures/arm64-v8a=true
+          architectures/x86=false
+          architectures/x86_64=false
+          version/code=2
+          version/name="1.0.1-LAN"
+          package/unique_name="com.godot.game"
+          package/name="Machine Party"
+          package/signed=true
+          keystore/debug="/home/runner/.android/debug.keystore"
+          keystore/debug_user="androiddebugkey"
+          keystore/debug_password="android"
+          permissions/internet=true
+          screen/immersive_mode=true
+          EOF
+
+          keytool -genkeypair -v \
+            -keystore /home/runner/.android/debug.keystore \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US" || true
+
+      - name: Download Godot 4.5.2 editor and Android export templates
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 \
+            "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip" \
+            -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          GODOT_BIN="$(find /tmp/godot -type f -name 'Godot_*_linux.x86_64' | head -n1)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "$GODOT_BIN" > /tmp/godot-bin-path
+
+          curl -fL --retry 3 \
+            "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_export_templates.tpz" \
+            -o /tmp/godot-templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.5.2.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          if [ -d /tmp/godot-templates/templates ]; then
+            cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
+          else
+            cp -a /tmp/godot-templates/. "$TEMPLATE_DIR/"
+          fi
+          echo "4.5.2.stable" > "$TEMPLATE_DIR/version.txt"
+          ls -lh "$TEMPLATE_DIR"
+
+      - name: Configure Godot Android SDK paths
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+          cat "$HOME/.config/godot/editor_settings-4.tres"
+
+      - name: Import recovered project
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 25m "$GODOT_BIN" --headless --editor \
+            --path "$PWD/downloaded/recovered" --quit
+          test -d downloaded/recovered/.godot
+
+      - name: Export Android APK
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" \
+            --export-debug "Android" "$PWD/build/MachineParty-LAN.apk"
+          test -s build/MachineParty-LAN.apk
+          ls -lh build/MachineParty-LAN.apk
+
+      - name: Verify APK and create compressed download
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools/35.0.0" -name apksigner | head -n1)"
+          "$APKSIGNER" verify --verbose build/MachineParty-LAN.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN.apk
+          sha256sum build/MachineParty-LAN.apk | tee build/SHA256SUMS.txt
+
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          7z a -t7z -mx=9 -m0=lzma2 -ms=on \
+            build/MachineParty-LAN.7z build/MachineParty-LAN.apk build/SHA256SUMS.txt
+          ls -lh build/MachineParty-LAN.apk build/MachineParty-LAN.7z
+
+      - name: Upload installable APK and compressed package
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-lan-android
+          path: |
+            build/MachineParty-LAN.apk
+            build/MachineParty-LAN.7z
+            build/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
