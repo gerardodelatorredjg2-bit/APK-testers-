@@ -32,23 +32,12 @@ jobs:
       - name: Package source, scenes and project settings only
         run: |
           cd downloaded/recovered
-          find . -type f \\
-            \( -name 'project.godot' \
-            -o -name '*.gd' \
-            -o -name '*.tscn' \
-            -o -name '*.tres' \
-            -o -name '*.gdshader' \
-            -o -name '*.gdshaderinc' \
-            -o -name '*.gdextension' \
-            -o -name '*.translation' \
-            -o -name '*.import' \
-            -o -name '*.remap' \
-            -o -name '*.json' \
-            -o -name '*.cfg' \
-            -o -name '*.csv' \
-            -o -name '*.po' \
-            -o -name '*.txt' \\
-            \) -print0 | tar --null -czf ../../source-review/machine-party-source-review.tar.gz -T -
+          {
+            find . -type f -name 'project.godot' -print0
+            for ext in gd tscn tres gdshader gdshaderinc gdextension translation import remap json cfg csv po txt; do
+              find . -type f -name "*.${ext}" -print0
+            done
+          } | sort -zu | tar --null -czf ../../source-review/machine-party-source-review.tar.gz -T -
           find . -type f -printf '%P\t%s bytes\n' | sort > ../../source-review/full-file-inventory.tsv
           printf 'GDScript files: ' >> ../../source-review/summary.txt
           find . -type f -name '*.gd' | wc -l >> ../../source-review/summary.txt
