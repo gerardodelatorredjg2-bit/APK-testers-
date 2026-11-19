@@ -297,6 +297,20 @@ patch(
     'renderer/rendering_method="gl_compatibility"',
 )
 
+# The recovered project keeps the Steam autoload for its desktop build, but the
+# Android LAN export deliberately omits the Steam GDExtension. Guard lookup so
+# the app can start without Steam while preserving Steam behavior where present.
+patch(
+    "modules/steamworks/steamworks.gd",
+    'steam = Engine.get_singleton("Steam")',
+    'steam = Engine.get_singleton("Steam") if Engine.has_singleton("Steam") else null',
+)
+patch(
+    "autoloads/game_manager.gd",
+    'var steam: = Engine.get_singleton("Steam")',
+    'var steam = Engine.get_singleton("Steam") if Engine.has_singleton("Steam") else null',
+)
+
 # Godot has a separate mobile renderer override. Changing only the base
 # rendering method leaves Android on the default Mobile/Vulkan renderer.
 project_file = root / "project.godot"

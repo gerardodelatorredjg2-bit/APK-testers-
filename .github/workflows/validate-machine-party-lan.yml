@@ -38,6 +38,14 @@ jobs:
       - name: Apply local multiplayer patch
         run: |
           python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
+          rm -f downloaded/recovered/addons/audio_gate/audio_gate.gdextension
+          rm -f downloaded/recovered/addons/godotsteam/godotsteam.gdextension
+          rm -f downloaded/recovered/addons/steam-multiplayer-peer/steam-multiplayer-peer.gdextension
+          grep -q 'renderer/rendering_method.mobile="gl_compatibility"' downloaded/recovered/project.godot
+          if grep -RIn --include='*.gd' 'Engine.get_singleton("Steam")' downloaded/recovered/autoloads downloaded/recovered/modules/steamworks; then
+            echo "Unguarded Steam singleton lookup remains."
+            exit 1
+          fi
           {
             echo "LAN patch applied."
             echo "Scripts: $(find downloaded/recovered -type f -name '*.gd' | wc -l)"

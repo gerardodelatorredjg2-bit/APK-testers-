@@ -127,7 +127,8 @@ jobs:
           architectures/arm64-v8a=true
           architectures/x86=false
           architectures/x86_64=false
-          version/code=2
+          vram_texture_compression/for_mobile=true
+          version/code=3
           version/name="1.0.1-LAN"
           package/unique_name="com.godot.game"
           package/name="Machine Party"
@@ -199,9 +200,19 @@ jobs:
         run: |
           set -euo pipefail
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          echo "===== EFFECTIVE RENDERER SETTINGS ====="
+          grep -nE 'config/features|renderer/rendering_method' "$PROJECT/project.godot"
+          grep -q 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
+          grep -q 'vram_texture_compression/for_mobile=true' "$PROJECT/export_presets.cfg"
           export GODOT_SILENCE_ROOT_WARNING=1
-          "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" \
-            --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/build/MachineParty-LAN-universal.apk"
+          if ! "$GODOT_BIN" --headless --path "$PROJECT" --verbose \
+            --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/build/MachineParty-LAN-universal.apk" \
+            2>&1 | tee build/android-export.log; then
+            echo "===== ANDROID EXPORT FAILURE DETAILS ====="
+            tail -n 300 build/android-export.log
+            exit 1
+          fi
           test -s build/MachineParty-LAN-universal.apk
           ls -lh build/MachineParty-LAN-universal.apk
 
