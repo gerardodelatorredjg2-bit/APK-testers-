@@ -1092,13 +1092,12 @@ func _refresh_context_visibility() -> void:
 '''
 # Replace only the previous helper block; never truncate the remainder of controls_android.gd.
 process_marker = "\nfunc _process(_delta: float) -> void:"
-process_start = controls_text.find(process_marker)
-if process_start >= 0:
-    next_function = controls_text.find("\nfunc ", process_start + len(process_marker))
-    if next_function < 0:
-        controls_text = controls_text[:process_start] + "\n\n" + controls_functions
-    else:
-        controls_text = controls_text[:process_start] + "\n\n" + controls_functions + controls_text[next_function:]
+# The legacy helper was appended at EOF by the earlier LAN patch. Replace that
+# appended tail as a unit so neither duplicate methods nor original functions
+# after an earlier _process implementation are lost.
+process_start = controls_text.rfind(process_marker)
+if process_start >= 0 and controls_text.find("\nfunc _refresh_context_visibility() -> void:", process_start) >= 0:
+    controls_text = controls_text[:process_start].rstrip() + "\n\n" + controls_functions + "\n"
 else:
     controls_text += "\n\n" + controls_functions
 (root / controls_path).write_text(controls_text, encoding="utf-8")
