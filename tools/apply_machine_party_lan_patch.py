@@ -971,6 +971,27 @@ main_menu_text = replace_function_block(
     join_ui,
     "LAN join form",
 )
+
+# Older LAN patch already appended a discovery helper. Keep only the latest
+# CanvasLayer-compatible implementation to prevent duplicate GDScript methods.
+scan_marker = "func _scan_lan_hosts("
+scan_positions = []
+scan_cursor = 0
+while True:
+    scan_position = main_menu_text.find(scan_marker, scan_cursor)
+    if scan_position < 0:
+        break
+    scan_positions.append(scan_position)
+    scan_cursor = scan_position + len(scan_marker)
+if len(scan_positions) > 1:
+    first_start = scan_positions[0]
+    first_end = main_menu_text.find("\nfunc ", first_start + len(scan_marker))
+    if first_end < 0:
+        main_menu_text = main_menu_text[:first_start].rstrip() + "\n"
+    else:
+        main_menu_text = main_menu_text[:first_start] + main_menu_text[first_end + 1:]
+if main_menu_text.count(scan_marker) != 1:
+    raise SystemExit("main_menu.gd: LAN discovery helper is not unique")
 (root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
 
 
