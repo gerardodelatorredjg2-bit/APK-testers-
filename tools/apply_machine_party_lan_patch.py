@@ -1963,26 +1963,26 @@ def replace_once(source: str, old: str, new: str, label: str) -> str:
 
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.AUTO:\\n\\t\\t\\tfps_limit = 60\\n\\t\\tQualityProfile.LOW:\\n\\t\\t\\tfps_limit = 30",
-    "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\tfps_limit = 30",
+    "QualityProfile.AUTO:\n\\t\\t\\tfps_limit = 60\n\\t\\tQualityProfile.LOW:\n\\t\\t\\tfps_limit = 30",
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\\t\\t\\tfps_limit = 30",
     "J7 default frame cap",
 )
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\treturn 2",
-    "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\treturn 1",
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\\t\\t\\treturn 2",
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\\t\\t\\treturn 1",
     "J7 dynamic light budget",
 )
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.MEDIUM:\\n\\t\\t\\treturn 4",
-    "QualityProfile.MEDIUM:\\n\\t\\t\\treturn 2",
+    "QualityProfile.MEDIUM:\n\\t\\t\\treturn 4",
+    "QualityProfile.MEDIUM:\n\\t\\t\\treturn 2",
     "medium dynamic light budget",
 )
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.HIGH:\\n\\t\\t\\treturn 8",
-    "QualityProfile.HIGH:\\n\\t\\t\\treturn 4",
+    "QualityProfile.HIGH:\n\\t\\t\\treturn 8",
+    "QualityProfile.HIGH:\n\\t\\t\\treturn 4",
     "high dynamic light budget",
 )
 mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
@@ -2002,7 +2002,7 @@ checks = {
     "autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
     "MobileGameSettings.gd": ["if node is SubViewport:", "previous_light_count"],
     "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 30", "max_lights: int = 1"],
-    "MobileGameSettings.gd": ["QualityProfile.AUTO:\n\t\t\tfps_limit = 60"],
+    "MobileGameSettings.gd": ["QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\tfps_limit = 30"],
     "MobileAppLifecycle.gd": ["NOTIFICATION_WM_GO_BACK_REQUEST", "LEAVE MATCH", "CONTINUE PLAYING"],
 	"project.godot": [
 		'renderer/rendering_method.mobile="gl_compatibility"',
@@ -2019,7 +2019,7 @@ checks = {
 		"_user_controls_visible and",
 	],
 	"MobileGameSettings.gd": [
-		"func _cycle_quality()", "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\treturn 1",
+		"func _cycle_quality()", "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\treturn 1",
 		"func _toggle_controls()",
 		"Viewport.SCREEN_SPACE_AA_DISABLED",
 		"environment.ssao_enabled = false",
