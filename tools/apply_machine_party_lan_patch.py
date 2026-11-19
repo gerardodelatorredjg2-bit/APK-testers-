@@ -1062,8 +1062,7 @@ controls_text = (root / controls_path).read_text(encoding="utf-8")
 if "var _user_controls_visible: bool" not in controls_text:
     controls_text = controls_text.replace(
         "var controls: Dictionary = {}",
-        "var controls: Dictionary = {}\nvar _user_controls_visible: bool = true
-var _default_control_visibility: Dictionary = {}",
+        "var controls: Dictionary = {}\nvar _user_controls_visible: bool = true\nvar _default_control_visibility: Dictionary = {}",
         1,
     )
 controls_functions = r'''func set_controls_visible(value: bool) -> void:
