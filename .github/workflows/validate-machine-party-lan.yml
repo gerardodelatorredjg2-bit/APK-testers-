@@ -185,6 +185,17 @@ jobs:
           } >> "$OUT"
           echo "Saved exact source dump to $OUT"
           wc -c "$OUT"
+      - name: Upload source review before long Godot import
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-lan-source-review
+          path: |
+            validation-output/source-review/exact-files.txt
+            validation-output/mobile-control-files.txt
+            validation-output/mobile-ui-audit.txt
+          compression-level: 1
+          retention-days: 7
+
       - name: Install Godot 4.5.2
         run: |
           set -euo pipefail
