@@ -1,0 +1,49 @@
+name: Inspect Machine Party recovered GDScript issue
+
+on:
+  push:
+    branches:
+      - "recovery/lan-multiplayer"
+    paths:
+      - ".github/workflows/inspect-machine-party-gdscript.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  inspect-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout diagnostics
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Download recovered project and inspect PatternMatcher references
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded
+          gh run download 44350091150 \
+            --repo "$GH_REPO" \
+            --name machine-party-recovery \
+            --dir downloaded
+          test -f downloaded/recovered/project.godot
+          rm -rf downloaded/recovery-output
+          PROJECT="$PWD/downloaded/recovered"
+          echo "=== shape cutter scripts ==="
+          find "$PROJECT/minigames/shape_cutter" -type f -maxdepth 5 -print | sort
+          echo "=== failing script ==="
+          sed -n '1,240p' "$PROJECT/minigames/shape_cutter/scripts/shape_cutter_test.gd"
+          echo "=== PatternMatcher declarations ==="
+          grep -R -n --include='*.gd' 'class_name PatternMatcher\|class PatternMatcher' "$PROJECT" || true
+          echo "=== pattern_points references ==="
+          grep -R -n --include='*.gd' 'pattern_points' "$PROJECT" || true
+          echo "=== references to shape_cutter_test ==="
+          grep -R -n --exclude='shape_cutter_test.gd' 'shape_cutter_test' "$PROJECT" || true
+          echo "=== scenes referencing shape cutter ==="
+          grep -R -n --include='*.tscn' 'shape_cutter_test\|shape_cutter' "$PROJECT/minigames/shape_cutter" || true
