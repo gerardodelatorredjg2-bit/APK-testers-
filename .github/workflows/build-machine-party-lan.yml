@@ -202,10 +202,18 @@ jobs:
           # already imported for desktop. Remove only the generated import cache.
           rm -rf "$PROJECT/.godot/imported"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 25m "$GODOT_BIN" --headless --editor \
-            --path "$PROJECT" --quit
+          if ! timeout 25m "$GODOT_BIN" --headless --editor --verbose \
+            --path "$PROJECT" --quit 2>&1 | tee build/godot-import.log; then
+            echo "===== GODOT IMPORT FAILURE DETAILS ====="
+            tail -n 300 build/godot-import.log
+            exit 1
+          fi
+          if grep -nEi 'SCRIPT ERROR:|Parse Error:|Failed to load script|ERROR: Failed to load script|Cannot open file' build/godot-import.log; then
+            echo "Godot import emitted script/resource errors; refusing to export."
+            exit 1
+          fi
           test -d "$PROJECT/.godot/imported"
-          echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
+          echo "Godot import completed without script parse/load errors; Compatibility renderer + ETC2/ASTC texture import confirmed."
 
       - name: Export Android APK
         run: |
@@ -222,6 +230,10 @@ jobs:
             2>&1 | tee build/android-export.log; then
             echo "===== ANDROID EXPORT FAILURE DETAILS ====="
             tail -n 300 build/android-export.log
+            exit 1
+          fi
+          if grep -nEi 'SCRIPT ERROR:|Parse Error:|Failed to load script|ERROR: Failed to load script|Cannot open file' build/android-export.log; then
+            echo "Godot export emitted script/resource errors; refusing to package."
             exit 1
           fi
           test -s build/MachineParty-LAN-universal.apk
