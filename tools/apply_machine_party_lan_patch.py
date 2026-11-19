@@ -797,3 +797,622 @@ func _on_matchmaking_error(message: String) -> void:
 
 print("LAN patch applied successfully with local discovery, LAN menu, touch layout and J7 performance profile.")
 
+
+
+# ---------------------------------------------------------------------------
+# Mobile-first performance, clear rendering, in-game quality controls and JOIN UI.
+# Keep the image at native 3D scale; gain speed by removing expensive effects.
+# ---------------------------------------------------------------------------
+
+def replace_function_block(source: str, start_marker: str, end_marker: str, replacement: str, label: str) -> str:
+    start = source.find(start_marker)
+    if start < 0:
+        raise SystemExit(f"{label}: start marker not found")
+    end = source.find(end_marker, start)
+    if end < 0:
+        raise SystemExit(f"{label}: end marker not found")
+    return source[:start] + replacement + source[end:]
+
+
+# Replace the PopupPanel JOIN form with a top-anchored CanvasLayer form.
+main_menu_path = "scenes/main_menu/scripts/main_menu.gd"
+main_menu_text = (root / main_menu_path).read_text(encoding="utf-8")
+join_ui = r'''func _join_with_address_or_code(value: String) -> void:
+	GameManager.join_lobby_id = value.strip_edges()
+	GameManager.host_game = false
+	GameManager.custom_game = false
+	switch_to_lobby_scene()
+
+func _show_lan_join_dialog(prefill: String = "") -> void:
+	var previous: Node = get_node_or_null("LANJoinOverlay")
+	if previous:
+		previous.queue_free()
+
+	var overlay := CanvasLayer.new()
+	overlay.name = "LANJoinOverlay"
+	overlay.layer = 110
+	add_child(overlay)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.82)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(backdrop)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	panel.offset_left = 16
+	panel.offset_right = -16
+	panel.offset_top = 16
+	panel.offset_bottom = 410
+	overlay.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
+
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 10)
+	margin.add_child(layout)
+
+	var title := Label.new()
+	title.text = "JOIN LOCAL PARTY"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	layout.add_child(title)
+
+	var hint := Label.new()
+	hint.text = "Enter the host IP and port shown on the HOST phone."
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	layout.add_child(hint)
+
+	var address_input := LineEdit.new()
+	address_input.name = "HostAddressInput"
+	address_input.placeholder_text = "192.168.43.1:25565"
+	address_input.text = prefill.strip_edges()
+	address_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	address_input.custom_minimum_size = Vector2(0, 56)
+	address_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	address_input.clear_button_enabled = true
+	address_input.focus_mode = Control.FOCUS_ALL
+	address_input.virtual_keyboard_enabled = true
+	address_input.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_URL
+	address_input.select_all_on_focus = true
+	layout.add_child(address_input)
+
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 12)
+	layout.add_child(buttons)
+
+	var back_button := Button.new()
+	back_button.text = "BACK"
+	back_button.custom_minimum_size = Vector2(132, 48)
+	buttons.add_child(back_button)
+
+	var join_button := Button.new()
+	join_button.text = "JOIN"
+	join_button.custom_minimum_size = Vector2(160, 48)
+	buttons.add_child(join_button)
+
+	var discovery_status := Label.new()
+	discovery_status.text = "Searching for games on this Wi-Fi / hotspot..."
+	discovery_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	discovery_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	layout.add_child(discovery_status)
+
+	var discovered_list := VBoxContainer.new()
+	layout.add_child(discovered_list)
+
+	back_button.pressed.connect(func():
+		overlay.queue_free()
+	)
+	join_button.pressed.connect(func():
+		_submit_lan_join(address_input.text, overlay, discovery_status)
+	)
+	address_input.text_submitted.connect(func(_value: String):
+		_submit_lan_join(address_input.text, overlay, discovery_status)
+	)
+
+	# The LineEdit enters the scene tree before grabbing focus, so Android can
+	# display its native URL keyboard. The field and JOIN row stay at the top.
+	address_input.call_deferred("grab_focus")
+	_scan_lan_hosts(discovery_status, discovered_list, address_input, overlay)
+
+func _submit_lan_join(value: String, overlay: CanvasLayer, hint: Label) -> void:
+	var address: String = value.strip_edges()
+	if not NetworkManager._is_direct_address(address):
+		hint.text = "Invalid IP:PORT. Example: 192.168.43.1:25565"
+		hint.add_theme_color_override("font_color", Color.CRIMSON)
+		var address_input := overlay.find_child("HostAddressInput", true, false) as LineEdit
+		if address_input:
+			address_input.grab_focus()
+		return
+
+	overlay.queue_free()
+	_join_with_address_or_code(address)
+
+func _scan_lan_hosts(status_label: Label, results_container: VBoxContainer, address_input: LineEdit, overlay: CanvasLayer) -> void:
+	var scanner := LanDiscovery.new()
+	add_child(scanner)
+	var hosts: Array[Dictionary] = await scanner.discover_hosts(2.5)
+	scanner.queue_free()
+	if not is_instance_valid(overlay):
+		return
+
+	for child in results_container.get_children():
+		child.queue_free()
+
+	if hosts.is_empty():
+		status_label.text = "No local games found. You can still enter the IP:PORT above."
+		return
+
+	status_label.text = "LOCAL GAMES FOUND"
+	for host in hosts:
+		var host_address: String = str(host.get("address", ""))
+		var host_button := Button.new()
+		host_button.text = "%s  —  %s" % [host.get("name", "Machine Party"), host_address]
+		host_button.custom_minimum_size.y = 42
+		results_container.add_child(host_button)
+		host_button.pressed.connect(func():
+			address_input.text = host_address
+			_submit_lan_join(address_input.text, overlay, status_label)
+		)
+
+'''
+main_menu_text = replace_function_block(
+    main_menu_text,
+    "func _join_with_address_or_code(value: String) -> void:",
+    "func switch_to_lobby_scene():",
+    join_ui,
+    "LAN join form",
+)
+(root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
+
+
+# Restore crisp 3D scale on mobile even when an old saved config contains 0.6.
+globals_path = "autoloads/globals.gd"
+patch(globals_path, '"scaling_3d_scale": 0.6', '"scaling_3d_scale": 1.0')
+globals_text = (root / globals_path).read_text(encoding="utf-8")
+globals_text = replace_function_block(
+    globals_text,
+    "func set_scaling_3d_scale(_value: float):",
+    "func enable_debug_tools():",
+    '''func set_scaling_3d_scale(_value: float):
+	if OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]:
+		_value = 1.0
+	settings.set("scaling_3d_scale", _value)
+	get_window().scaling_3d_scale = clampf(_value, 0.1, 1.0)
+
+''',
+    "mobile render scale",
+)
+(root / globals_path).write_text(globals_text, encoding="utf-8")
+
+
+# Reduce rendering cost without downscaling the image.
+project_file = root / "project.godot"
+project_lines = project_file.read_text(encoding="utf-8").splitlines()
+rendering_index = next((i for i, line in enumerate(project_lines) if line.strip() == "[rendering]"), -1)
+if rendering_index < 0:
+    raise SystemExit("project.godot: [rendering] section missing")
+
+render_settings = {
+    "scaling_3d/scale": "scaling_3d/scale=1.0",
+    "lights_and_shadows/directional_shadow/size": "lights_and_shadows/directional_shadow/size=512",
+    "lights_and_shadows/directional_shadow/soft_shadow_filter_quality": "lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0",
+    "lights_and_shadows/positional_shadow/atlas_size": "lights_and_shadows/positional_shadow/atlas_size=512",
+}
+for key, setting in render_settings.items():
+    found = next(
+        (i for i, line in enumerate(project_lines[rendering_index + 1:], rendering_index + 1)
+         if line.strip().startswith(key + "=")),
+        -1,
+    )
+    if found >= 0:
+        project_lines[found] = setting
+    else:
+        project_lines.insert(rendering_index + 1, setting)
+
+autoload_index = next((i for i, line in enumerate(project_lines) if line.strip() == "[autoload]"), -1)
+if autoload_index < 0:
+    raise SystemExit("project.godot: [autoload] section missing")
+if not any(line.startswith("MobileGameSettings=") for line in project_lines):
+    optimizer_line = next(
+        (i for i, line in enumerate(project_lines[autoload_index + 1:], autoload_index + 1)
+         if line.startswith("AllInOneMobileOptimizer=")),
+        -1,
+    )
+    if optimizer_line >= 0:
+        project_lines.insert(optimizer_line + 1, 'MobileGameSettings="*res://MobileGameSettings.gd"')
+    else:
+        project_lines.insert(autoload_index + 1, 'MobileGameSettings="*res://MobileGameSettings.gd"')
+project_file.write_text("\n".join(project_lines) + "\n", encoding="utf-8")
+
+
+# Respect a manual touch-control visibility toggle and the customization-screen
+# exception that leaves only SPACE / BACK visible.
+controls_path = "controls_android.gd"
+controls_text = (root / controls_path).read_text(encoding="utf-8")
+if "var _user_controls_visible: bool" not in controls_text:
+    controls_text = controls_text.replace(
+        "var controls: Dictionary = {}",
+        "var controls: Dictionary = {}\nvar _user_controls_visible: bool = true",
+        1,
+    )
+controls_functions = r'''func set_controls_visible(value: bool) -> void:
+	_user_controls_visible = value
+	_refresh_context_visibility()
+
+func are_controls_visible() -> bool:
+	return _user_controls_visible
+
+func toggle_controls_visible() -> void:
+	set_controls_visible(not _user_controls_visible)
+
+func _process(_delta: float) -> void:
+	_refresh_context_visibility()
+
+func _refresh_context_visibility() -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var customization: bool = scene.scene_file_path.contains("character_customization")
+	for control_name in controls:
+		var control: Node = controls[control_name]
+		if not control is CanvasItem:
+			continue
+		var allowed_in_customization: bool = control_name in ["TouchScreenButton5", "TouchScreenButton6"]
+		control.visible = _user_controls_visible and (not customization or allowed_in_customization)
+'''
+if "\nfunc _process(_delta: float) -> void:" in controls_text:
+    controls_text = controls_text[:controls_text.index("\nfunc _process(_delta: float) -> void:") + 1] + controls_functions
+else:
+    controls_text += "\n\n" + controls_functions
+(root / controls_path).write_text(controls_text, encoding="utf-8")
+
+
+# In-game graphics menu: Auto starts with the low-effects profile on every phone.
+# The native render scale stays at 1.0, so the minimum profile remains sharp.
+mobile_settings = r'''extends Node
+
+enum QualityProfile { AUTO, LOW, MEDIUM, HIGH }
+
+const CONFIG_PATH: String = "user://mobile_game_settings.cfg"
+const PROFILE_LABELS: Array[String] = ["AUTO", "LOW", "MEDIUM", "HIGH"]
+
+var quality_profile: int = QualityProfile.AUTO
+var _scene_root: Node
+var _overlay: CanvasLayer
+var _quality_button: Button
+var _controls_button: Button
+var _controls_shown: bool = true
+var _active_light_count: int = 0
+var _light_visibility_cache: Dictionary = {}
+var _light_shadow_cache: Dictionary = {}
+var _mesh_shadow_cache: Dictionary = {}
+var _environment_cache: Dictionary = {}
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	_load_settings()
+	if get_tree():
+		get_tree().scene_changed.connect(_on_scene_changed)
+		get_tree().node_added.connect(_on_node_added)
+	_apply_profile()
+	call_deferred("_on_scene_changed")
+
+func _is_mobile() -> bool:
+	return OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]
+
+func _load_settings() -> void:
+	var config := ConfigFile.new()
+	if config.load(CONFIG_PATH) == OK:
+		quality_profile = clampi(
+			int(config.get_value("graphics", "quality_profile", QualityProfile.AUTO)),
+			QualityProfile.AUTO,
+			QualityProfile.HIGH
+		)
+		_controls_shown = bool(config.get_value("controls", "visible", true))
+
+func _save_settings() -> void:
+	var config := ConfigFile.new()
+	config.set_value("graphics", "quality_profile", quality_profile)
+	config.set_value("controls", "visible", _controls_shown)
+	var error: Error = config.save(CONFIG_PATH)
+	if error != OK:
+		push_warning("Could not save mobile game settings: %s" % error_string(error))
+
+func _on_scene_changed() -> void:
+	_scene_root = get_tree().current_scene
+	_light_visibility_cache.clear()
+	_light_shadow_cache.clear()
+	_mesh_shadow_cache.clear()
+	_environment_cache.clear()
+	_active_light_count = 0
+	_apply_profile()
+	_remove_overlay()
+	if _is_mobile() and _is_minigame_scene(_scene_root):
+		_create_overlay()
+
+func _is_minigame_scene(scene: Node) -> bool:
+	if scene == null:
+		return false
+	if scene.scene_file_path.begins_with("res://minigames/"):
+		return true
+	return GameManager.in_game
+
+func _on_node_added(node: Node) -> void:
+	if not _is_mobile() or _scene_root == null or node == _scene_root:
+		return
+	if not _scene_root.is_ancestor_of(node):
+		return
+	_apply_quality_to_node(node)
+
+func _apply_profile() -> void:
+	if not _is_mobile():
+		return
+
+	var fps_limit: int = 30
+	match quality_profile:
+		QualityProfile.AUTO, QualityProfile.LOW:
+			fps_limit = 30
+		QualityProfile.MEDIUM:
+			fps_limit = 45
+		QualityProfile.HIGH:
+			fps_limit = 60
+
+	Engine.max_fps = fps_limit
+	var viewport := get_viewport()
+	viewport.msaa_3d = Viewport.MSAA_DISABLED
+	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	get_window().scaling_3d_scale = 1.0
+
+	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+	RenderingServer.directional_shadow_atlas_set_size(512, true)
+
+	if _scene_root:
+		_active_light_count = 0
+		_apply_quality_to_tree(_scene_root)
+
+func _max_dynamic_lights() -> int:
+	match quality_profile:
+		QualityProfile.AUTO, QualityProfile.LOW:
+			return 2
+		QualityProfile.MEDIUM:
+			return 4
+		QualityProfile.HIGH:
+			return 8
+	return 2
+
+func _shadows_enabled() -> bool:
+	return quality_profile == QualityProfile.HIGH
+
+func _apply_quality_to_tree(node: Node) -> void:
+	_apply_quality_to_node(node)
+	for child in node.get_children():
+		_apply_quality_to_tree(child)
+
+func _apply_quality_to_node(node: Node) -> void:
+	if node is GeometryInstance3D:
+		var mesh_id: int = node.get_instance_id()
+		if not _mesh_shadow_cache.has(mesh_id):
+			_mesh_shadow_cache[mesh_id] = node.cast_shadow
+		node.cast_shadow = (
+			_mesh_shadow_cache[mesh_id]
+			if _shadows_enabled()
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		)
+
+	if node is Light3D:
+		var light: Light3D = node
+		var light_id: int = light.get_instance_id()
+		if not _light_visibility_cache.has(light_id):
+			_light_visibility_cache[light_id] = light.visible
+			_light_shadow_cache[light_id] = light.shadow_enabled
+
+		light.shadow_enabled = _light_shadow_cache[light_id] and _shadows_enabled()
+		if light is DirectionalLight3D:
+			light.visible = _light_visibility_cache[light_id]
+		else:
+			var allowed: bool = _active_light_count < _max_dynamic_lights()
+			light.visible = _light_visibility_cache[light_id] and allowed
+			if _light_visibility_cache[light_id]:
+				_active_light_count += 1
+
+	if node is WorldEnvironment and node.environment:
+		var environment: Environment = node.environment
+		var environment_id: int = environment.get_instance_id()
+		if not _environment_cache.has(environment_id):
+			_environment_cache[environment_id] = {
+				"ssao_enabled": environment.ssao_enabled,
+				"ssr_enabled": environment.ssr_enabled,
+				"glow_enabled": environment.glow_enabled,
+				"sdfgi_enabled": environment.sdfgi_enabled,
+				"volumetric_fog_enabled": environment.volumetric_fog_enabled
+			}
+		var state: Dictionary = _environment_cache[environment_id]
+		environment.ssao_enabled = state["ssao_enabled"] and _shadows_enabled()
+		environment.ssr_enabled = state["ssr_enabled"] and _shadows_enabled()
+		environment.glow_enabled = state["glow_enabled"] and _shadows_enabled()
+		environment.sdfgi_enabled = state["sdfgi_enabled"] and _shadows_enabled()
+		environment.volumetric_fog_enabled = state["volumetric_fog_enabled"] and _shadows_enabled()
+
+func _create_overlay() -> void:
+	if _overlay:
+		return
+	_overlay = CanvasLayer.new()
+	_overlay.name = "InGameMobileSettings"
+	_overlay.layer = 90
+	add_child(_overlay)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	panel.offset_left = -334
+	panel.offset_right = -10
+	panel.offset_top = 10
+	panel.offset_bottom = 62
+	_overlay.add_child(panel)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	panel.add_child(row)
+
+	_quality_button = Button.new()
+	_quality_button.custom_minimum_size = Vector2(154, 42)
+	_quality_button.pressed.connect(_cycle_quality)
+	row.add_child(_quality_button)
+
+	_controls_button = Button.new()
+	_controls_button.custom_minimum_size = Vector2(144, 42)
+	_controls_button.pressed.connect(_toggle_controls)
+	row.add_child(_controls_button)
+	_update_overlay_labels()
+
+func _remove_overlay() -> void:
+	if _overlay:
+		_overlay.queue_free()
+	_overlay = null
+	_quality_button = null
+	_controls_button = null
+
+func _cycle_quality() -> void:
+	quality_profile = (quality_profile + 1) % (QualityProfile.HIGH + 1)
+	_apply_profile()
+	_save_settings()
+	_update_overlay_labels()
+
+func _toggle_controls() -> void:
+	_controls_shown = not _controls_shown
+	var touch_controls := get_node_or_null("/root/ControlsAndroid")
+	if touch_controls and touch_controls.has_method("set_controls_visible"):
+		touch_controls.set_controls_visible(_controls_shown)
+	_save_settings()
+	_update_overlay_labels()
+
+func _update_overlay_labels() -> void:
+	if is_instance_valid(_quality_button):
+		_quality_button.text = "QUALITY: " + PROFILE_LABELS[quality_profile]
+	if is_instance_valid(_controls_button):
+		_controls_button.text = "HIDE CONTROLS" if _controls_shown else "SHOW CONTROLS"
+
+func _exit_tree() -> void:
+	if get_tree() and get_tree().node_added.is_connected(_on_node_added):
+		get_tree().node_added.disconnect(_on_node_added)
+'''
+(root / "MobileGameSettings.gd").write_text(mobile_settings, encoding="utf-8")
+
+
+# Keep the legacy optimizer consistent with the new manager, not blurry.
+optimizer_path = root / "AllInOneMobileOptimizer.gd"
+optimizer_text = optimizer_path.read_text(encoding="utf-8")
+optimizer_text = optimizer_text.replace("@export var max_lights: int = 8", "@export var max_lights: int = 2")
+optimizer_text = optimizer_text.replace("@export var max_lights: int = 4", "@export var max_lights: int = 2")
+optimizer_text = optimizer_text.replace("@export var target_mobile_fps: int = 60", "@export var target_mobile_fps: int = 30")
+optimizer_text = optimizer_text.replace("\t\tget_viewport().scaling_3d_scale = 0.75\n", "")
+optimizer_text = optimizer_text.replace(
+	"\t\t_strip_heavy_environment_effects()\n",
+	"\t\t_strip_heavy_environment_effects()\n\t\tget_viewport().msaa_3d = Viewport.MSAA_DISABLED\n\t\tget_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED\n\t\tget_window().scaling_3d_scale = 1.0\n",
+)
+optimizer_text = optimizer_text.replace(
+	"\t\tenv.sdfgi_enabled = false\n",
+	"\t\tenv.sdfgi_enabled = false\n\t\tenv.volumetric_fog_enabled = false\n",
+)
+optimizer_path.write_text(optimizer_text, encoding="utf-8")
+
+mobile_boost_path = root / "MobileBoost.gd"
+if mobile_boost_path.exists():
+	mobile_boost_text = mobile_boost_path.read_text(encoding="utf-8")
+	mobile_boost_text = mobile_boost_text.replace(
+		"vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA",
+		"vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED",
+	)
+	mobile_boost_text = mobile_boost_text.replace("\tvp.scaling_3d_scale = 0.75\n", "")
+	mobile_boost_path.write_text(mobile_boost_text, encoding="utf-8")
+
+
+# Do not continue a network join after redirecting an empty join address to menu.
+lobby_path = "scenes/lobby/scripts/lobby_scene.gd"
+lobby_text = (root / lobby_path).read_text(encoding="utf-8")
+lobby_text = lobby_text.replace(
+	'\t\tget_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")\n\n\thide_scene_roots()',
+	'\t\tget_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")\n\t\treturn\n\n\thide_scene_roots()',
+	1,
+)
+(root / lobby_path).write_text(lobby_text, encoding="utf-8")
+
+
+# Validate minigame scene references before attempting a scene replacement.
+network_path = "modules/multiplayer/network_manager.gd"
+network_text = (root / network_path).read_text(encoding="utf-8")
+network_text = replace_function_block(
+	network_text,
+	'@rpc("any_peer", "call_remote", "reliable")\nfunc load_game_scene_rpc(is_reconnect: bool = false):',
+	'@rpc("any_peer", "call_remote", "reliable")\nfunc add_player_to_join_queue_rpc',
+	'''@rpc("any_peer", "call_remote", "reliable")
+func load_game_scene_rpc(is_reconnect: bool = false):
+	GameManager.reconnect = is_reconnect
+	_change_to_game_scene()
+
+func _change_to_game_scene() -> void:
+	if game_scene == null:
+		push_error("Machine Party: game_scene is empty; refusing an invalid minigame transition.")
+		GameManager.main_menu_dialog_message = "The minigame could not be loaded. Return to the lobby and try again."
+		get_tree().call_deferred("change_scene_to_file", "res://scenes/main_menu/main_menu.tscn")
+		return
+
+	var change_error: Error = get_tree().change_scene_to_packed(game_scene)
+	if change_error != OK:
+		push_error("Machine Party: change_scene_to_packed failed: %s" % error_string(change_error))
+		GameManager.main_menu_dialog_message = "The minigame could not be loaded (%s)." % error_string(change_error)
+		get_tree().call_deferred("change_scene_to_file", "res://scenes/main_menu/main_menu.tscn")
+
+''',
+	"minigame transition guard",
+)
+network_text = network_text.replace(
+	'\tif not multiplayer.is_server():\n\t\tget_tree().change_scene_to_packed(game_scene)',
+	'\tif not multiplayer.is_server():\n\t\t_change_to_game_scene()',
+	1,
+)
+(root / network_path).write_text(network_text, encoding="utf-8")
+
+
+# Static assertions ensure future source recoveries do not silently lose features.
+checks = {
+	"project.godot": [
+		'renderer/rendering_method.mobile="gl_compatibility"',
+		'scaling_3d/scale=1.0',
+		'MobileGameSettings="*res://MobileGameSettings.gd"',
+	],
+	"scenes/main_menu/scripts/main_menu.gd": [
+		"func _show_lan_join_dialog",
+		"virtual_keyboard_enabled = true",
+		"LineEdit.KEYBOARD_TYPE_URL",
+	],
+	"controls_android.gd": [
+		"func set_controls_visible(value: bool)",
+		"_user_controls_visible and",
+	],
+	"MobileGameSettings.gd": [
+		"func _cycle_quality()",
+		"func _toggle_controls()",
+		"Viewport.SCREEN_SPACE_AA_DISABLED",
+	],
+	"modules/multiplayer/network_manager.gd": [
+		"func _change_to_game_scene()",
+		"game_scene == null",
+	],
+}
+for check_path, required_strings in checks.items():
+	check_text = (root / check_path).read_text(encoding="utf-8")
+	missing = [item for item in required_strings if item not in check_text]
+	if missing:
+		raise SystemExit(f"{check_path}: missing required mobile performance feature(s): {missing}")
+
+print("Mobile performance baseline, in-game graphics menu, touch visibility toggle, Android JOIN keyboard and minigame load guards applied.")
