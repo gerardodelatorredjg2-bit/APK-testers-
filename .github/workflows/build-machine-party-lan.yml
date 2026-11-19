@@ -93,6 +93,11 @@ jobs:
           set -euo pipefail
           python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
           PROJECT="$PWD/downloaded/recovered"
+          test "$(wc -l < "$PROJECT/project.godot")" -gt 300
+          grep -Fqx '[application]' "$PROJECT/project.godot"
+          grep -Fqx '[rendering]' "$PROJECT/project.godot"
+          grep -Fqx 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
+          grep -Fqx 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
 
           # The local build does not use Steam or the unavailable native audio-gate extension.
           rm -f "$PROJECT/addons/audio_gate/audio_gate.gdextension"

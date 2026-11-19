@@ -42,8 +42,11 @@ jobs:
           rm -f "$PROJECT/addons/audio_gate/audio_gate.gdextension"
           rm -f "$PROJECT/addons/godotsteam/godotsteam.gdextension"
           rm -f "$PROJECT/addons/steam-multiplayer-peer/steam-multiplayer-peer.gdextension"
-          grep -q 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
-          grep -q 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
+          test "$(wc -l < "$PROJECT/project.godot")" -gt 300
+          grep -Fqx '[application]' "$PROJECT/project.godot"
+          grep -Fqx '[rendering]' "$PROJECT/project.godot"
+          grep -Fqx 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
+          grep -Fqx 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
           grep -q 'join_client_direct(player_name, room_code)' "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd"
           grep -q 'NetworkBackendType.Lan' "$PROJECT/modules/multiplayer/network_manager.gd"
           if grep -RIn --include='*.gd' 'Engine.get_singleton("Steam")$' "$PROJECT/autoloads" "$PROJECT/modules/steamworks"; then

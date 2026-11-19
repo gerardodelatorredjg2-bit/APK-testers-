@@ -345,7 +345,7 @@ if etc2_index >= 0:
     project_lines[etc2_index] = etc2_setting
 else:
     project_lines.insert(rendering_index + 1, etc2_setting)
-project_file.write_text("\\n".join(project_lines) + "\\n", encoding="utf-8")
+project_file.write_text("\n".join(project_lines) + "\n", encoding="utf-8")
 
 # Repair an unrelated but real script-parse failure in the isolated Shape Cutter
 # test scene; keep its intended PatternMatcher API spelling.
