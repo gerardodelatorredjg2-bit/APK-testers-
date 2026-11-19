@@ -1055,16 +1055,28 @@ if not any(line.startswith("MobileGameSettings=") for line in project_lines):
 project_file.write_text("\n".join(project_lines) + "\n", encoding="utf-8")
 
 
-# Respect a manual touch-control visibility toggle and the customization-screen
-# exception that leaves only SPACE / BACK visible.
+# Respect the user's touch-control visibility preference without adding a
+# second _process callback to projects that already define one.
 controls_path = "controls_android.gd"
 controls_text = (root / controls_path).read_text(encoding="utf-8")
+import re
+
+# Remove every earlier generated copy of these helpers, even if an original
+# _process function appears after them in the recovered script.
+for function_name in ("set_controls_visible", "are_controls_visible", "toggle_controls_visible", "_refresh_context_visibility"):
+    pattern = rf"(?ms)^func {function_name}\\([^\\n]*\\):\\n.*?(?=^(?:func |static func |signal |var |const |@|class_name |extends )|\\Z)"
+    controls_text = re.sub(pattern, "", controls_text)
+
 if "var _user_controls_visible: bool" not in controls_text:
-    controls_text = controls_text.replace(
-        "var controls: Dictionary = {}",
-        "var controls: Dictionary = {}\nvar _user_controls_visible: bool = true\nvar _default_control_visibility: Dictionary = {}",
-        1,
+    controls_text, count = re.subn(
+        r"(?m)^(var controls[^\\n]*\\n)",
+        r"\\1var _user_controls_visible: bool = true\\nvar _default_control_visibility: Dictionary = {}\\n",
+        controls_text,
+        count=1,
     )
+    if count != 1:
+        raise SystemExit("controls_android.gd: could not add visibility preference state")
+
 controls_functions = r'''func set_controls_visible(value: bool) -> void:
 	_user_controls_visible = value
 	_refresh_context_visibility()
@@ -1074,9 +1086,6 @@ func are_controls_visible() -> bool:
 
 func toggle_controls_visible() -> void:
 	set_controls_visible(not _user_controls_visible)
-
-func _process(_delta: float) -> void:
-	_refresh_context_visibility()
 
 func _refresh_context_visibility() -> void:
 	var scene := get_tree().current_scene
@@ -1094,16 +1103,7 @@ func _refresh_context_visibility() -> void:
 		var default_visible: bool = bool(_default_control_visibility[control_id])
 		control.visible = _user_controls_visible and default_visible and (not customization or allowed_in_customization)
 '''
-# Replace only the previous helper block; never truncate the remainder of controls_android.gd.
-process_marker = "\nfunc _process(_delta: float) -> void:"
-# The legacy helper was appended at EOF by the earlier LAN patch. Replace that
-# appended tail as a unit so neither duplicate methods nor original functions
-# after an earlier _process implementation are lost.
-process_start = controls_text.rfind(process_marker)
-if process_start >= 0 and controls_text.find("\nfunc _refresh_context_visibility() -> void:", process_start) >= 0:
-    controls_text = controls_text[:process_start].rstrip() + "\n\n" + controls_functions + "\n"
-else:
-    controls_text += "\n\n" + controls_functions
+controls_text = controls_text.rstrip() + "\\n\\n" + controls_functions + "\\n"
 (root / controls_path).write_text(controls_text, encoding="utf-8")
 
 
