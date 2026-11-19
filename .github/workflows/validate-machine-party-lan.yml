@@ -80,6 +80,67 @@ jobs:
           echo "===== MAIN MENU JOIN DIALOG AND HOST CALLS ====="
           grep -n -C 5 -E '_show_lan_join_dialog|_join_with_address_or_code|start_join_button|start_host_button|host_game|join_lobby_id' "$PROJECT/scenes/main_menu/scripts/main_menu.gd" || true
 
+      - name: Audit Android touch controls, menus, networking fields and rendering settings
+        run: |
+          set -euo pipefail
+          PROJECT="$PWD/downloaded/recovered"
+          OUT="validation-output/mobile-ui-audit.txt"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("downloaded/recovered")
+          output = Path("validation-output/mobile-ui-audit.txt")
+          patterns = [
+              r"virtual.?joystick", r"joystick", r"edit.?controls", r"EDIT CONTROLS",
+              r"touchscreenbutton", r"touch.?controls", r"mobile.?controls",
+              r"InputEventScreen", r"show_virtual", r"hide_virtual",
+              r"LineEdit", r"TextEdit", r"DisplayServer\.virtual_keyboard",
+              r"host_ip", r"host_port", r"direct_connect_address",
+              r"join_lobby_id", r"name_entry", r"start_host", r"start_client",
+              r"rendering/quality", r"scaling_3d", r"msaa", r"screen_space_aa",
+              r"gl_compatibility", r"physics/common", r"max_fps"
+          ]
+          rx = re.compile("|".join(f"(?:{p})" for p in patterns), re.IGNORECASE)
+          exts = {".gd", ".tscn", ".tres", ".godot", ".cfg", ".csv", ".translation"}
+          hits = 0
+          lines_out = []
+          for path in sorted(root.rglob("*")):
+              if not path.is_file() or path.suffix.lower() not in exts:
+                  continue
+              if ".godot" in path.parts or "addons" in path.parts:
+                  continue
+              try:
+                  lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+              except OSError:
+                  continue
+              matching = [i for i, line in enumerate(lines) if rx.search(line)]
+              if not matching:
+                  continue
+              lines_out.append(f"\n===== {path.relative_to(root)} ({len(matching)} matching lines) =====")
+              seen = set()
+              for i in matching:
+                  for j in range(max(0, i-2), min(len(lines), i+3)):
+                      if j not in seen:
+                          lines_out.append(f"{j+1}: {lines[j]}")
+                          seen.add(j)
+                  lines_out.append("---")
+                  hits += 1
+                  if hits >= 500:
+                      lines_out.append("[LIMIT: 500 matching lines]")
+                      break
+              if hits >= 500:
+                  break
+          output.write_text("\n".join(lines_out) if lines_out else "No relevant UI/network/rendering matches found.", encoding="utf-8")
+          print(f"Saved {hits} matching source lines to {output}")
+          PY
+          find "$PROJECT" -type f \( -iname '*joystick*' -o -iname '*touch*control*' -o -iname '*mobile*control*' \) \
+            -not -path '*/.godot/*' -not -path '*/addons/*' | sort > validation-output/mobile-control-files.txt || true
+          echo "===== Relevant mobile control files ====="
+          cat validation-output/mobile-control-files.txt || true
+          echo "===== First audit matches ====="
+          sed -n '1,1000p' "$OUT"
+
       - name: Install Godot 4.5.2
         run: |
           set -euo pipefail
