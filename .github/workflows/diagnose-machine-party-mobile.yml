@@ -76,7 +76,7 @@ jobs:
             grep -RIn --include='*.gd' --include='*.tscn' --include='*.tres' -E 'hat|glasses|cosmetic|accessor|customization|SubViewport|ViewportTexture|texture *=|load\(|preload\(' "$PROJECT/scripts" "$PROJECT/scenes" "$PROJECT/modules" 2>/dev/null | grep -Ei 'custom|hat|glass|cosmetic|accessor|viewport' | head -700 || true
             echo
             echo "===== MENU / SCENE LIFECYCLE SOURCE ====="
-            for rel in scenes/main_menu/scripts/main_menu.gd scenes/character_customization.tscn scenes/main_menu/main_menu.tscn autoloads/game_manager.gd modules/multiplayer/network_manager.gd modules/player_presence/player_presence.gd modules/effect_manager/effect_manager.gd modules/decal_manager/decal_manager.gd modules/prop_manager/scripts/prop_manager.gd; do
+            for rel in scenes/main_menu/scripts/main_menu.gd scenes/character_customization.tscn scenes/main_menu/main_menu.tscn autoloads/game_manager.gd modules/multiplayer/network_manager.gd modules/player_presence/player_presence.gd modules/effect_manager/effect_manager.gd modules/decal_manager/decal_manager.gd modules/prop_manager/scripts/prop_manager.gd minigames/intermission_new/components/intermission_user_container_2d.gd minigames/intermission_new/components/intermission_briefing_screen.gd minigames/forklift_certified/components/vehicle/scripts/forklift_certified_vehicle.gd minigames/forklift_certified/scripts/crate_manager.gd; do
               file="$PROJECT/$rel"
               if [ -f "$file" ]; then
                 echo
@@ -84,6 +84,24 @@ jobs:
                 case "$file" in *.gd) sed -n '1,500p' "$file" ;; *.tscn) sed -n '1,240p' "$file" ;; esac
               fi
             done
+            echo
+            echo "===== STARTUP / INTRO / LOADING SOURCE FILES ====="
+            while IFS= read -r file; do
+              echo
+              echo "----- \${file#"$PROJECT/"} -----"
+              case "$file" in
+                *.gd) sed -n '1,500p' "$file" ;;
+                *.tscn) sed -n '1,260p' "$file" ;;
+              esac
+            done < <(find "$PROJECT/scenes" "$PROJECT/modules" "$PROJECT/minigames/intermission_new" -type f \( -iname '*splash*' -o -iname '*intro*' -o -iname '*loading*' -o -iname '*intermission*' \) \( -name '*.gd' -o -name '*.tscn' \) -print | sort | head -80)
+            echo
+            echo "===== MUSIC MANAGER / MENU TRACK REFERENCES ====="
+            while IFS= read -r file; do
+              echo
+              echo "----- \${file#"$PROJECT/"} -----"
+              sed -n '1,360p' "$file"
+            done < <(find "$PROJECT" -type f \( -iname '*music*manager*.gd' -o -iname '*music*handler*.gd' \) -print | sort)
+            grep -RIn --include='*.gd' --include='*.tscn' -E 'music loop main menu|menu music[12]|MusicManager|play_music' "$PROJECT/scenes" "$PROJECT/autoloads" "$PROJECT/modules" 2>/dev/null | head -240 || true
             echo
             echo "===== MOBILE RENDER / PROJECT SETTINGS ====="
             grep -nE '^\[rendering\]|renderer/|textures/|scaling_3d|fps|physics/common|environment/defaults' "$PROJECT/project.godot" || true
