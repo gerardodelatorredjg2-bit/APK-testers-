@@ -1873,8 +1873,87 @@ intro_text = replace_function_block(
 (root / intro_path).write_text(intro_text, encoding="utf-8")
 
 
+
+
+# Preload only the selected minigame while the picker/briefing is visible.
+# The previous code called load() synchronously at the scene transition, causing
+# a main-thread resource import spike exactly as gameplay began.
+threaded_minigame_helpers = r'''func preload_minigame_scene(minigame_identifier: Globals.MinigameIdentifier) -> void:
+\tvar scene_path: String = str(Globals.MinigamePaths.get(minigame_identifier, ""))
+\tif scene_path.is_empty():
+\t\treturn
+\tvar status: int = ResourceLoader.load_threaded_get_status(scene_path)
+\tif status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE or status == ResourceLoader.THREAD_LOAD_FAILED:
+\t\tvar request_error = ResourceLoader.load_threaded_request(scene_path, "PackedScene", true)
+\t\tif request_error != OK and request_error != ERR_BUSY:
+\t\t\tpush_warning("Could not start minigame preload: " + scene_path)
+
+func _load_minigame_scene_threaded(minigame_identifier: Globals.MinigameIdentifier) -> PackedScene:
+\tvar scene_path: String = str(Globals.MinigamePaths.get(minigame_identifier, ""))
+\tif scene_path.is_empty():
+\t\treturn null
+
+\tvar status: int = ResourceLoader.load_threaded_get_status(scene_path)
+\tif status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE or status == ResourceLoader.THREAD_LOAD_FAILED:
+\t\tvar request_error = ResourceLoader.load_threaded_request(scene_path, "PackedScene", true)
+\t\tif request_error != OK and request_error != ERR_BUSY:
+\t\t\treturn load(scene_path) as PackedScene
+\t\tstatus = ResourceLoader.load_threaded_get_status(scene_path)
+
+\twhile status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+\t\tawait get_tree().process_frame
+\t\tstatus = ResourceLoader.load_threaded_get_status(scene_path)
+
+\tif status == ResourceLoader.THREAD_LOAD_LOADED:
+\t\treturn ResourceLoader.load_threaded_get(scene_path) as PackedScene
+
+\treturn load(scene_path) as PackedScene
+
+'''
+for game_script in (
+    "scripts/scenes/game/game.gd",
+    "scenes/local_game/script/local_game.gd",
+):
+    game_path = root / game_script
+    game_text = game_path.read_text(encoding="utf-8")
+    if "func preload_minigame_scene(" not in game_text:
+        marker_func = "func load_minigame("
+        if game_text.count(marker_func) != 1:
+            raise SystemExit(f"{game_script}: expected one load_minigame function")
+        game_text = game_text.replace(marker_func, threaded_minigame_helpers + marker_func, 1)
+    old_load = "var minigame_scene: PackedScene = load(Globals.MinigamePaths[minigame_identifier])"
+    new_load = "var minigame_scene: PackedScene = await _load_minigame_scene_threaded(minigame_identifier)\n\tif minigame_scene == null:\n\t\tpush_error(\"Failed to load minigame scene: \" + str(minigame_identifier))\n\t\treturn"
+    if old_load in game_text:
+        game_text = game_text.replace(old_load, new_load, 1)
+    elif new_load not in game_text:
+        raise SystemExit(f"{game_script}: synchronous minigame load line not found")
+    game_path.write_text(game_text, encoding="utf-8")
+
+# Find the picker by its class_name so this patch survives harmless folder moves.
+picker_candidates = []
+for candidate in root.rglob("*.gd"):
+    try:
+        if "class_name Intermission_GamePicker" in candidate.read_text(encoding="utf-8"):
+            picker_candidates.append(candidate)
+    except (UnicodeDecodeError, OSError):
+        pass
+if len(picker_candidates) != 1:
+    raise SystemExit(f"Expected one Intermission_GamePicker script, found {len(picker_candidates)}")
+picker_path = picker_candidates[0]
+picker_text = picker_path.read_text(encoding="utf-8")
+picker_marker = "\tdebug_active_identifier = identifier"
+picker_replacement = picker_marker + '\n\tif intermission_manager.game != null:\n\t\tintermission_manager.game.preload_minigame_scene(identifier)'
+if "preload_minigame_scene(identifier)" not in picker_text:
+    if picker_text.count(picker_marker) != 1:
+        raise SystemExit("Intermission_GamePicker: preload insertion point not unique")
+    picker_text = picker_text.replace(picker_marker, picker_replacement, 1)
+picker_path.write_text(picker_text, encoding="utf-8")
+
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
+    "scripts/scenes/game/game.gd": ["func preload_minigame_scene(", "ResourceLoader.load_threaded_request", "_load_minigame_scene_threaded"],
+    "scenes/local_game/script/local_game.gd": ["func preload_minigame_scene(", "_load_minigame_scene_threaded"],
     "minigames/intermission_new/components/intermission_cutscene_intro.gd": ["await anim_intermission_cam.animation_finished", "await anim_scientist_ik.animation_finished", "anim_intermission_cam.play(\"intro3\", 0.35)"],
     "scripts/components/character customization/customization_selection_instance.gd": ["const COSMETIC_SCENES", "packed_scene.instantiate()", "SubViewport.UPDATE_ONCE"],
     "autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
