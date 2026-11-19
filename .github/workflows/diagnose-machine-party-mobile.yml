@@ -134,6 +134,9 @@ jobs:
                         print(f"{j+1}: {lines[j]}")
             PY
             echo
+            echo "===== MINIGAME LOAD / PRELOAD FLOW ====="
+            grep -R -n -B8 -A140 --include='*.gd' -E 'func load_minigame|func set_game_scene|game_scene *=|ResourceLoader\.load_threaded|change_scene_to_packed' "$PROJECT" 2>/dev/null | head -1200 || true
+            echo
             echo "===== MOBILE RENDER / PROJECT SETTINGS ====="
             grep -nE '^\[rendering\]|renderer/|textures/|scaling_3d|fps|physics/common|environment/defaults' "$PROJECT/project.godot" || true
           } > "$REPORT"
