@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -197,24 +197,60 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools/35.0.0" -name apksigner | head -n1)"
           "$APKSIGNER" verify --verbose build/MachineParty-LAN-armv7.apk
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN-armv7.apk
-          sha256sum build/MachineParty-LAN-armv7.apk | tee build/SHA256SUMS.txt
+          (cd build && sha256sum MachineParty-LAN-armv7.apk > APK-SHA256SUMS.txt)
 
           sudo apt-get update
           sudo apt-get install -y p7zip-full
-          7z a -t7z -mx=9 -m0=lzma2 -ms=on \
-            build/MachineParty-LAN-armv7.7z build/MachineParty-LAN-armv7.apk build/SHA256SUMS.txt
-          ls -lh build/MachineParty-LAN-armv7.apk build/MachineParty-LAN-armv7.7z
+          (cd build && 7z a -t7z -mx=9 -m0=lzma2 -ms=on \
+            MachineParty-LAN-armv7.7z MachineParty-LAN-armv7.apk APK-SHA256SUMS.txt)
+          (cd build && sha256sum MachineParty-LAN-armv7.7z > SHA256SUMS.txt)
+          ls -lh build/MachineParty-LAN-armv7.apk build/MachineParty-LAN-armv7.7z build/SHA256SUMS.txt
 
-      - name: Upload installable APK and compressed package
+      - name: Audit APK ABI contents
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          apk = "build/MachineParty-LAN-armv7.apk"
+          with zipfile.ZipFile(apk) as zf:
+              names = zf.namelist()
+              abis = sorted({
+                  name.split("/")[1]
+                  for name in names
+                  if name.startswith("lib/") and len(name.split("/")) > 2
+              })
+              print("Native ABIs in APK:", abis)
+              if "armeabi-v7a" not in abis:
+                  raise SystemExit("ARMv7 native libraries are missing")
+              if "arm64-v8a" in abis:
+                  raise SystemExit("Unexpected ARM64 libraries found in ARMv7-only APK")
+              print("Largest APK entries:")
+              for info in sorted(zf.infolist(), key=lambda item: item.file_size, reverse=True)[:20]:
+                  print(f"{info.file_size:>12}  {info.filename}")
+          PY
+
+      - name: Upload compressed package only
         uses: actions/upload-artifact@v4
         with:
-          name: machine-party-lan-android
+          name: machine-party-lan-armv7
           path: |
-            build/MachineParty-LAN-armv7.apk
             build/MachineParty-LAN-armv7.7z
             build/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+
+      - name: Publish compressed ARMv7 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="machine-party-lan-armv7-${GITHUB_RUN_ID}"
+          gh release create "$TAG" \
+            build/MachineParty-LAN-armv7.7z \
+            build/SHA256SUMS.txt \
+            --repo "$GH_REPO" \
+            --title "Machine Party LAN - Android ARMv7" \
+            --notes "Local ENet multiplayer over Wi-Fi/hotspot. ARMv7 (armeabi-v7a) only. Exported with Godot 4.5.2 and signed with a debug key for testing."
 
 # Rebuild requested: ARMv7-only LAN APK, losslessly compressed with LZMA2.
