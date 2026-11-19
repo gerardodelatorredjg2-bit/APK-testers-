@@ -1586,6 +1586,80 @@ if not any(line.startswith("MobileAppLifecycle=") for line in project_lines):
 project_file.write_text("\n".join(project_lines) + "\n", encoding="utf-8")
 
 
+
+
+# Virtual joystick actions must match the movement actions consumed by the game.
+# The old ui_* defaults meant the stick moved visually but many minigames read
+# left/right/up/down and therefore received no movement input.
+patch(
+    "addons/virtual_joystick/virtual_joystick.gd",
+    '@export var action_left: = "ui_left"\n@export var action_right: = "ui_right"\n@export var action_up: = "ui_up"\n@export var action_down: = "ui_down"',
+    '@export var action_left: = "left"\n@export var action_right: = "right"\n@export var action_up: = "up"\n@export var action_down: = "down"',
+)
+
+# Free the eight/ nine hidden GLB scene instances in each preview after selecting
+# the one required accessory. This keeps all original accessory assets available
+# in the actual character while removing unused preview nodes from the live tree.
+patch(
+    "scripts/components/character customization/customization_selection_instance.gd",
+    '''func setup_cosmetic(assigned_cosmetic_name: String):
+\tfor child in cosmetic_holder_parent.get_children():
+\t\tif child.name == assigned_cosmetic_name:
+\t\t\tchild.visible = true''',
+    '''func setup_cosmetic(assigned_cosmetic_name: String) -> void:
+\tvar selected_found: bool = false
+\tfor child in cosmetic_holder_parent.get_children():
+\t\tif child.name == assigned_cosmetic_name:
+\t\t\tchild.visible = true
+\t\t\tselected_found = true
+\t\telse:
+\t\t\tchild.queue_free()
+\tif not selected_found:
+\t\tpush_warning("Customization preview asset not found: " + assigned_cosmetic_name)
+\tif assigned_viewport:
+\t\tassigned_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE''',
+)
+
+# Wait for the first SubViewport render before exposing its texture to the UI;
+# this addresses blank/black accessory thumbnails on slower Android devices.
+patch(
+    "scripts/components/character customization/customization_selection.gd",
+    '''\tvar spawn_offset_x = 3
+\tvar counter = 0
+\tfor i in range(customizations.size()):
+\t\tvar selection_instance: Customization_SelectionInstance = cosmetic_selection_instance.instantiate()
+\t\tcosmetic_selection_parent.add_child(selection_instance)
+\t\tspawn_offset_x += 3
+\t\tselection_instance.camera_parent.transform.origin = Vector3(
+\t\t\tselection_instance.camera_parent.transform.origin.x - spawn_offset_x, selection_instance.camera_parent.transform.origin.y, selection_instance.camera_parent.transform.origin.z - 10
+\t\t)
+\t\tselection_instance.setup_cosmetic(customizations[i])
+
+\t\tselection_rect_array[i].texture = selection_instance.assigned_viewport.get_texture()
+\t\tcounter += 1''',
+    '''\tvar spawn_offset_x = 3
+\tvar preview_instances: Array[Customization_SelectionInstance] = []
+\tfor i in range(customizations.size()):
+\t\tvar selection_instance: Customization_SelectionInstance = cosmetic_selection_instance.instantiate()
+\t\tcosmetic_selection_parent.add_child(selection_instance)
+\t\tspawn_offset_x += 3
+\t\tselection_instance.camera_parent.transform.origin = Vector3(
+\t\t\tselection_instance.camera_parent.transform.origin.x - spawn_offset_x, selection_instance.camera_parent.transform.origin.y, selection_instance.camera_parent.transform.origin.z - 10
+\t\t)
+\t\tselection_instance.setup_cosmetic(customizations[i])
+\t\tpreview_instances.append(selection_instance)
+
+\tawait RenderingServer.frame_post_draw
+\tfor i in range(preview_instances.size()):
+\t\tselection_rect_array[i].texture = preview_instances[i].assigned_viewport.get_texture()''',
+)
+patch(
+    "scripts/components/character customization/customization_selection.gd",
+    'await get_tree().create_timer(1, false).timeout',
+    'await get_tree().create_timer(0.15, false).timeout',
+)
+
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
     "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
