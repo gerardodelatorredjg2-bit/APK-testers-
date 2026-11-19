@@ -1884,7 +1884,7 @@ threaded_minigame_helpers = '''func preload_minigame_scene(minigame_identifier: 
 \t\treturn
 \tvar status: int = ResourceLoader.load_threaded_get_status(scene_path)
 \tif status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE or status == ResourceLoader.THREAD_LOAD_FAILED:
-\t\tvar request_error = ResourceLoader.load_threaded_request(scene_path, "PackedScene", true)
+\t\tvar request_error = ResourceLoader.load_threaded_request(scene_path, "PackedScene", false)
 \t\tif request_error != OK and request_error != ERR_BUSY:
 \t\t\tpush_warning("Could not start minigame preload: " + scene_path)
 
@@ -1895,7 +1895,7 @@ func _load_minigame_scene_threaded(minigame_identifier: Globals.MinigameIdentifi
 
 \tvar status: int = ResourceLoader.load_threaded_get_status(scene_path)
 \tif status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE or status == ResourceLoader.THREAD_LOAD_FAILED:
-\t\tvar request_error = ResourceLoader.load_threaded_request(scene_path, "PackedScene", true)
+\t\tvar request_error = ResourceLoader.load_threaded_request(scene_path, "PackedScene", false)
 \t\tif request_error != OK and request_error != ERR_BUSY:
 \t\t\treturn load(scene_path) as PackedScene
 \t\tstatus = ResourceLoader.load_threaded_get_status(scene_path)
