@@ -373,12 +373,16 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          TAG="machine-party-lan-universal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$TAG" \
-            build/MachineParty-LAN-universal.7z \
-            build/SHA256SUMS.txt \
-            --repo "$GH_REPO" \
-            --title "Machine Party LAN - Android Universal (ARMv7 + ARM64)" \
-            --notes "Local ENet multiplayer over Wi-Fi/hotspot. Universal ARMv7 (armeabi-v7a) + ARM64 (arm64-v8a). Exported with Godot 4.5.2 and signed with a debug key for testing."
+          TAG="machine-party-lan-universal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA::7}"
+          if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/MachineParty-LAN-universal.7z build/SHA256SUMS.txt --repo "$GH_REPO" --clobber
+          else
+            gh release create "$TAG" \
+              build/MachineParty-LAN-universal.7z \
+              build/SHA256SUMS.txt \
+              --repo "$GH_REPO" \
+              --title "Machine Party LAN - Android Universal (ARMv7 + ARM64)" \
+              --notes "Local ENet multiplayer over Wi-Fi/hotspot. Universal ARMv7 (armeabi-v7a) + ARM64 (arm64-v8a). Exported with Godot 4.5.2 and signed with a debug key for testing."
+          fi
 
 # Build universal ARMv7 + ARM64 LAN APK; package losslessly with ultra LZMA2.
