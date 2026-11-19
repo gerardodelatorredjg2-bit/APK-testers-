@@ -28,6 +28,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           mkdir -p downloaded validation-output
           gh run download 44350091150 \
             --repo "$GH_REPO" \
@@ -37,71 +38,38 @@ jobs:
 
       - name: Apply local multiplayer patch
         run: |
-          python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
-          rm -rf downloaded/recovered/.godot/imported
-          rm -f downloaded/recovered/addons/audio_gate/audio_gate.gdextension
-          rm -f downloaded/recovered/addons/godotsteam/godotsteam.gdextension
-          rm -f downloaded/recovered/addons/steam-multiplayer-peer/steam-multiplayer-peer.gdextension
-          grep -q 'renderer/rendering_method.mobile="gl_compatibility"' downloaded/recovered/project.godot
-          grep -q 'textures/vram_compression/import_etc2_astc=true' downloaded/recovered/project.godot
-          if grep -RIn --include='*.gd' 'Engine.get_singleton("Steam")            echo "Unguarded Steam singleton lookup remains."
-            exit 1
-          fi
-          {
-            echo "LAN patch applied."
-            echo "Scripts: $(find downloaded/recovered -type f -name '*.gd' | wc -l)"
-            echo "Scenes: $(find downloaded/recovered -type f -name '*.tscn' | wc -l)"
-            echo "LAN backend: $(test -s downloaded/recovered/modules/multiplayer/backends/lan_enet_backend.gd && echo present)"
-          } | tee validation-output/summary.txt
-          git diff --no-index /dev/null downloaded/recovered/modules/multiplayer/backends/lan_enet_backend.gd > validation-output/lan-backend.patch || true
+          set -euo pipefail
+          PROJECT="$PWD/downloaded/recovered"
+          python3 tools/apply_machine_party_lan_patch.py "$PROJECT"
+          rm -rf "$PROJECT/.godot/imported"
+          rm -f "$PROJECT/addons/audio_gate/audio_gate.gdextension"
+          rm -f "$PROJECT/addons/godotsteam/godotsteam.gdextension"
+          rm -f "$PROJECT/addons/steam-multiplayer-peer/steam-multiplayer-peer.gdextension"
 
-      - name: Install Godot 4.5.2
-        run: |
-          curl -fL --retry 3 \
-            "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip" \
-            -o godot.zip
-          unzip -q godot.zip -d godot
-          GODOT_BIN="$(find godot -type f -name 'Godot_*_linux.x86_64' | head -n 1)"
-          test -n "$GODOT_BIN"
-          chmod +x "$GODOT_BIN"
-          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
-          "$GODOT_BIN" --version
+          grep -q 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
+          grep -q 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
 
-      - name: Parse and import the recovered project
-        run: |
-          set -o pipefail
-          export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 20m "$GODOT_BIN" --headless --editor \
-            --path "$PWD/downloaded/recovered" --quit --verbose \
-            2>&1 | tee validation-output/godot-editor-check.log
-          if grep -E "SCRIPT ERROR:|Parse Error|Parse error" validation-output/godot-editor-check.log; then
-            echo "GDScript parse errors were reported."
-            exit 1
-          fi
-          echo "Godot editor import completed without GDScript parse errors." | tee -a validation-output/summary.txt
-
-      - name: Upload validation results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-lan-validation
-          path: validation-output/
-          compression-level: 1
-          retention-days: 30
- downloaded/recovered/autoloads downloaded/recovered/modules/steamworks; then
+          if grep -RIn --include='*.gd' 'Engine.get_singleton("Steam")$' \
+            "$PROJECT/autoloads" "$PROJECT/modules/steamworks"; then
             echo "Unguarded Steam singleton lookup remains."
             exit 1
           fi
+
           {
             echo "LAN patch applied."
-            echo "Scripts: $(find downloaded/recovered -type f -name '*.gd' | wc -l)"
-            echo "Scenes: $(find downloaded/recovered -type f -name '*.tscn' | wc -l)"
-            echo "LAN backend: $(test -s downloaded/recovered/modules/multiplayer/backends/lan_enet_backend.gd && echo present)"
+            echo "Scripts: $(find "$PROJECT" -type f -name '*.gd' | wc -l)"
+            echo "Scenes: $(find "$PROJECT" -type f -name '*.tscn' | wc -l)"
+            echo "LAN backend: $(test -s "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd" && echo present)"
+            echo "Android renderer: Compatibility"
+            echo "Android texture import: ETC2/ASTC enabled"
           } | tee validation-output/summary.txt
-          git diff --no-index /dev/null downloaded/recovered/modules/multiplayer/backends/lan_enet_backend.gd > validation-output/lan-backend.patch || true
+
+          git diff --no-index /dev/null "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd" \
+            > validation-output/lan-backend.patch || true
 
       - name: Install Godot 4.5.2
         run: |
+          set -euo pipefail
           curl -fL --retry 3 \
             "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip" \
             -o godot.zip
@@ -114,15 +82,18 @@ jobs:
 
       - name: Parse and import the recovered project
         run: |
-          set -o pipefail
+          set -euo pipefail
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 20m "$GODOT_BIN" --headless --editor \
+          timeout 25m "$GODOT_BIN" --headless --editor \
             --path "$PWD/downloaded/recovered" --quit --verbose \
             2>&1 | tee validation-output/godot-editor-check.log
           if grep -E "SCRIPT ERROR:|Parse Error|Parse error" validation-output/godot-editor-check.log; then
             echo "GDScript parse errors were reported."
             exit 1
           fi
+          ETC2_COUNT="$(find downloaded/recovered/.godot/imported -type f -name '*.etc2.ctex' | wc -l)"
+          echo "ETC2 imported textures: $ETC2_COUNT" | tee -a validation-output/summary.txt
+          test "$ETC2_COUNT" -gt 0
           echo "Godot editor import completed without GDScript parse errors." | tee -a validation-output/summary.txt
 
       - name: Upload validation results

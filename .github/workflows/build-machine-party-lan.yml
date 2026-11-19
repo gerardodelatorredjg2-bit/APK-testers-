@@ -210,7 +210,7 @@ jobs:
           echo "===== EFFECTIVE RENDERER SETTINGS ====="
           grep -nE 'config/features|renderer/rendering_method' "$PROJECT/project.godot"
           grep -q 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
-          grep -q 'vram_texture_compression/for_mobile=true' "$PROJECT/export_presets.cfg"
+          grep -q 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
           export GODOT_SILENCE_ROOT_WARNING=1
           if ! "$GODOT_BIN" --headless --path "$PROJECT" --verbose \
             --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/build/MachineParty-LAN-universal.apk" \
