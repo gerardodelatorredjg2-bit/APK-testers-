@@ -1,4 +1,4 @@
-name: Build Machine Party LAN Android APK
+name: Build Machine Party LAN Universal Android APK
 
 on:
   push:
@@ -88,7 +88,7 @@ jobs:
           mkdir -p "$PROJECT/build"
           cat > "$PROJECT/export_presets.cfg" <<'EOF'
           [preset.0]
-          name="Android ARMv7"
+          name="Android Universal (ARMv7 + ARM64)"
           platform="Android"
           runnable=true
           advanced_options=false
@@ -97,7 +97,7 @@ jobs:
           export_filter="all_resources"
           include_filter=""
           exclude_filter=""
-          export_path="build/MachineParty-LAN-armv7.apk"
+          export_path="build/MachineParty-LAN-universal.apk"
           patches=PackedStringArray()
           encryption_include_filters=""
           encryption_exclude_filters=""
@@ -110,7 +110,7 @@ jobs:
           custom_template/release=""
           gradle_build/use_gradle_build=false
           architectures/armeabi-v7a=true
-          architectures/arm64-v8a=false
+          architectures/arm64-v8a=true
           architectures/x86=false
           architectures/x86_64=false
           version/code=2
@@ -187,30 +187,30 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           export GODOT_SILENCE_ROOT_WARNING=1
           "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" \
-            --export-debug "Android ARMv7" "$PWD/build/MachineParty-LAN-armv7.apk"
-          test -s build/MachineParty-LAN-armv7.apk
-          ls -lh build/MachineParty-LAN-armv7.apk
+            --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/build/MachineParty-LAN-universal.apk"
+          test -s build/MachineParty-LAN-universal.apk
+          ls -lh build/MachineParty-LAN-universal.apk
 
       - name: Verify APK and create compressed download
         run: |
           set -euo pipefail
           APKSIGNER="$(find "$ANDROID_HOME/build-tools/35.0.0" -name apksigner | head -n1)"
-          "$APKSIGNER" verify --verbose build/MachineParty-LAN-armv7.apk
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN-armv7.apk
-          (cd build && sha256sum MachineParty-LAN-armv7.apk > APK-SHA256SUMS.txt)
+          "$APKSIGNER" verify --verbose build/MachineParty-LAN-universal.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN-universal.apk
+          (cd build && sha256sum MachineParty-LAN-universal.apk > APK-SHA256SUMS.txt)
 
           sudo apt-get update
           sudo apt-get install -y p7zip-full
-          (cd build && 7z a -t7z -mx=9 -m0=lzma2 -ms=on \
-            MachineParty-LAN-armv7.7z MachineParty-LAN-armv7.apk APK-SHA256SUMS.txt)
-          (cd build && sha256sum MachineParty-LAN-armv7.7z > SHA256SUMS.txt)
-          ls -lh build/MachineParty-LAN-armv7.apk build/MachineParty-LAN-armv7.7z build/SHA256SUMS.txt
+          (cd build && 7z a -t7z -mx=9 -m0=lzma2:d=128m:fb=273 -mmt=2 -ms=on \
+            MachineParty-LAN-universal.7z MachineParty-LAN-universal.apk APK-SHA256SUMS.txt)
+          (cd build && sha256sum MachineParty-LAN-universal.7z > SHA256SUMS.txt)
+          ls -lh build/MachineParty-LAN-universal.apk build/MachineParty-LAN-universal.7z build/SHA256SUMS.txt
 
       - name: Audit APK ABI contents
         run: |
           python3 - <<'PY'
           import zipfile
-          apk = "build/MachineParty-LAN-armv7.apk"
+          apk = "build/MachineParty-LAN-universal.apk"
           with zipfile.ZipFile(apk) as zf:
               names = zf.namelist()
               abis = sorted({
@@ -219,10 +219,10 @@ jobs:
                   if name.startswith("lib/") and len(name.split("/")) > 2
               })
               print("Native ABIs in APK:", abis)
-              if "armeabi-v7a" not in abis:
-                  raise SystemExit("ARMv7 native libraries are missing")
-              if "arm64-v8a" in abis:
-                  raise SystemExit("Unexpected ARM64 libraries found in ARMv7-only APK")
+              expected = {"armeabi-v7a", "arm64-v8a"}
+              if abis != sorted(expected):
+                  raise SystemExit(f"Expected exactly ARMv7 + ARM64; found {abis}")
+              print("ABI audit passed: universal ARMv7 + ARM64 APK")
               print("Largest APK entries:")
               for info in sorted(zf.infolist(), key=lambda item: item.file_size, reverse=True)[:20]:
                   print(f"{info.file_size:>12}  {info.filename}")
@@ -231,26 +231,26 @@ jobs:
       - name: Upload compressed package only
         uses: actions/upload-artifact@v4
         with:
-          name: machine-party-lan-armv7
+          name: machine-party-lan-universal
           path: |
-            build/MachineParty-LAN-armv7.7z
+            build/MachineParty-LAN-universal.7z
             build/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
-      - name: Publish compressed ARMv7 release
+      - name: Publish compressed universal ARMv7 + ARM64 release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          TAG="machine-party-lan-armv7-${GITHUB_RUN_ID}"
+          TAG="machine-party-lan-universal-${GITHUB_RUN_ID}"
           gh release create "$TAG" \
-            build/MachineParty-LAN-armv7.7z \
+            build/MachineParty-LAN-universal.7z \
             build/SHA256SUMS.txt \
             --repo "$GH_REPO" \
-            --title "Machine Party LAN - Android ARMv7" \
-            --notes "Local ENet multiplayer over Wi-Fi/hotspot. ARMv7 (armeabi-v7a) only. Exported with Godot 4.5.2 and signed with a debug key for testing."
+            --title "Machine Party LAN - Android Universal (ARMv7 + ARM64)" \
+            --notes "Local ENet multiplayer over Wi-Fi/hotspot. Universal ARMv7 (armeabi-v7a) + ARM64 (arm64-v8a). Exported with Godot 4.5.2 and signed with a debug key for testing."
 
-# Rebuild requested: ARMv7-only LAN APK, losslessly compressed with LZMA2.
+# Build universal ARMv7 + ARM64 LAN APK; package losslessly with ultra LZMA2.
