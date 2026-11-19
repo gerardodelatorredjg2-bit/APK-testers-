@@ -1064,13 +1064,13 @@ import re
 # Remove every earlier generated copy of these helpers, even if an original
 # _process function appears after them in the recovered script.
 for function_name in ("set_controls_visible", "are_controls_visible", "toggle_controls_visible", "_refresh_context_visibility"):
-    pattern = rf"(?ms)^func {function_name}\\([^\\n]*\\):\\n.*?(?=^(?:func |static func |signal |var |const |@|class_name |extends )|\\Z)"
+    pattern = rf"(?ms)^func {function_name}\([^\n]*\):\n.*?(?=^(?:func |static func |signal |var |const |@|class_name |extends )|\Z)"
     controls_text = re.sub(pattern, "", controls_text)
 
 if "var _user_controls_visible: bool" not in controls_text:
     controls_text, count = re.subn(
-        r"(?m)^(var controls[^\\n]*\\n)",
-        r"\\1var _user_controls_visible: bool = true\\nvar _default_control_visibility: Dictionary = {}\\n",
+        r"(?m)^(var controls[^\n]*\n)",
+        r"\1var _user_controls_visible: bool = true\nvar _default_control_visibility: Dictionary = {}\n",
         controls_text,
         count=1,
     )
@@ -1103,7 +1103,7 @@ func _refresh_context_visibility() -> void:
 		var default_visible: bool = bool(_default_control_visibility[control_id])
 		control.visible = _user_controls_visible and default_visible and (not customization or allowed_in_customization)
 '''
-controls_text = controls_text.rstrip() + "\\n\\n" + controls_functions + "\\n"
+controls_text = controls_text.rstrip() + "\n\n" + controls_functions + "\n"
 (root / controls_path).write_text(controls_text, encoding="utf-8")
 
 
