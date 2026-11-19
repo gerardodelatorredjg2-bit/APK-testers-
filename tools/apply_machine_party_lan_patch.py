@@ -431,4 +431,316 @@ patch(
     'preload("res://modules/user_interface/intermission_control_input_label/intermission_control_input_label.tscn")',
 )
 
-print("LAN patch applied successfully.")
+
+
+# LAN discovery: UDP broadcast on the same Wi-Fi/hotspot, with manual IP:PORT fallback.
+discovery = r'''extends Node
+class_name LanDiscovery
+
+const DISCOVERY_PORT: int = 25566
+const DISCOVER_PACKET: String = "MACHINE_PARTY_LAN_DISCOVER_V1"
+const HOST_PREFIX: String = "MACHINE_PARTY_LAN_HOST_V1|"
+
+var _host_socket: PacketPeerUDP
+var _host_port: int = 0
+var _host_name: String = ""
+
+func start_host(game_port: int, player_name: String) -> Error:
+	stop_host()
+	_host_socket = PacketPeerUDP.new()
+	var err: Error = _host_socket.bind(DISCOVERY_PORT, "*")
+	if err != OK:
+		_host_socket = null
+		return err
+	_host_socket.set_broadcast_enabled(true)
+	_host_port = game_port
+	_host_name = player_name
+	set_process(true)
+	return OK
+
+func stop_host() -> void:
+	set_process(false)
+	if _host_socket:
+		_host_socket.close()
+	_host_socket = null
+
+func _process(_delta: float) -> void:
+	if not _host_socket:
+		return
+	while _host_socket.get_available_packet_count() > 0:
+		var packet: String = _host_socket.get_packet().get_string_from_utf8().strip_edges()
+		if packet != DISCOVER_PACKET:
+			continue
+		var sender_ip: String = _host_socket.get_packet_ip()
+		var sender_port: int = _host_socket.get_packet_port()
+		var reply: String = HOST_PREFIX + JSON.stringify({
+			"name": _host_name,
+			"port": _host_port
+		})
+		_host_socket.set_dest_address(sender_ip, sender_port)
+		_host_socket.put_packet(reply.to_utf8_buffer())
+
+func discover_hosts(timeout_seconds: float = 2.0) -> Array[Dictionary]:
+	var socket := PacketPeerUDP.new()
+	socket.set_broadcast_enabled(true)
+	var bind_error: Error = socket.bind(0, "*")
+	if bind_error != OK:
+		return []
+	socket.set_dest_address("255.255.255.255", DISCOVERY_PORT)
+	socket.put_packet(DISCOVER_PACKET.to_utf8_buffer())
+	var found: Array[Dictionary] = []
+	var seen: Dictionary = {}
+	var deadline: int = Time.get_ticks_msec() + int(timeout_seconds * 1000.0)
+	while Time.get_ticks_msec() < deadline:
+		while socket.get_available_packet_count() > 0:
+			var response: String = socket.get_packet().get_string_from_utf8()
+			if not response.begins_with(HOST_PREFIX):
+				continue
+			var parsed: Variant = JSON.parse_string(response.substr(HOST_PREFIX.length()))
+			if not parsed is Dictionary:
+				continue
+			var ip: String = socket.get_packet_ip()
+			var port: int = int(parsed.get("port", 0))
+			if ip.is_empty() or port < 1 or port > 65535:
+				continue
+			var address: String = "%s:%d" % [ip, port]
+			if seen.has(address):
+				continue
+			seen[address] = true
+			found.append({"name": str(parsed.get("name", "Machine Party")), "address": address})
+		await get_tree().process_frame
+	socket.close()
+	return found
+
+func _exit_tree() -> void:
+	stop_host()
+'''
+(root / "modules/multiplayer/backends/lan_discovery.gd").write_text(discovery, encoding="utf-8")
+
+# Start the UDP discovery responder alongside the LAN ENet host.
+backend_file = root / "modules/multiplayer/backends/lan_enet_backend.gd"
+backend_text = backend_file.read_text(encoding="utf-8")
+backend_text = backend_text.replace(
+	'const DEFAULT_LAN_PORT: int = 25565\n',
+	'const DEFAULT_LAN_PORT: int = 25565\nvar lan_discovery: LanDiscovery\n'
+)
+backend_text = backend_text.replace(
+	'\tmultiplayer.connection_failed.connect(_on_connection_failed)\n',
+	'\tmultiplayer.connection_failed.connect(_on_connection_failed)\n\tlan_discovery = LanDiscovery.new()\n\tadd_child(lan_discovery)\n'
+)
+backend_text = backend_text.replace(
+	'\tdirect_connect_address = "%s:%d" % [host_ip, host_port]\n',
+	'\tdirect_connect_address = "%s:%d" % [host_ip, host_port]\n\tvar discovery_error: Error = lan_discovery.start_host(host_port, player_name)\n\tif discovery_error != OK:\n\t\tpush_warning("LAN discovery could not bind UDP port %d: %s" % [LanDiscovery.DISCOVERY_PORT, error_string(discovery_error)])\n'
+)
+backend_text = backend_text.replace(
+	'\tmultiplayer_peer.close()\n\tmultiplayer_peer = null\n',
+	'\tif lan_discovery:\n\t\tlan_discovery.stop_host()\n\tmultiplayer_peer.close()\n\tmultiplayer_peer = null\n'
+)
+backend_file.write_text(backend_text, encoding="utf-8")
+
+# Put LAN HOST/JOIN inside LOCAL; retain the existing local-play modes below them.
+main_menu_path = "scenes/main_menu/scripts/main_menu.gd"
+main_menu_text = (root / main_menu_path).read_text(encoding="utf-8")
+if "func _install_local_lan_buttons" not in main_menu_text:
+	main_menu_text = main_menu_text.replace(
+		'\tname_edit.text = str(Globals.settings.get("player_name", ""))\n',
+		'\tname_edit.text = str(Globals.settings.get("player_name", ""))\n\tstart_join_button.visible = false\n\t_install_local_lan_buttons()\n'
+	)
+	main_menu_text += r'''
+
+func _install_local_lan_buttons() -> void:
+	var parent: VBoxContainer = local_original_button.get_parent() as VBoxContainer
+	if parent == null:
+		return
+	var host_button: Button = Button.new()
+	host_button.name = "LocalHostButton"
+	host_button.text = "HOST"
+	host_button.theme = local_original_button.theme
+	host_button.flat = true
+	host_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	host_button.custom_minimum_size.y = 42
+	parent.add_child(host_button)
+	parent.move_child(host_button, 0)
+	host_button.pressed.connect(func():
+		_save_player_name()
+		set_current_active_container(&"Host")
+	)
+	var join_button: Button = Button.new()
+	join_button.name = "LocalJoinButton"
+	join_button.text = "JOIN"
+	join_button.theme = local_original_button.theme
+	join_button.flat = true
+	join_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	join_button.custom_minimum_size.y = 42
+	parent.add_child(join_button)
+	parent.move_child(join_button, 1)
+	join_button.pressed.connect(func():
+		_show_lan_join_dialog()
+	)
+
+'''
+(root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
+
+# Add discovery results to the manual join dialog, keeping the IP field and JOIN
+# button in the upper portion so Android's virtual keyboard does not cover them.
+main_menu_text = (root / main_menu_path).read_text(encoding="utf-8")
+main_menu_text = main_menu_text.replace(
+	'popup.size = Vector2i(560, 270)',
+	'popup.size = Vector2i(620, 430)'
+)
+main_menu_text = main_menu_text.replace(
+	'layout.add_child(address_input)\n\n\tvar buttons: HBoxContainer',
+	'layout.add_child(address_input)\n\n\tvar buttons: HBoxContainer'
+)
+main_menu_text = main_menu_text.replace(
+	'\tvar cancel_button: Button = Button.new()\n',
+	'\tvar discovery_status: Label = Label.new()\n\tdiscovery_status.text = "Searching for local games..."\n\tlayout.add_child(discovery_status)\n\tvar discovered_list: VBoxContainer = VBoxContainer.new()\n\tlayout.add_child(discovered_list)\n\n\tvar cancel_button: Button = Button.new()\n'
+)
+main_menu_text = main_menu_text.replace(
+	'\tpopup.popup_centered()\n\taddress_input.call_deferred("grab_focus")',
+	'''\tvar viewport_size: Vector2i = DisplayServer.window_get_size()
+	popup.position = Vector2i(max(8, (viewport_size.x - 620) / 2), 18)
+	popup.popup()
+	address_input.call_deferred("grab_focus")
+	_scan_lan_hosts(discovery_status, discovered_list, address_input, popup)'''
+)
+if "func _scan_lan_hosts" not in main_menu_text:
+	main_menu_text += r'''
+
+func _scan_lan_hosts(status_label: Label, results_container: VBoxContainer, address_input: LineEdit, popup: PopupPanel) -> void:
+	var scanner: LanDiscovery = LanDiscovery.new()
+	add_child(scanner)
+	var hosts: Array[Dictionary] = await scanner.discover_hosts(2.5)
+	scanner.queue_free()
+	if not is_instance_valid(popup):
+		return
+	for child in results_container.get_children():
+		child.queue_free()
+	if hosts.is_empty():
+		status_label.text = "No local games found. Enter the host IP:PORT manually."
+		return
+	status_label.text = "LOCAL GAMES FOUND"
+	for host in hosts:
+		var host_button: Button = Button.new()
+		host_button.text = "%s  —  %s" % [host.get("name", "Machine Party"), host.get("address", "")]
+		host_button.custom_minimum_size.y = 42
+		results_container.add_child(host_button)
+		host_button.pressed.connect(func():
+			address_input.text = str(host.get("address", ""))
+			popup.queue_free()
+			_join_with_address_or_code(address_input.text)
+		)
+'''
+(root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
+
+# Show the actual host endpoint in a persistent top banner with a dedicated copy action.
+lobby_path = "scenes/lobby/scripts/lobby_scene.gd"
+lobby_text = (root / lobby_path).read_text(encoding="utf-8")
+lobby_text = lobby_text.replace(
+	'\t\tplayer_order_by_seat = {0: 1, 1: -1, 2: -1, 3: -1}\n',
+	'\t\t_show_lan_address_banner()\n\t\tplayer_order_by_seat = {0: 1, 1: -1, 2: -1, 3: -1}\n'
+)
+if "func _show_lan_address_banner" not in lobby_text:
+	lobby_text += r'''
+
+func _show_lan_address_banner() -> void:
+	if not NetworkManager.active_backend:
+		return
+	var address: String = NetworkManager.active_backend.direct_connect_address
+	if address.is_empty():
+		return
+	var layer := CanvasLayer.new()
+	layer.name = "LANAddressBanner"
+	layer.layer = 100
+	add_child(layer)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	panel.offset_left = -250
+	panel.offset_right = 250
+	panel.offset_top = 14
+	panel.offset_bottom = 82
+	layer.add_child(panel)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 18)
+	panel.add_child(row)
+	var label := Label.new()
+	label.text = "LOCAL GAME  " + address
+	label.add_theme_font_size_override("font_size", 22)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var copy_button := Button.new()
+	copy_button.text = "COPY"
+	copy_button.custom_minimum_size = Vector2(100, 44)
+	row.add_child(copy_button)
+	copy_button.pressed.connect(func():
+		DisplayServer.clipboard_set(address)
+		copy_button.text = "COPIED"
+	)
+'''
+(root / lobby_path).write_text(lobby_text, encoding="utf-8")
+
+# Keep the customization screen clear of the movement/action cluster; leave only
+# the dedicated SPACE and ESC controls available there.
+controls_path = "controls_android.gd"
+controls_text = (root / controls_path).read_text(encoding="utf-8")
+if "func _refresh_context_visibility" not in controls_text:
+	controls_text += r'''
+
+func _process(_delta: float) -> void:
+	_refresh_context_visibility()
+
+func _refresh_context_visibility() -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var customization: bool = scene.scene_file_path.contains("character_customization")
+	for name in controls:
+		var control: Node = controls[name]
+		if not control is CanvasItem:
+			continue
+		if customization:
+			control.visible = name in ["TouchScreenButton5", "TouchScreenButton6"]
+		else:
+			control.visible = true
+'''
+(root / controls_path).write_text(controls_text, encoding="utf-8")
+
+# A conservative Galaxy J7 Prime profile: 30 FPS, fewer dynamic lights and
+# reduced 3D render scale; retain the already-tested GL Compatibility renderer.
+optimizer_path = root / "AllInOneMobileOptimizer.gd"
+optimizer_text = optimizer_path.read_text(encoding="utf-8")
+optimizer_text = optimizer_text.replace("@export var max_lights: int = 8", "@export var max_lights: int = 4")
+optimizer_text = optimizer_text.replace("@export var target_mobile_fps: int = 60", "@export var target_mobile_fps: int = 30")
+optimizer_text = optimizer_text.replace(
+	'\t\tEngine.max_fps = target_mobile_fps\n',
+	'\t\tEngine.max_fps = target_mobile_fps\n\t\tget_viewport().scaling_3d_scale = 0.75\n'
+)
+optimizer_path.write_text(optimizer_text, encoding="utf-8")
+
+mobile_boost_path = root / "MobileBoost.gd"
+if mobile_boost_path.exists():
+	mobile_boost_text = mobile_boost_path.read_text(encoding="utf-8")
+	mobile_boost_text = mobile_boost_text.replace(
+		'\tvar vp: = get_viewport()\n',
+		'\tvar vp: = get_viewport()\n\tvp.scaling_3d_scale = 0.75\n'
+	)
+	mobile_boost_text = mobile_boost_text.replace(
+		'RenderingServer.directional_shadow_atlas_set_size(1024, true)',
+		'RenderingServer.directional_shadow_atlas_set_size(512, true)'
+	)
+	mobile_boost_path.write_text(mobile_boost_text, encoding="utf-8")
+
+# Keep host name committed before the scene transition from every host mode.
+host_signals = (
+	'\thost_original_button.pressed.connect( func():\n',
+	'\thost_custom_button.pressed.connect( func():\n',
+	'\thost_arcade_button.pressed.connect( func():\n',
+)
+for marker in host_signals:
+	if marker in main_menu_text:
+		main_menu_text = main_menu_text.replace(marker, marker + '\n\t\t_save_player_name()\n', 1)
+(root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
+
+print("LAN patch applied successfully with local discovery, LAN menu, touch layout and J7 performance profile.")
+
