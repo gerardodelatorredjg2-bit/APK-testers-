@@ -1,0 +1,66 @@
+name: Export Machine Party source review
+on:
+  push:
+    branches:
+      - "recovery/ui-performance-review"
+    paths:
+      - ".github/workflows/export-machine-party-source-review.yml"
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  source-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download recovered source artifact on runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded/recovered review
+          gh run download 44350091150 --repo "$GH_REPO" --name machine-party-recovery --dir downloaded
+          test -f downloaded/recovered/project.godot
+      - name: Collect exact UI, menu, control and LAN source
+        run: |
+          set -euo pipefail
+          PROJECT="$PWD/downloaded/recovered"
+          OUT="$PWD/review/exact-source.txt"
+          : > "$OUT"
+          for candidate in \
+            project.godot \
+            scenes/main_menu/scripts/main_menu.gd \
+            scenes/main_menu/main_menu.tscn \
+            scenes/lobby/scripts/lobby_scene.gd \
+            scenes/lobby/lobby_scene.tscn \
+            scenes/local_lobby/local_lobby.tscn \
+            scenes/character_customization.tscn \
+            modules/multiplayer/network_manager.gd \
+            modules/multiplayer/backends/online_enet_backend.gd \
+            modules/multiplayer/backends/lan_enet_backend.gd \
+            controls_android.gd CONTROLS.tscn \
+            AllInOneMobileOptimizer.gd MobileBoost.gd \
+            autoloads/game_manager.gd autoloads/globals.gd; do
+            if [ -f "$PROJECT/$candidate" ]; then
+              printf '\n===== %s =====\n' "$candidate" >> "$OUT"
+              cat "$PROJECT/$candidate" >> "$OUT"
+            fi
+          done
+          find "$PROJECT" -type f \( -iname '*touch*.gd' -o -iname '*joystick*.gd' -o -iname '*mobile*control*.gd' \) \
+            -not -path '*/.godot/*' -not -path '*/addons/*' -print | sort > review/control-files.txt
+          while IFS= read -r file; do
+            printf '\n===== %s =====\n' "${file#$PROJECT/}" >> "$OUT"
+            cat "$file" >> "$OUT"
+          done < review/control-files.txt
+          grep -RIn --include='*.gd' --include='*.tscn' -E 'EDIT CONTROLS|Edit Controls|LocalJoinButton|StartJoinButton|host_ip|host_port|direct_connect_address|join_client_direct|TouchScreenButton|KEY_ESCAPE|KEY_SPACE|LineEdit|virtual_keyboard' \
+            "$PROJECT/scenes" "$PROJECT/modules/multiplayer" "$PROJECT" 2>/dev/null | head -1600 > review/search-index.txt || true
+          du -h review/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-review
+          path: review/
+          compression-level: 1
+          retention-days: 14
