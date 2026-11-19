@@ -9,76 +9,60 @@ on:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 jobs:
   inspect:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-      - name: Download recovered source and publish gameplay load-flow excerpts
+      - name: Download recovered source and audit performance/input paths
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          mkdir -p downloaded docs/diagnostics
+          mkdir -p downloaded audit
           gh run download 44350091150 --repo "$GH_REPO" --name machine-party-recovery --dir downloaded
           PROJECT="$PWD/downloaded/recovered"
-          REPORT="$PWD/docs/diagnostics/gameplay-load-flow.txt"
+          test -f "$PROJECT/project.godot"
+          REPORT="$PWD/audit/mobile-performance-input.txt"
           {
-            for spec in \
-              "modules/multiplayer/network_manager.gd:1:320" \
-              "scenes/lobby/scripts/lobby_scene.gd:1:540" \
-              "scenes/lobby/components/playlist_handler.gd:1:300" \
-              "modules/multiplayer_lobby/components/lobby_handler/lobby_handler.gd:180:270" \
-              "autoloads/globals.gd:420:590" \
-              "autoloads/game_manager.gd:1:190"; do
-              file="${spec%%:*}"
-              rest="${spec#*:}"
-              start="${rest%%:*}"
-              end="${rest##*:}"
-              echo
-              echo "===== $file lines $start-$end ====="
-              sed -n "${start},${end}p" "$PROJECT/$file"
-            done
-          } | tee "$REPORT"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$REPORT"
-          git commit -m "Add gameplay loading flow audit"
-          git push origin "HEAD:${{ github.ref_name }}"
-
-          INPUT_REPORT="$PWD/docs/diagnostics/mobile-input-performance.txt"
-          {
-            echo "===== JOYSTICK FILES ====="
-            find "$PROJECT" -type f \( -iname '*joystick*' -o -iname '*virtual*stick*' \) -print | sort
+            echo "===== PROJECT CONFIG ====="
+            sed -n '1,300p' "$PROJECT/project.godot"
             echo
-            echo "===== VIRTUAL JOYSTICK DECLARATIONS AND INPUT BRIDGES ====="
-            grep -R -n --include='*.gd' -E 'class_name VirtualJoystick|VirtualJoystick|Input\.action_(press|release)|Input\.parse_input_event' "$PROJECT/addons" "$PROJECT" 2>/dev/null | head -240 || true
-            echo
-            echo "===== GAMEPLAY INPUT AND MOVEMENT CALL SITES ====="
-            grep -R -n --include='*.gd' -E 'Input\.get_vector|Input\.get_axis|Input\.is_action_pressed|move_and_slide|set_physics_process|_physics_process' "$PROJECT/minigames" "$PROJECT/modules" 2>/dev/null | head -320 || true
-            echo
-            echo "===== EXPLODING COLLAR RACE SCRIPTS ====="
-            find "$PROJECT/minigames/exploding_collar_race" -type f -name '*.gd' -print0 | sort -z | while IFS= read -r -d '' file; do
+            echo "===== MOBILE / OPTIMIZER / CONTROL SCRIPTS ====="
+            find "$PROJECT" -type f \( -iname '*mobile*.gd' -o -iname '*boost*.gd' -o -iname '*optimizer*.gd' -o -iname '*controls_android*.gd' -o -iname '*joystick*.gd' -o -iname '*virtual*stick*.gd' \) -print | sort
+            while IFS= read -r file; do
               echo
               echo "----- ${file#"$PROJECT/"} -----"
-              sed -n '1,260p' "$file"
-            done
+              sed -n '1,420p' "$file"
+            done < <(find "$PROJECT" -type f \( -iname '*mobile*.gd' -o -iname '*boost*.gd' -o -iname '*optimizer*.gd' -o -iname '*controls_android*.gd' -o -iname '*joystick*.gd' -o -iname '*virtual*stick*.gd' \) -print | sort)
             echo
-            echo "===== ANDROID CONTROLS AND MOBILE OPTIMIZER ====="
-            for file in controls_android.gd AllInOneMobileOptimizer.gd MobileBoost.gd autoloads/globals.gd modules/pause_menu/scripts/pause_menu.gd; do
-              if [ -f "$PROJECT/$file" ]; then
-                echo
-                echo "----- $file -----"
-                sed -n '1,360p' "$PROJECT/$file"
-              fi
-            done
-          } | tee "$INPUT_REPORT"
-          git add "$INPUT_REPORT"
-          git commit -m "Add mobile joystick and performance audit"
-          git push origin "HEAD:${{ github.ref_name }}"
+            echo "===== INPUT ACTION / MOVEMENT REFERENCES ====="
+            grep -R -n --include='*.gd' -E 'Input\.action_(press|release)|Input\.parse_input_event|Input\.get_vector|Input\.get_axis|Input\.is_action_pressed|move_and_slide|_physics_process' "$PROJECT" 2>/dev/null | head -500 || true
+            echo
+            echo "===== TOUCH / INPUT EVENT HANDLING ====="
+            grep -R -n --include='*.gd' -E 'InputEventScreen|InputEventMouseButton|_input\(|_unhandled_input\(|gui_input|touch|joystick' "$PROJECT" 2>/dev/null | head -500 || true
+            echo
+            echo "===== FIRST MINIGAME CANDIDATES ====="
+            find "$PROJECT/minigames" -maxdepth 2 -type f \( -name '*.tscn' -o -name '*.gd' \) -print | sort | head -500
+            echo
+            echo "===== SCENE LOADING / AUTO PLAYLIST / MENU REFERENCES ====="
+            grep -R -n --include='*.gd' -E 'change_scene|instantiate\(|ResourceLoader|load_threaded|preload\(|shuffle|randomize|playlist|scaling_3d_scale|set_scaling_3d_scale' "$PROJECT/scenes" "$PROJECT/modules" "$PROJECT/autoloads" 2>/dev/null | head -700 || true
+            echo
+            echo "===== QUALITY / SCALING SETTINGS REFERENCES ====="
+            grep -R -n --include='*.gd' --include='*.tscn' --include='*.tres' -E 'scaling_3d_scale|quality|rendering_method|texture_filter|shadow|ssao|ssil|sdfgi|volumetric_fog|glow' "$PROJECT" 2>/dev/null | head -700 || true
+            echo
+            echo "===== LARGE TEXTURE / AUDIO INVENTORY ====="
+            find "$PROJECT" -type f \( -iname '*.png' -o -iname '*.webp' -o -iname '*.jpg' -o -iname '*.ogg' -o -iname '*.wav' \) -printf '%s %p\n' | sort -nr | head -100
+          } > "$REPORT"
+          cat "$REPORT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-performance-input-audit
+          path: audit/mobile-performance-input.txt
+          retention-days: 7
