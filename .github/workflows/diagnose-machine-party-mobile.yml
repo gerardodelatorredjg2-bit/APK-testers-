@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-      - name: Download recovered source and publish diagnostics
+      - name: Download recovered source and publish targeted source excerpts
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -28,19 +28,27 @@ jobs:
           mkdir -p downloaded docs/diagnostics
           gh run download 44350091150 --repo "$GH_REPO" --name machine-party-recovery --dir downloaded
           PROJECT="$PWD/downloaded/recovered"
-          REPORT="$PWD/docs/diagnostics/mobile-source-audit.txt"
+          REPORT="$PWD/docs/diagnostics/mobile-source-excerpts.txt"
           {
-            echo "=== FILES MATCHING OPTIMIZER / SETTINGS / CONTROL ==="
-            find "$PROJECT" -type f \( -iname '*optim*' -o -iname '*mobile*' -o -iname '*quality*' -o -iname '*control*' \) | head -160
-            echo "=== JOIN / ADDRESS / VIRTUAL KEYBOARD REFERENCES ==="
-            grep -RIn --include='*.gd' --include='*.tscn' --include='*.tres' 'LineEdit\|virtual_keyboard\|join_lobby_id\|start_client\|room_code\|clipboard_get' "$PROJECT/scenes" "$PROJECT/modules" "$PROJECT/autoloads" 2>/dev/null | head -260 || true
-            echo "=== QUALITY / RENDER SETTINGS REFERENCES ==="
-            grep -RIn --include='*.gd' --include='*.tscn' --include='project.godot' 'max_fps\|scaling_3d_scale\|shadow\|quality\|rendering_method\|screen_space_roughness_limiter' "$PROJECT" | head -240 || true
-            echo "=== MINIGAME ENTRY / LOADING REFERENCES ==="
-            grep -RIn --include='*.gd' --include='*.tscn' 'change_scene_to_file\|ResourceLoader.load_threaded\|load_threaded_get\|preload(' "$PROJECT/scenes/lobby" "$PROJECT/minigames" 2>/dev/null | head -260 || true
+            for file in MobileBoost.gd MobileLightOptimizer.gd AllInOneMobileOptimizer.gd controls_android.gd; do
+              echo
+              echo "===== $file ====="
+              sed -n '1,280p' "$PROJECT/$file" 2>/dev/null || true
+            done
+            for file in scenes/main_menu/scripts/main_menu.gd modules/multiplayer/network_manager.gd scenes/lobby/scripts/lobby_scene.gd autoloads/globals.gd project.godot; do
+              echo
+              echo "===== $file relevant sections ====="
+              grep -n -C 8 -E 'LineEdit|join_lobby|start_join|StartJoin|scaling_3d_scale|set_scaling|renderer/rendering|autoload|change_scene|start_client|virtual_keyboard|touchscreen' "$PROJECT/$file" 2>/dev/null | head -240 || true
+            done
+            echo
+            echo "===== main_menu.gd complete around join controls ====="
+            sed -n '330,435p' "$PROJECT/scenes/main_menu/scripts/main_menu.gd"
+            echo
+            echo "===== project settings rendering block ====="
+            grep -n -A70 '^\[rendering\]' "$PROJECT/project.godot" | head -90
           } | tee "$REPORT"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$REPORT"
-          git commit -m "Add recovered mobile source audit"
+          git commit -m "Add mobile source excerpts for targeted optimization"
           git push origin "HEAD:${{ github.ref_name }}"
