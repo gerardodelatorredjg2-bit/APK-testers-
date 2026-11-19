@@ -1963,26 +1963,26 @@ def replace_once(source: str, old: str, new: str, label: str) -> str:
 
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.AUTO:\n\\t\\t\\tfps_limit = 60\n\\t\\tQualityProfile.LOW:\n\\t\\t\\tfps_limit = 30",
-    "QualityProfile.AUTO, QualityProfile.LOW:\n\\t\\t\\tfps_limit = 30",
+    "QualityProfile.AUTO:\n\t\t\tfps_limit = 60\n\t\tQualityProfile.LOW:\n\t\t\tfps_limit = 30",
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\tfps_limit = 30",
     "J7 default frame cap",
 )
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.AUTO, QualityProfile.LOW:\n\\t\\t\\treturn 2",
-    "QualityProfile.AUTO, QualityProfile.LOW:\n\\t\\t\\treturn 1",
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\treturn 2",
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\treturn 1",
     "J7 dynamic light budget",
 )
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.MEDIUM:\n\\t\\t\\treturn 4",
-    "QualityProfile.MEDIUM:\n\\t\\t\\treturn 2",
+    "QualityProfile.MEDIUM:\n\t\t\treturn 4",
+    "QualityProfile.MEDIUM:\n\t\t\treturn 2",
     "medium dynamic light budget",
 )
 mobile_settings_text = replace_once(
     mobile_settings_text,
-    "QualityProfile.HIGH:\n\\t\\t\\treturn 8",
-    "QualityProfile.HIGH:\n\\t\\t\\treturn 4",
+    "QualityProfile.HIGH:\n\t\t\treturn 8",
+    "QualityProfile.HIGH:\n\t\t\treturn 4",
     "high dynamic light budget",
 )
 mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
