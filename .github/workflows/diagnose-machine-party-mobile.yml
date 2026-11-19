@@ -103,6 +103,23 @@ jobs:
             done < <(find "$PROJECT" -type f \( -iname '*music*manager*.gd' -o -iname '*music*handler*.gd' \) -print | sort)
             grep -RIn --include='*.gd' --include='*.tscn' -E 'music loop main menu|menu music[12]|MusicManager|play_music' "$PROJECT/scenes" "$PROJECT/autoloads" "$PROJECT/modules" 2>/dev/null | head -240 || true
             echo
+            echo "===== CAPSULE INTRO ANIMATION RESOURCE TIMINGS ====="
+            SCENE="$PROJECT/minigames/intermission_new/intermission_new.tscn"
+            if [ -f "$SCENE" ]; then
+              grep -n -A90 -B30 -E 'insert vessel|intro2 setup|intro2|intro3|scientist_ik' "$SCENE" | head -1200 || true
+            fi
+            echo
+            echo "===== CAPSULE INTRO SCRIPT ====="
+            INTRO="$PROJECT/minigames/intermission_new/components/intermission_cutscene_intro.gd"
+            if [ -f "$INTRO" ]; then sed -n '1,360p' "$INTRO"; fi
+            echo
+            echo "===== FORKLIFT CERTIFIED PLAYER / VEHICLE SCRIPTS ====="
+            while IFS= read -r file; do
+              echo
+              echo "----- ${file#"$PROJECT/"} -----"
+              sed -n '1,420p' "$file"
+            done < <(find "$PROJECT/minigames/forklift_certified" -type f -name '*.gd' -print | sort | head -80)
+            echo
             echo "===== MOBILE RENDER / PROJECT SETTINGS ====="
             grep -nE '^\[rendering\]|renderer/|textures/|scaling_3d|fps|physics/common|environment/defaults' "$PROJECT/project.godot" || true
           } > "$REPORT"
