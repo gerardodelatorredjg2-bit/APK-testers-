@@ -135,6 +135,7 @@ jobs:
           PY
             echo
             echo "===== MINIGAME LOAD / PRELOAD FLOW ====="
+            grep -R -l --include='*.gd' -E 'class_name Intermission_GamePicker|class_name IntermissionManager|func load_minigame\(' "$PROJECT" 2>/dev/null | sort || true
             grep -R -n -B8 -A140 --include='*.gd' -E 'func load_minigame|func set_game_scene|game_scene *=|ResourceLoader\.load_threaded|change_scene_to_packed' "$PROJECT" 2>/dev/null | head -1200 || true
             echo
             echo "===== MOBILE RENDER / PROJECT SETTINGS ====="
