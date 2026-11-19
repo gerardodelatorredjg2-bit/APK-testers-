@@ -1878,7 +1878,7 @@ intro_text = replace_function_block(
 # Preload only the selected minigame while the picker/briefing is visible.
 # The previous code called load() synchronously at the scene transition, causing
 # a main-thread resource import spike exactly as gameplay began.
-threaded_minigame_helpers = r'''func preload_minigame_scene(minigame_identifier: Globals.MinigameIdentifier) -> void:
+threaded_minigame_helpers = '''func preload_minigame_scene(minigame_identifier: Globals.MinigameIdentifier) -> void:
 \tvar scene_path: String = str(Globals.MinigamePaths.get(minigame_identifier, ""))
 \tif scene_path.is_empty():
 \t\treturn
