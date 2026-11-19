@@ -1447,8 +1447,150 @@ for resource_file in root.rglob("*"):
     if updated_text != resource_text:
         resource_file.write_text(updated_text, encoding="utf-8")
 
+
+
+# ---------------------------------------------------------------------------
+# Performance pass 2: stop recurring whole-tree light scans, preserve 60 FPS
+# headroom, and handle Android Back without destroying an active LAN session.
+# ---------------------------------------------------------------------------
+
+optimizer_path = root / "AllInOneMobileOptimizer.gd"
+optimizer_text = optimizer_path.read_text(encoding="utf-8")
+optimizer_text = optimizer_text.replace("@export var target_mobile_fps: int = 30", "@export var target_mobile_fps: int = 60")
+optimizer_text = optimizer_text.replace("@export var max_lights: int = 2", "@export var max_lights: int = 4")
+optimizer_text = optimizer_text.replace("@export var update_interval: float = 0.15\n\n\nvar _timer: float = 0.0\n", "")
+# This autoload used to recursively walk and sort every Light3D ~6.7 times/sec.
+# MobileGameSettings now applies the selected light budget once per scene/node add.
+optimizer_text = re.sub(
+    r"(?ms)^func _process\(delta: float\).*?(?=^func _strip_heavy_environment_effects\()",
+    "",
+    optimizer_text,
+)
+optimizer_text = optimizer_text.replace(
+    "\t\t_strip_heavy_environment_effects()\n",
+    "\t\t_strip_heavy_environment_effects()\n\t\tset_process(false)\n",
+)
+optimizer_path.write_text(optimizer_text, encoding="utf-8")
+
+# Auto is the high-refresh default; LOW remains available for devices that need
+# a stable 30 FPS cap. No profile lowers the native 3D resolution.
+mobile_settings_path = root / "MobileGameSettings.gd"
+mobile_settings_text = mobile_settings_path.read_text(encoding="utf-8")
+mobile_settings_text = mobile_settings_text.replace(
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\tfps_limit = 30",
+    "QualityProfile.AUTO:\n\t\t\tfps_limit = 60\n\t\tQualityProfile.LOW:\n\t\t\tfps_limit = 30",
+)
+mobile_settings_text = mobile_settings_text.replace(
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\treturn 2",
+    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\treturn 2",
+)
+mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
+
+# Android Back is handled as an in-game confirmation. A single accidental
+# Back press never quits the app or tears down the ENet host/client.
+lifecycle_path = root / "MobileAppLifecycle.gd"
+lifecycle_source = r'''extends Node
+
+var _back_dialog: ConfirmationDialog
+var _dialog_kind: String = ""
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var network_manager := get_node_or_null("/root/NetworkManager")
+	if network_manager:
+		network_manager.process_mode = Node.PROCESS_MODE_ALWAYS
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_handle_android_back()
+	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		# Do not pause SceneTree: ENet and the game state must remain live while
+		# Android allows the process to run in the background.
+		pass
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		# Reassert always-processing after returning from Android's task switcher.
+		var network_manager := get_node_or_null("/root/NetworkManager")
+		if network_manager:
+			network_manager.process_mode = Node.PROCESS_MODE_ALWAYS
+
+func _handle_android_back() -> void:
+	if is_instance_valid(_back_dialog):
+		return
+
+	var network_manager := get_node_or_null("/root/NetworkManager")
+	var active_session: bool = (
+		network_manager != null
+		and network_manager.get("active_backend") != null
+	)
+	var in_game: bool = bool(get_node_or_null("/root/GameManager").get("in_game")) if get_node_or_null("/root/GameManager") else false
+
+	_back_dialog = ConfirmationDialog.new()
+	_back_dialog.name = "AndroidBackConfirmation"
+	_back_dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+	_back_dialog.dialog_text = (
+		"A multiplayer session is active. Continue playing, or explicitly leave the match?"
+		if active_session
+		else ("Return to the main menu?" if in_game else "Exit Machine Party?")
+	)
+	_back_dialog.get_ok_button().text = "LEAVE MATCH" if active_session else ("MAIN MENU" if in_game else "EXIT")
+	_back_dialog.get_cancel_button().text = "CONTINUE PLAYING" if active_session or in_game else "STAY"
+	_back_dialog.confirmed.connect(_confirm_back_action.bind(active_session, in_game))
+	_back_dialog.canceled.connect(_clear_back_dialog)
+	add_child(_back_dialog)
+	_back_dialog.popup_centered()
+
+func _confirm_back_action(active_session: bool, in_game: bool) -> void:
+	var dialog := _back_dialog
+	_back_dialog = null
+	if is_instance_valid(dialog):
+		dialog.queue_free()
+
+	if active_session:
+		var network_manager := get_node_or_null("/root/NetworkManager")
+		if network_manager:
+			network_manager.leave_lobby()
+		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+	elif in_game:
+		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+	else:
+		get_tree().quit()
+
+func _clear_back_dialog() -> void:
+	if is_instance_valid(_back_dialog):
+		_back_dialog.queue_free()
+	_back_dialog = null
+'''
+lifecycle_path.write_text(lifecycle_source, encoding="utf-8")
+
+project_file = root / "project.godot"
+project_lines = project_file.read_text(encoding="utf-8").splitlines()
+def set_project_value(section: str, key: str, value: str) -> None:
+    global project_lines
+    section_index = next((i for i, line in enumerate(project_lines) if line.strip() == f"[{section}]"), -1)
+    if section_index < 0:
+        project_lines.extend(["", f"[{section}]", f"{key}={value}"])
+        return
+    next_section = next((i for i in range(section_index + 1, len(project_lines)) if project_lines[i].strip().startswith("[") and project_lines[i].strip().endswith("]")), len(project_lines))
+    setting_index = next((i for i in range(section_index + 1, next_section) if project_lines[i].strip().startswith(key + "=")), -1)
+    if setting_index >= 0:
+        project_lines[setting_index] = f"{key}={value}"
+    else:
+        project_lines.insert(next_section, f"{key}={value}")
+
+set_project_value("application", "config/quit_on_go_back", "false")
+autoload_index = next((i for i, line in enumerate(project_lines) if line.strip() == "[autoload]"), -1)
+if autoload_index < 0:
+    raise SystemExit("project.godot: [autoload] section missing for Android lifecycle handler")
+if not any(line.startswith("MobileAppLifecycle=") for line in project_lines):
+    project_lines.insert(autoload_index + 1, 'MobileAppLifecycle="*res://MobileAppLifecycle.gd"')
+project_file.write_text("\n".join(project_lines) + "\n", encoding="utf-8")
+
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
+    "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
+    "MobileGameSettings.gd": ["QualityProfile.AUTO:\n\t\t\tfps_limit = 60"],
+    "MobileAppLifecycle.gd": ["NOTIFICATION_WM_GO_BACK_REQUEST", "LEAVE MATCH", "CONTINUE PLAYING"],
 	"project.godot": [
 		'renderer/rendering_method.mobile="gl_compatibility"',
 		'scaling_3d/scale=1.0',
