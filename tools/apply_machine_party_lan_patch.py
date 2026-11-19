@@ -181,7 +181,7 @@ func _show_lan_join_dialog(prefill: String = "") -> void:
 	popup.size = Vector2i(560, 270)
 	popup.transient = true
 	popup.exclusive = true
-	panel.theme = theme
+	popup.theme = theme
 
 	var panel: PanelContainer = PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
