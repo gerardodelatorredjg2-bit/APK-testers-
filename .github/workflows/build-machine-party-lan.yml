@@ -271,6 +271,103 @@ jobs:
           fi
           echo "Headless startup smoke test passed for 120 frames."
 
+      - name: Run ARM64 Android emulator performance smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_2
+          ram-size: 2048M
+          heap-size: 256M
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 2048 -cores 2
+          script: |
+            set -euo pipefail
+            mkdir -p build/emulator-report
+            APK="$PWD/build/MachineParty-LAN-universal.apk"
+            adb wait-for-device
+            adb shell getprop ro.build.version.release > build/emulator-report/android-version.txt
+            adb shell getprop ro.product.cpu.abi > build/emulator-report/emulator-abi.txt
+            adb install -r "$APK"
+            adb shell am force-stop com.godot.game || true
+            adb shell monkey -p com.godot.game 1
+            sleep 75
+            PID="$(adb shell pidof com.godot.game | tr -d '\r' | awk '{print $1}')"
+            if [ -z "$PID" ]; then
+              echo "ERROR: app process did not remain running after launch" | tee build/emulator-report/launch-status.txt
+              adb logcat -d -t 4000 > build/emulator-report/logcat.txt
+              exit 1
+            fi
+            echo "App process running: $PID" | tee build/emulator-report/launch-status.txt
+            adb shell dumpsys gfxinfo com.godot.game framestats > build/emulator-report/gfxinfo-framestats.txt
+            adb shell dumpsys gfxinfo com.godot.game > build/emulator-report/gfxinfo-summary.txt
+            adb shell dumpsys meminfo com.godot.game > build/emulator-report/meminfo.txt
+            adb shell top -b -n 1 -p "$PID" > build/emulator-report/process-top.txt || true
+            adb logcat -d -t 4000 > build/emulator-report/logcat.txt
+            python3 - <<'PY'
+            from pathlib import Path
+            import csv, statistics
+            root = Path("build/emulator-report")
+            raw = (root / "gfxinfo-framestats.txt").read_text(errors="replace")
+            rows = []
+            for line in raw.splitlines():
+                line = line.strip()
+                if not line or line.startswith(("Flags,", "---", "Total frames")):
+                    continue
+                parts = next(csv.reader([line]))
+                if len(parts) >= 14:
+                    try:
+                        completed = int(parts[13])
+                        if completed > 0:
+                            rows.append(completed)
+                    except (ValueError, IndexError):
+                        pass
+            deltas_ms = [(b-a)/1_000_000 for a,b in zip(rows, rows[1:]) if b > a]
+            report = [
+                "MACHINE PARTY LAN - ANDROID EMULATOR SMOKE REPORT",
+                "",
+                "IMPORTANT: this is a synthetic ARM64 Android 11 emulator, not a physical Galaxy J7 Prime.",
+                "The emulator uses a virtual Pixel 2 profile, 2 GB configured RAM and 2 virtual CPU cores.",
+                "Host GPU/CPU virtualization differs from the phone; FPS values are indicative only.",
+                "Test scope: install, launch, remain running, and approximately 75 seconds at the main menu.",
+                "Minigame gameplay, LAN multiplayer, thermal throttling and real-device FPS were NOT tested.",
+                "",
+                f"Frame completion samples: {len(rows)}",
+                f"Frame intervals measured: {len(deltas_ms)}",
+            ]
+            if deltas_ms:
+                avg = statistics.mean(deltas_ms)
+                report += [
+                    f"Average frame interval: {avg:.2f} ms",
+                    f"Approximate average FPS (menu only): {1000/avg:.1f}",
+                    f"Median frame interval: {statistics.median(deltas_ms):.2f} ms",
+                    f"95th percentile frame interval: {sorted(deltas_ms)[int(0.95*(len(deltas_ms)-1))]:.2f} ms",
+                    f"Intervals over 50 ms: {sum(x > 50 for x in deltas_ms)}",
+                ]
+            else:
+                report.append("Frame timing could not be parsed from this Android image; inspect gfxinfo-framestats.txt.")
+            mem = (root / "meminfo.txt").read_text(errors="replace")
+            for line in mem.splitlines():
+                if "TOTAL PSS:" in line or "TOTAL RSS:" in line:
+                    report.append("Memory " + line.strip())
+            (root / "REPORT.txt").write_text("\n".join(report) + "\n")
+            print("\n".join(report))
+            PY
+            grep -Ei 'SCRIPT ERROR:|Parse Error:|Failed to load script|FATAL EXCEPTION|Fatal signal' build/emulator-report/logcat.txt > build/emulator-report/errors-found.txt || true
+            if [ -s build/emulator-report/errors-found.txt ]; then
+              echo "Potential runtime errors found; see errors-found.txt"
+            fi
+
+      - name: Upload Android emulator performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-android-emulator-report
+          path: build/emulator-report/
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Collect Godot resource and audio warning diagnostics
         if: always()
         run: |
