@@ -183,6 +183,53 @@ jobs:
               -E 'LOC_TAG_LOCAL|LOC_TAG_JOIN|LOC_TAG_HOST|Local|Join|Host|local_menu|join_menu' \
               "$PROJECT/scenes/main_menu" "$PROJECT/localization" 2>/dev/null | head -600 || true
           } >> "$OUT"
+          for candidate in \
+            "project.godot" \
+            "CONTROLS.tscn" \
+            "controls_android.gd" \
+            "touch_screen_button.gd" \
+            "touch_screen_button_3.gd" \
+            "touch_screen_button_4.gd" \
+            "touch_screen_button_5.gd" \
+            "touch_screen_button_6.gd" \
+            "a.gd" \
+            "addons/virtual_joystick/virtual_joystick_scene.tscn" \
+            "scenes/lobby/lobby_scene.tscn" \
+            "scenes/local_lobby/local_lobby.tscn" \
+            "scenes/character_customization.tscn" \
+            "autoloads/globals.gd"; do
+            if [ -f "$PROJECT/$candidate" ]; then
+              {
+                echo
+                echo "==================== $candidate ===================="
+                cat "$PROJECT/$candidate"
+              } >> "$OUT"
+            fi
+          done
+          for dir in "$PROJECT/scenes/lobby" "$PROJECT/scenes/local_lobby"; do
+            if [ -d "$dir" ]; then
+              while IFS= read -r file; do
+                {
+                  echo
+                  echo "==================== ${file#$PROJECT/} ===================="
+                  cat "$file"
+                } >> "$OUT"
+              done < <(find "$dir" -type f -name '*.gd' | sort)
+            fi
+          done
+          {
+            echo
+            echo "==================== ACTIVE CONTROL SCENE/AUTOLOAD REFERENCES ===================="
+            grep -nE 'ControlsAndroid|CONTROLS.tscn|AllInOneMobileOptimizer|MobileBoost|scaling_3d_scale|renderer/rendering_method|application/run/main_scene|autoload' "$PROJECT/project.godot" || true
+            echo
+            echo "==================== TOUCH BUTTON ACTION SCRIPTS ===================="
+            grep -RIn --include='*.gd' -E 'extends TouchScreenButton|action *=|key_to_press|KEY_ESCAPE|KEY_SPACE|ui_cancel|action_3' "$PROJECT" \
+              --exclude-dir=.godot --exclude-dir=addons | head -500 || true
+            echo
+            echo "==================== CUSTOMIZATION TOUCH / GAME STATE ===================="
+            grep -RIn --include='*.gd' -E 'GameManager\.in_game|GameManager\.local_game|ControlsAndroid|Input\.is_action_just_pressed|action_3|ui_accept' \
+              "$PROJECT/scenes/character_customization" "$PROJECT/scenes" 2>/dev/null | head -500 || true
+          } >> "$OUT"
           echo "Saved exact source dump to $OUT"
           wc -c "$OUT"
       - name: Upload source review before long Godot import
