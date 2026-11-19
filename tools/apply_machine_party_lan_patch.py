@@ -607,7 +607,7 @@ main_menu_text = main_menu_text.replace(
 if "func _scan_lan_hosts" not in main_menu_text:
 	main_menu_text += r'''
 
-func _scan_lan_hosts(status_label: Label, results_container: VBoxContainer, address_input: LineEdit, popup: PopupPanel) -> void:
+func _scan_lan_hosts(status_label: Label, results_container: VBoxContainer, address_input: LineEdit, popup: Node) -> void:
 	var scanner: LanDiscovery = LanDiscovery.new()
 	add_child(scanner)
 	var hosts: Array[Dictionary] = await scanner.discover_hosts(2.5)
@@ -936,7 +936,7 @@ func _submit_lan_join(value: String, overlay: CanvasLayer, hint: Label) -> void:
 	overlay.queue_free()
 	_join_with_address_or_code(address)
 
-func _scan_lan_hosts(status_label: Label, results_container: VBoxContainer, address_input: LineEdit, overlay: CanvasLayer) -> void:
+func _scan_lan_hosts(status_label: Label, results_container: VBoxContainer, address_input: LineEdit, overlay: Node) -> void:
 	var scanner := LanDiscovery.new()
 	add_child(scanner)
 	var hosts: Array[Dictionary] = await scanner.discover_hosts(2.5)
