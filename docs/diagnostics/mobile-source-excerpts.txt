@@ -1,0 +1,901 @@
+
+===== MobileBoost.gd =====
+extends Node
+
+func _ready() -> void :
+
+	if OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]:
+		_optimize_renderer_pipeline()
+
+func _optimize_renderer_pipeline() -> void :
+	var vp: = get_viewport()
+
+
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+
+
+	vp.use_depth_prepass = false
+
+
+	vp.mesh_lod_threshold = 2.0
+
+
+	vp.use_debanding = false
+
+
+	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+
+
+
+	RenderingServer.directional_shadow_atlas_set_size(1024, true)
+
+	print("[MobileRendererBoost] Low-level mobile rendering pipeline optimizations applied.")
+
+===== MobileLightOptimizer.gd =====
+extends Node
+
+
+@export var max_lights: int = 8
+
+
+@export var update_interval: float = 0.1
+
+var _timer: float = 0.0
+
+func _process(delta: float) -> void :
+	_timer += delta
+	if _timer >= update_interval:
+		_timer = 0.0
+		_optimize_scene_lights()
+
+func _optimize_scene_lights() -> void :
+
+	var camera: = get_viewport().get_camera_3d()
+	if not camera:
+		return
+
+
+	var lights: Array[Light3D] = []
+	_get_lights_recursive(get_tree().root, lights)
+
+
+	if lights.size() <= max_lights:
+		for l in lights:
+			l.visible = true
+		return
+
+
+	var cam_pos: = camera.global_position
+	lights.sort_custom( func(a: Light3D, b: Light3D) -> bool:
+		return a.global_position.distance_squared_to(cam_pos) < b.global_position.distance_squared_to(cam_pos)
+	)
+
+
+	for i in range(lights.size()):
+		lights[i].visible = (i < max_lights)
+
+func _get_lights_recursive(node: Node, lights_list: Array[Light3D]) -> void :
+
+	if node is Light3D and not node is DirectionalLight3D:
+		lights_list.append(node)
+
+	for child in node.get_children():
+		_get_lights_recursive(child, lights_list)
+
+===== AllInOneMobileOptimizer.gd =====
+extends Node
+
+
+@export var max_lights: int = 8
+
+
+@export var update_interval: float = 0.15
+
+
+@export var target_mobile_fps: int = 60
+
+var _timer: float = 0.0
+
+func _ready() -> void :
+
+
+
+	if OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]:
+
+		Engine.max_fps = target_mobile_fps
+
+
+		RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+		RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+
+
+		_strip_heavy_environment_effects()
+
+func _process(delta: float) -> void :
+	_timer += delta
+	if _timer >= update_interval:
+		_timer = 0.0
+		_update_nearest_lights()
+
+func _update_nearest_lights() -> void :
+	var camera: = get_viewport().get_camera_3d()
+	if not camera:
+		return
+
+
+	var lights: Array[Light3D] = []
+	_find_lights_recursive(get_tree().root, lights)
+
+
+	if lights.size() <= max_lights:
+		for light in lights:
+			light.visible = true
+		return
+
+	var cam_pos: = camera.global_position
+
+	var cam_forward: = - camera.global_transform.basis.z.normalized()
+
+	lights.sort_custom( func(a: Light3D, b: Light3D) -> bool:
+		var dir_a: = (a.global_position - cam_pos)
+		var dir_b: = (b.global_position - cam_pos)
+
+		var dist_a: = dir_a.length_squared()
+		var dist_b: = dir_b.length_squared()
+
+
+		var in_front_a: = cam_forward.dot(dir_a.normalized()) > -0.2
+		var in_front_b: = cam_forward.dot(dir_b.normalized()) > -0.2
+
+
+		if in_front_a != in_front_b:
+			return in_front_a
+
+
+		return dist_a < dist_b
+	)
+
+
+	for i in range(lights.size()):
+		lights[i].visible = (i < max_lights)
+
+func _find_lights_recursive(node: Node, light_array: Array[Light3D]) -> void :
+
+	if node is Light3D and not node is DirectionalLight3D:
+		light_array.append(node)
+
+	for child in node.get_children():
+		_find_lights_recursive(child, light_array)
+
+func _strip_heavy_environment_effects() -> void :
+	var world_env: = _find_world_environment(get_tree().root)
+	if world_env and world_env.environment:
+		var env: = world_env.environment
+		env.ssao_enabled = false
+		env.ssr_enabled = false
+		env.glow_enabled = false
+		env.sdfgi_enabled = false
+
+func _find_world_environment(node: Node) -> WorldEnvironment:
+	if node is WorldEnvironment:
+		return node
+	for child in node.get_children():
+		var found: = _find_world_environment(child)
+		if found:
+			return found
+	return null
+
+===== controls_android.gd =====
+extends Node2D
+
+var controls: Dictionary = {}
+
+func _ready() -> void :
+
+	_collect_controls()
+
+	if Globals.touch_controls_defaults.is_empty():
+		Globals.touch_controls_defaults = capture_layout()
+
+	apply_layout(Globals.settings.get("touch_controls", {}))
+
+func _collect_controls() -> void :
+
+	controls.clear()
+
+	for c in $CanvasLayer.get_children():
+		if c is TouchScreenButton and c.texture_normal != null:
+			controls[c.name] = c
+		elif c is VirtualJoystick:
+			controls[c.name] = c
+
+func _input(event: InputEvent) -> void :
+
+
+
+
+
+	if event is InputEventMouseButton and event.pressed:
+		if _is_point_inside_any_button(event.position):
+			get_viewport().set_input_as_handled()
+
+func _is_point_inside_any_button(point: Vector2) -> bool:
+	for c in controls.values():
+		if c is TouchScreenButton and c.is_visible_in_tree():
+			if _is_point_in_rect(point, c.global_position, c.texture_normal.get_size() * c.scale):
+				return true
+	return false
+
+func _is_point_in_rect(point: Vector2, origin: Vector2, size: Vector2) -> bool:
+	return point.x >= origin.x and point.x <= origin.x + size.x and point.y >= origin.y and point.y <= origin.y + size.y
+
+func get_controls() -> Dictionary:
+	return controls
+
+func set_editing(editing: bool) -> void :
+
+	for c in controls.values():
+		if editing:
+			c.process_mode = Node.PROCESS_MODE_DISABLED
+		else:
+			c.process_mode = Node.PROCESS_MODE_INHERIT
+
+func capture_layout() -> Dictionary:
+
+	var layout: = {}
+
+	for name in controls:
+		var c = controls[name]
+		layout[name] = {
+			"pos": [c.global_position.x, c.global_position.y], 
+			"scale": [c.scale.x, c.scale.y], 
+			"opacity": c.modulate.a
+		}
+
+	return layout
+
+func apply_layout(layout: Dictionary) -> void :
+
+	for name in layout:
+		if controls.has(name):
+			var c = controls[name]
+			var data = layout[name]
+			c.global_position = Vector2(data["pos"][0], data["pos"][1])
+			c.scale = Vector2(data["scale"][0], data["scale"][1])
+			c.modulate.a = data.get("opacity", 1.0)
+
+func apply_default_layout() -> void :
+
+	apply_layout(Globals.touch_controls_defaults)
+
+func save_layout() -> void :
+
+	Globals.settings["touch_controls"] = capture_layout()
+	Globals.save_current_settings()
+
+===== scenes/main_menu/scripts/main_menu.gd relevant sections =====
+11-@export var start_button: Button
+12-@export var customization_button: Button
+13-@export var options_button: Button
+14-@export var credits_button: Button
+15-@export var exit_button: Button
+16-
+17-@export_category("Start Buttons")
+18-@export var start_host_button: Button
+19:@export var start_join_button: Button
+20-@export var start_local_button: Button
+21-@export var start_back_button: Button
+22-
+23-@export_category("Host Buttons")
+24-@export var host_original_button: Button
+25-@export var host_custom_button: Button
+26-@export var host_arcade_button: Button
+27-@export var host_back_button: Button
+--
+48-@export var language_select_handler: LanguageSelectHandler
+49-@export var touch_controls_editor: TouchControlsEditor
+50-@export var dialog_message_handler: DialogMessageHandler
+51-
+52-@export_category("Nodes")
+53-@export var mouse_blocker: Control
+54-@export var tooltip_label: Label
+55-@export var version_label: Label
+56:@export var name_edit: LineEdit
+57-
+58-var tooltip_tween: Tween
+59-var current_active_option_container: VBoxContainer
+60-var current_active_back_button_container: VBoxContainer
+61-var current_active_container: StringName
+62-var current_back_button: Button
+63-var max_button_appear_delay_counter: int = 99
+64-
+--
+78-	PauseMenu.force_close()
+79-	PlayerManager.reset()
+80-
+81-	GameManager.can_input_switch = true
+82-	GameManager.can_set_cursor = true
+83-	GameManager.in_lobby = false
+84-	GameManager.in_game = false
+85-	GameManager.local_game = false
+86:	GameManager.join_lobby_id = ""
+87-
+88-	GameManager.arcade_game = false
+89-
+90-	GlobalOverlay.overlay.color = Color.BLACK
+91-	PauseMenu.set_can_activate(false)
+92-	PauseMenu.in_game = false
+93-	dialog_message_handler.check_for_message()
+94-	language_select_handler.populate_languages()
+--
+280-		set_current_active_container(&"Start")
+281-	)
+282-
+283-	customization_button.pressed.connect( func():
+284-		GameManager.main_menu_last_button_pressed_path = customization_button.get_path()
+285-		GlobalOverlay.fade_overlay(Color.BLACK, 1.0)
+286-		await GlobalOverlay.fade_finished
+287-		MusicManager.filter_controller.begin_shift(MusicManager.filter_controller.get_cutoff_hz(), 300, 1, 1)
+288:		get_tree().change_scene_to_file("res://scenes/character_customization.tscn")
+289-	)
+290-
+291-	options_button.pressed.connect( func():
+292-		set_current_active_container(&"Options")
+293-		options_handler.active = true
+294-	)
+295-
+296-	credits_button.pressed.connect( func():
+--
+370-	)
+371-
+372-
+373-
+374-	start_host_button.pressed.connect( func():
+375-		set_current_active_container(&"Host")
+376-	)
+377-
+378:	start_join_button.pressed.connect( func():
+379-
+380-		var clipboard = DisplayServer.clipboard_get().strip_edges().to_upper()
+381-		var is_direct: bool = clipboard.count(":") == 1
+382-		if is_direct:
+383-			var parts: PackedStringArray = clipboard.split(":")
+384-			if not (parts.size() == 2 and parts[0].is_valid_ip_address() and parts[1].is_valid_int()):
+385-				is_direct = false
+386-
+387-		var is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18
+388-
+389-		if not is_direct and not is_steam_code and clipboard.length() != 6:
+390-			set_tooltip(tr("LOC_TAG_NO_ROOM_ID"), Color.CRIMSON)
+391-			return
+392-
+393:		GameManager.join_lobby_id = clipboard
+394-		GameManager.host_game = false
+395-		GameManager.custom_game = false
+396-
+397-		switch_to_lobby_scene()
+398-
+399-	)
+400-
+401-	start_local_button.pressed.connect( func():
+--
+467-	_save_player_name()
+468-
+469-	MusicManager.filter_controller.begin_shift(MusicManager.filter_controller.get_cutoff_hz(), 300, 4, 1)
+470-	hide_active_container()
+471-
+472-	GlobalOverlay.fade_overlay(Color.BLACK, 1.0)
+473-	await GlobalOverlay.fade_finished
+474-
+475:	get_tree().change_scene_to_file("res://scenes/lobby/lobby_scene.tscn")
+476-
+477-func _save_player_name():
+478-
+479-	var new_name: = name_edit.text.strip_edges()
+480-
+481-	if new_name.is_empty():
+482-		new_name = ""
+483-		name_edit.text = ""
+--
+489-func switch_to_local_lobby_scene():
+490-
+491-	MusicManager.filter_controller.begin_shift(MusicManager.filter_controller.get_cutoff_hz(), 300, 4, 1)
+492-	hide_active_container()
+493-
+494-	GlobalOverlay.fade_overlay(Color.BLACK, 1.0)
+495-	await GlobalOverlay.fade_finished
+496-
+497:	get_tree().change_scene_to_file("res://scenes/local_lobby/local_lobby.tscn")
+498-
+499-func set_external_scene_signals():
+500-
+501-	credits_scene.scroll_finished.connect( func():
+502-		GlobalOverlay.fade_overlay(Color.BLACK, 1.0)
+503-		await GlobalOverlay.fade_finished
+504-		credits_scene.visible = false
+505-		GlobalOverlay.fade_overlay(Color(0.0, 0.0, 0.0, 0.0))
+
+===== modules/multiplayer/network_manager.gd relevant sections =====
+159-	await backend_ready
+160-
+161-	GameManager.host_mode_enabled = true
+162-	active_backend.add_client_to_join_queue.connect( func(_network_manager):
+163-		player_added_to_join_queue.emit(_network_manager)
+164-	)
+165-	active_backend.join_host(player_name)
+166-
+167:func start_client(player_name: String, room_code: String = "") -> void :
+168-
+169-	create_backend()
+170-	await backend_ready
+171-
+172-	GameManager.host_mode_enabled = false
+173-	var direct: bool = _is_direct_address(room_code)
+174-	if direct:
+175-		active_backend.join_client_direct(player_name, room_code)
+--
+241-
+242-	lobbies_fetched.emit(lobbies)
+243-
+244-
+245-
+246-@rpc("any_peer", "call_remote", "reliable")
+247-func load_game_scene_rpc(is_reconnect: bool = false):
+248-	GameManager.reconnect = is_reconnect
+249:	get_tree().change_scene_to_packed(game_scene)
+250-
+251-@rpc("any_peer", "call_remote", "reliable")
+252-func add_player_to_join_queue_rpc(_network_id: int):
+253-
+254-	if not multiplayer.is_server():
+255-		return
+256-
+257-	player_added_to_join_queue.emit(_network_id)
+--
+263-		return
+264-
+265-	player_removed_from_join_queue.emit(_network_id)
+266-
+267-@rpc("authority", "reliable")
+268-func host_loaded(skip_intro: bool):
+269-	Globals.skipping_intro_cutscene = skip_intro
+270-	if not multiplayer.is_server():
+271:		get_tree().change_scene_to_packed(game_scene)
+272-
+273-@rpc("any_peer", "reliable")
+274-func client_loaded(network_id):
+275-
+276-	if multiplayer.is_server():
+277-
+278-		players_loaded.append(network_id)
+279-		on_client_loaded.emit(network_id)
+
+===== scenes/lobby/scripts/lobby_scene.gd relevant sections =====
+59-	lobby_handler.playlist_button.visible = false
+60-
+61-	load_timeout_timer.timeout.connect(_on_load_timeout)
+62-	load_timeout_timer.start()
+63-
+64-	if GameManager.host_game:
+65-		start_host()
+66-	else:
+67:		start_client()
+68-
+69-	GlobalOverlay.fade_overlay(Color(0.0, 0.0, 0.0, 0.0), 0.5)
+70-	await GlobalOverlay.fade_finished
+71-
+72-func _process(_delta: float) -> void :
+73-
+74-	if Input.is_action_just_pressed("lobby_toggle_debug_player"):
+75-		if multiplayer and not multiplayer.is_server():
+--
+145-		await GlobalOverlay.fade_finished
+146-
+147-		await get_tree().create_timer(1, false).timeout
+148-
+149-		NetworkManager.cancel(multiplayer.get_unique_id())
+150-
+151-		if not is_inside_tree():
+152-			return
+153:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+154-	)
+155-
+156-	lobby_handler.skip_intro_toggled.connect( func():
+157-		Globals.skipping_intro_cutscene = !Globals.skipping_intro_cutscene
+158-		set_skip_intro_text(Globals.skipping_intro_cutscene)
+159-	)
+160-
+161-	lobby_handler.start_pressed.connect( func():
+--
+170-		NetworkManager.leave_lobby()
+171-		NetworkManager.cancel(multiplayer.get_unique_id())
+172-
+173-		GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+174-		set_ambience(false)
+175-
+176-		await GlobalOverlay.fade_finished
+177-		GameManager.main_menu_dialog_message = ""
+178:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+179-
+180-	)
+181-
+182-func start_host():
+183-
+184-	hide_scene_roots()
+185-
+186-	NetworkManager.on_server_created.connect( func():
+187-		player_order_by_seat = {0: 1, 1: -1, 2: -1, 3: -1}
+188-		player_list_updated_rpc.rpc(player_order_by_seat)
+189-		lobby_handler.update_room_code_display()
+190-		fade_loading_screen()
+191-	)
+192-	NetworkManager.active_backend_type = NetworkManager.NetworkBackendType.Relay
+193-	NetworkManager.start_host(_player_name())
+194-
+195:func start_client():
+196-
+197:	if GameManager.join_lobby_id.is_empty():
+198-		GameManager.main_menu_message = tr("LOC_ROOM_UNKNOWN")
+199-		GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+200-		set_ambience(false)
+201-		await GlobalOverlay.fade_finished
+202:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+203-
+204-	hide_scene_roots()
+205-	loading_screen.visible = true
+206:	NetworkManager.active_backend_type = NetworkManager.backend_type_for_join_code(GameManager.join_lobby_id)
+207:	NetworkManager.start_client(_player_name(), GameManager.join_lobby_id)
+208-
+209-func _player_name() -> String:
+210-
+211-	var name: String = str(Globals.settings.get("player_name", ""))
+212-	if name.is_empty():
+213-		return "Player " + str(multiplayer.get_unique_id())
+214-	return name
+215-
+--
+265-
+266-	set_ambience(false)
+267-
+268-	GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+269-	MusicManager.fade_out_menu_music(1)
+270-	await GlobalOverlay.fade_finished
+271-
+272-	if multiplayer.is_server():
+273:		get_tree().change_scene_to_packed(game_scene)
+274-
+275-@rpc("any_peer", "call_remote", "reliable")
+276-func host_left_rpc():
+277-
+278-	GameManager.main_menu_dialog_message = tr("LOC_ROOM_DISBANDED")
+279-
+280-	GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+281-	set_ambience(false)
+282-	await GlobalOverlay.fade_finished
+283-
+284-	if not is_inside_tree():
+285-		return
+286:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+287-
+288-@rpc("any_peer", "call_remote", "reliable")
+289-func request_player_debug_rpc(_network_id: int):
+290-
+291-	if multiplayer.is_server():
+292-
+293-		for player_info in NetworkManager.active_backend.connected_players.values():
+294-			if player_info["peer_id"] == _network_id:
+--
+406-
+407-		GameManager.main_menu_dialog_message = fail_reason
+408-		GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+409-		set_ambience(false)
+410-		await GlobalOverlay.fade_finished
+411-
+412-		if not is_inside_tree():
+413-			return
+414:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+415-
+416-func _on_join_allowed(reconnect: bool, game_in_progress: bool, _debug_only: bool):
+417-	update_player_list()
+418-
+419-	if not game_in_progress:
+420-
+421-		lobby_handler.set_active(true)
+422-		player_joined_lobby_rpc.rpc_id(1, multiplayer.get_unique_id())
+--
+454-		NetworkManager.RefuseReason.SessionEnded:
+455-			message = tr("LOC_ROOM_DISBANDED")
+456-		NetworkManager.RefuseReason.HostLeft:
+457-			message = tr("LOC_ROOM_DISBANDED")
+458-
+459-	GameManager.main_menu_dialog_message = message
+460-	if not is_inside_tree():
+461-		return
+462:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+463-
+464-
+465-func _on_host_disconnected():
+466-
+467-	if multiplayer:
+468-
+469-		var network_id: int = -1
+470-		if multiplayer.multiplayer_peer:
+--
+476-	set_ambience(false)
+477-
+478-	GameManager.main_menu_dialog_message = tr("LOC_ROOM_DISBANDED")
+479-	GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+480-	await GlobalOverlay.fade_finished
+481-
+482-	if not is_inside_tree():
+483-		return
+484:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+485-
+486-func _on_peer_disconnected(_network_id: int):
+487-	NetworkManager.remove_player(_network_id)
+488-
+489-	if multiplayer and not multiplayer.is_server():
+490-		return
+491-
+492-	for key in player_order_by_seat.keys():
+--
+508-
+509-	GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+510-	set_ambience(false)
+511-	await GlobalOverlay.fade_finished
+512-
+513-	GameManager.main_menu_dialog_message = tr("LOC_TAG_CONNECTION_TIMEOUT")
+514-	if not is_inside_tree():
+515-		return
+516:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+517-
+518-func _on_unpaused():
+519-
+520-	if playlist_handler.active:
+521-		return
+522-
+523-	get_viewport().gui_release_focus()
+524-	if GameManager.is_using_controller():
+
+===== autoloads/globals.gd relevant sections =====
+277-	"sfx_volume": 1.0, 
+278-	"vsync": true, 
+279-	"fullscreen": true, 
+280-	"language": "EN", 
+281-	"original_finished": false, 
+282-	"custom_shuffled": false, 
+283-	"player_name": "", 
+284-	"touch_controls": {}, 
+285:	"scaling_3d_scale": 0.6
+286-}
+287-
+288-var touch_controls_defaults: Dictionary = {}
+289-
+290-var game_settings: Dictionary = {
+291-	"duck_hunt:look_sensitivity": 1.0
+292-}
+293-
+--
+454-			json.data.get("custom_shuffled", Globals.default_settings.get("custom_shuffled"))
+455-		)
+456-		settings["player_name"] = (
+457-			json.data.get("player_name", Globals.default_settings.get("player_name"))
+458-		)
+459-		settings["touch_controls"] = (
+460-			json.data.get("touch_controls", Globals.default_settings.get("touch_controls"))
+461-		)
+462:		settings["scaling_3d_scale"] = (
+463:			json.data.get("scaling_3d_scale", Globals.default_settings.get("scaling_3d_scale"))
+464-		)
+465-
+466-		set_bus_volume_linear("Master", settings["master_volume"])
+467-		set_bus_volume_linear("MUSIC", settings["music_volume"])
+468-		set_bus_volume_linear("SFX", settings["sfx_volume"])
+469-		set_vsync(settings["vsync"])
+470-		set_fullscreen(settings["fullscreen"])
+471:		set_scaling_3d_scale(settings["scaling_3d_scale"])
+472-		TranslationServer.set_locale(settings["language"])
+473-		Globals.locale_changed.emit()
+474-		showing_post_original_menu = settings["original_finished"]
+475-
+476-	PauseMenu.apply_settings()
+477-
+478-
+479-func save_game_settings():
+--
+558-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+559-	else:
+560-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+561-		await get_tree().physics_frame
+562-
+563-		var display_size = DisplayServer.screen_get_size()
+564-		get_window().size = display_size * 0.5
+565-
+566:func set_scaling_3d_scale(_value: float):
+567-
+568:	settings.set("scaling_3d_scale", _value)
+569:	get_window().scaling_3d_scale = clampf(_value, 0.1, 1.0)
+570-
+571-func enable_debug_tools():
+572-
+573-	DebugTools.set_active(true)
+
+===== project.godot relevant sections =====
+23-boot_splash/use_filter=false
+24-config/icon="uid://dc6cohhth1tve"
+25-
+26-[audio]
+27-
+28-buses/default_bus_layout="res://bus_layout.tres"
+29-driver/enable_input=true
+30-
+31:[autoload]
+32-
+33:Globals="*res://autoloads/globals.gd"
+34-Steamworks="*res://modules/steamworks/steamworks.gd"
+35-NetworkManager="*res://modules/multiplayer/network_manager.gd"
+36-Matchmaker="*res://modules/matchmaker/matchmaker.gd"
+37:GameManager="*res://autoloads/game_manager.gd"
+38:PlayerManager="*res://autoloads/player_manager.tscn"
+39:DecalManager="*res://autoloads/decal_manager.tscn"
+40:EffectManager="*res://autoloads/effect_manager.tscn"
+41:SoundManager="*res://autoloads/sound_manager.tscn"
+42:CursorManager="*res://autoloads/cursor_manager.tscn"
+43-Shaker="*res://addons/shaker/src/Shaker.gd"
+44-PauseMenu="*res://modules/pause_menu/pause_menu.tscn"
+45-GlobalOverlay="*res://modules/global_overlay/global_overlay.tscn"
+46:MusicManager="*res://autoloads/music_manager.tscn"
+47:PropManager="*res://autoloads/prop_manager.tscn"
+48-MultiplayerInput="*res://addons/multiplayer_input/multiplayer_input.gd"
+49:AchievementManager="*res://autoloads/achievement_manager.gd"
+50:DebugTools="*res://autoloads/debug_tools.tscn"
+51-LocalizationDebugMenu="*res://scenes/localization_debug_menu.tscn"
+52-ControlsAndroid="*res://CONTROLS.tscn"
+53-AllInOneMobileOptimizer="*res://AllInOneMobileOptimizer.gd"
+54-
+55-[display]
+56-
+57-window/size/viewport_width=960
+58-window/size/viewport_height=540
+--
+371-[network]
+372-
+373-matchmaker_url="http://127.0.0.1:8787"
+374-relay_url="wss://machine-party-relay.ahmedrobin2112.workers.dev"
+375-
+376-[rendering]
+377-
+378-rendering_device/pipeline_cache/save_chunk_size_mb=16.000001
+379:renderer/rendering_method="mobile"
+380-textures/vram_compression/import_etc2_astc=true
+381-lights_and_shadows/directional_shadow/size=2048
+382-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+383-scaling_3d/scale=0.6699999999999999
+384-environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+385-occlusion_culling/use_occlusion_culling=true
+386-lights_and_shadows/positional_shadow/atlas_size=2048
+387-lights_and_shadows/directional_shadow/quantized_depth_bits=8
+
+===== main_menu.gd complete around join controls =====
+		touch_controls_editor.set_active(true)
+	)
+
+	touch_controls_editor.back_requested.connect( func():
+		GameManager.main_menu_last_button_pressed_path = options_edit_controls_button.get_path()
+		set_current_active_container(&"Options")
+		options_handler.active = true
+	)
+
+	options_back_button.pressed.connect( func():
+		GameManager.main_menu_last_button_pressed_path = options_button.get_path()
+
+		options_handler.save_settings()
+		options_handler.active = false
+		set_current_active_container(&"Main")
+	)
+
+
+
+	language_select_handler.language_selected.connect( func(_language_key):
+		GameManager.main_menu_last_button_pressed_path = options_language_button.get_path()
+
+		Globals.settings["language"] = _language_key
+		TranslationServer.set_locale(_language_key)
+		Globals.locale_changed.emit()
+		options_handler.save_settings()
+
+		set_current_active_container(&"Options")
+		options_handler.active = true
+		await container_hidden
+		language_select_handler.set_active(false)
+	)
+
+	language_back_button.pressed.connect( func():
+		GameManager.main_menu_last_button_pressed_path = options_language_button.get_path()
+
+		set_current_active_container(&"Options")
+		options_handler.active = true
+		await container_hidden
+		language_select_handler.set_active(false)
+	)
+
+
+
+	start_host_button.pressed.connect( func():
+		set_current_active_container(&"Host")
+	)
+
+	start_join_button.pressed.connect( func():
+
+		var clipboard = DisplayServer.clipboard_get().strip_edges().to_upper()
+		var is_direct: bool = clipboard.count(":") == 1
+		if is_direct:
+			var parts: PackedStringArray = clipboard.split(":")
+			if not (parts.size() == 2 and parts[0].is_valid_ip_address() and parts[1].is_valid_int()):
+				is_direct = false
+
+		var is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18
+
+		if not is_direct and not is_steam_code and clipboard.length() != 6:
+			set_tooltip(tr("LOC_TAG_NO_ROOM_ID"), Color.CRIMSON)
+			return
+
+		GameManager.join_lobby_id = clipboard
+		GameManager.host_game = false
+		GameManager.custom_game = false
+
+		switch_to_lobby_scene()
+
+	)
+
+	start_local_button.pressed.connect( func():
+		set_current_active_container(&"Local")
+	)
+
+	start_back_button.pressed.connect( func():
+		GameManager.main_menu_last_button_pressed_path = start_button.get_path()
+
+		set_current_active_container(&"Main")
+	)
+
+
+
+	host_original_button.pressed.connect( func():
+
+		GameManager.host_game = true
+		GameManager.custom_game = false
+		GameManager.arcade_game = false
+
+		switch_to_lobby_scene()
+	)
+	host_custom_button.pressed.connect( func():
+
+		GameManager.host_game = true
+		GameManager.custom_game = true
+		GameManager.arcade_game = false
+
+		switch_to_lobby_scene()
+	)
+	host_arcade_button.pressed.connect( func():
+
+		GameManager.host_game = true
+		GameManager.custom_game = true
+		GameManager.arcade_game = true
+
+		switch_to_lobby_scene()
+
+===== project settings rendering block =====
+376:[rendering]
+377-
+378-rendering_device/pipeline_cache/save_chunk_size_mb=16.000001
+379-renderer/rendering_method="mobile"
+380-textures/vram_compression/import_etc2_astc=true
+381-lights_and_shadows/directional_shadow/size=2048
+382-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+383-scaling_3d/scale=0.6699999999999999
+384-environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+385-occlusion_culling/use_occlusion_culling=true
+386-lights_and_shadows/positional_shadow/atlas_size=2048
+387-lights_and_shadows/directional_shadow/quantized_depth_bits=8
