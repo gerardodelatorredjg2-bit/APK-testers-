@@ -63,6 +63,23 @@ jobs:
           } | tee validation-output/summary.txt
           git diff --no-index /dev/null "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd" > validation-output/lan-backend.patch || true
 
+      - name: Inspect LAN integration paths
+        run: |
+          set -euo pipefail
+          PROJECT="$PWD/downloaded/recovered"
+          echo "===== NETWORK MANAGER: dispatch and address handling ====="
+          grep -n -E 'enum NetworkBackendType|active_backend_type|func (create_backend|set_active_backend|start_host|start_client|join_host|join_client|_is_direct_address|backend_type_for_join_code|leave_lobby|cancel)' "$PROJECT/modules/multiplayer/network_manager.gd" || true
+          echo "===== NETWORK MANAGER SOURCE ====="
+          sed -n '1,340p' "$PROJECT/modules/multiplayer/network_manager.gd"
+          echo "===== ONLINE ENET BACKEND SOURCE ====="
+          sed -n '1,420p' "$PROJECT/modules/multiplayer/backends/online_enet_backend.gd"
+          echo "===== LAN BACKEND SOURCE ====="
+          sed -n '1,240p' "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd"
+          echo "===== LOBBY NETWORK CALLS ====="
+          grep -n -C 5 -E 'start_host|start_client|join_host|join_client|on_client_created|on_server_created|on_matchmaking_error|join_lobby_id' "$PROJECT/scenes/lobby/scripts/lobby_scene.gd" || true
+          echo "===== MAIN MENU JOIN DIALOG AND HOST CALLS ====="
+          grep -n -C 5 -E '_show_lan_join_dialog|_join_with_address_or_code|start_join_button|start_host_button|host_game|join_lobby_id' "$PROJECT/scenes/main_menu/scripts/main_menu.gd" || true
+
       - name: Install Godot 4.5.2
         run: |
           set -euo pipefail
@@ -87,6 +104,18 @@ jobs:
           echo "ETC2 imported textures: $ETC2_COUNT" | tee -a validation-output/summary.txt
           test "$ETC2_COUNT" -gt 0
           echo "Godot editor import completed without GDScript parse errors." | tee -a validation-output/summary.txt
+
+      - name: Launch main scene headlessly
+        run: |
+          set -euo pipefail
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 90s "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" --quit-after 180 --verbose \
+            2>&1 | tee validation-output/main-scene-runtime.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Invalid call\.|Attempt to call function|Node not found" validation-output/main-scene-runtime.log; then
+            echo "Runtime smoke test detected a script or scene error."
+            exit 1
+          fi
+          echo "Main scene headless runtime smoke test passed." | tee -a validation-output/summary.txt
 
       - name: Upload validation results
         if: always()
