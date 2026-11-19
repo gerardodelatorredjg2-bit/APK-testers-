@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -1457,6 +1458,9 @@ for check_path, required_strings in checks.items():
 audio_repair_script = Path(__file__).with_name("repair_ogg_comments.py")
 if not audio_repair_script.is_file():
 	raise SystemExit(f"Required audio metadata repair tool is missing: {audio_repair_script}")
+if shutil.which("ffmpeg") is None:
+	subprocess.run(["sudo", "apt-get", "update"], check=True)
+	subprocess.run(["sudo", "apt-get", "install", "-y", "ffmpeg"], check=True)
 subprocess.run([sys.executable, str(audio_repair_script), str(root)], check=True)
 
 print("Mobile performance baseline, in-game graphics menu, touch visibility toggle, Android JOIN keyboard, minigame load guards and lossless Ogg metadata repair applied.")
