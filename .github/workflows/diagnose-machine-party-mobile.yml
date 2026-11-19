@@ -51,3 +51,34 @@ jobs:
           git add "$REPORT"
           git commit -m "Add gameplay loading flow audit"
           git push origin "HEAD:${{ github.ref_name }}"
+
+          INPUT_REPORT="$PWD/docs/diagnostics/mobile-input-performance.txt"
+          {
+            echo "===== JOYSTICK FILES ====="
+            find "$PROJECT" -type f \( -iname '*joystick*' -o -iname '*virtual*stick*' \) -print | sort
+            echo
+            echo "===== VIRTUAL JOYSTICK DECLARATIONS AND INPUT BRIDGES ====="
+            grep -R -n --include='*.gd' -E 'class_name VirtualJoystick|VirtualJoystick|Input\.action_(press|release)|Input\.parse_input_event' "$PROJECT/addons" "$PROJECT" 2>/dev/null | head -240 || true
+            echo
+            echo "===== GAMEPLAY INPUT AND MOVEMENT CALL SITES ====="
+            grep -R -n --include='*.gd' -E 'Input\.get_vector|Input\.get_axis|Input\.is_action_pressed|move_and_slide|set_physics_process|_physics_process' "$PROJECT/minigames" "$PROJECT/modules" 2>/dev/null | head -320 || true
+            echo
+            echo "===== EXPLODING COLLAR RACE SCRIPTS ====="
+            find "$PROJECT/minigames/exploding_collar_race" -type f -name '*.gd' -print0 | sort -z | while IFS= read -r -d '' file; do
+              echo
+              echo "----- ${file#"$PROJECT/"} -----"
+              sed -n '1,260p' "$file"
+            done
+            echo
+            echo "===== ANDROID CONTROLS AND MOBILE OPTIMIZER ====="
+            for file in controls_android.gd AllInOneMobileOptimizer.gd MobileBoost.gd autoloads/globals.gd modules/pause_menu/scripts/pause_menu.gd; do
+              if [ -f "$PROJECT/$file" ]; then
+                echo
+                echo "----- $file -----"
+                sed -n '1,360p' "$PROJECT/$file"
+              fi
+            done
+          } | tee "$INPUT_REPORT"
+          git add "$INPUT_REPORT"
+          git commit -m "Add mobile joystick and performance audit"
+          git push origin "HEAD:${{ github.ref_name }}"
