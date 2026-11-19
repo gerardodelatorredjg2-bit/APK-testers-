@@ -127,7 +127,6 @@ jobs:
           architectures/arm64-v8a=true
           architectures/x86=false
           architectures/x86_64=false
-          vram_texture_compression/for_mobile=true
           version/code=3
           version/name="1.0.1-LAN"
           package/unique_name="com.godot.game"
@@ -191,10 +190,17 @@ jobs:
         run: |
           set -euo pipefail
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          grep -q 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
+          grep -q 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
+          # The ETC2/ASTC project setting does not retroactively convert textures
+          # already imported for desktop. Remove only the generated import cache.
+          rm -rf "$PROJECT/.godot/imported"
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 25m "$GODOT_BIN" --headless --editor \
-            --path "$PWD/downloaded/recovered" --quit
-          test -d downloaded/recovered/.godot
+            --path "$PROJECT" --quit
+          test -d "$PROJECT/.godot/imported"
+          echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
 
       - name: Export Android APK
         run: |

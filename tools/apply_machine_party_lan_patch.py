@@ -330,6 +330,21 @@ else:
         project_lines[existing_index] = mobile_setting
     else:
         project_lines.insert(rendering_index + 1, mobile_setting)
+
+# Android export requires mobile ETC2/ASTC import variants. This is a project
+# setting (not an Android preset option), and the import cache must be rebuilt
+# after enabling it so .etc2.ctex files are actually generated.
+etc2_key = "textures/vram_compression/import_etc2_astc"
+etc2_setting = etc2_key + "=true"
+etc2_index = next(
+    (i for i, line in enumerate(project_lines[rendering_index + 1:], rendering_index + 1)
+     if line.strip().startswith(etc2_key + "=")),
+    -1,
+)
+if etc2_index >= 0:
+    project_lines[etc2_index] = etc2_setting
+else:
+    project_lines.insert(rendering_index + 1, etc2_setting)
 project_file.write_text("\\n".join(project_lines) + "\\n", encoding="utf-8")
 
 # Repair an unrelated but real script-parse failure in the isolated Shape Cutter
