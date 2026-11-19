@@ -1064,7 +1064,7 @@ import re
 # Remove every earlier generated copy of these helpers, even if an original
 # _process function appears after them in the recovered script.
 for function_name in ("set_controls_visible", "are_controls_visible", "toggle_controls_visible", "_refresh_context_visibility"):
-    pattern = rf"(?ms)^func {function_name}\([^\n]*\):\n.*?(?=^(?:func |static func |signal |var |const |@|class_name |extends )|\Z)"
+    pattern = rf"(?ms)^func {function_name}\([^\n]*?\)(?:\s*->\s*[^:\n]+)?\s*:\n.*?(?=^(?:func |static func |signal |var |const |@|class_name |extends )|\Z)"
     controls_text = re.sub(pattern, "", controls_text)
 
 if "var _user_controls_visible: bool" not in controls_text:
