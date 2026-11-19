@@ -1090,8 +1090,15 @@ func _refresh_context_visibility() -> void:
 		var allowed_in_customization: bool = control_name in ["TouchScreenButton5", "TouchScreenButton6"]
 		control.visible = _user_controls_visible and (not customization or allowed_in_customization)
 '''
-if "\nfunc _process(_delta: float) -> void:" in controls_text:
-    controls_text = controls_text[:controls_text.index("\nfunc _process(_delta: float) -> void:") + 1] + controls_functions
+# Replace only the previous helper block; never truncate the remainder of controls_android.gd.
+process_marker = "\nfunc _process(_delta: float) -> void:"
+process_start = controls_text.find(process_marker)
+if process_start >= 0:
+    next_function = controls_text.find("\nfunc ", process_start + len(process_marker))
+    if next_function < 0:
+        controls_text = controls_text[:process_start] + "\n\n" + controls_functions
+    else:
+        controls_text = controls_text[:process_start] + "\n\n" + controls_functions + controls_text[next_function:]
 else:
     controls_text += "\n\n" + controls_functions
 (root / controls_path).write_text(controls_text, encoding="utf-8")
@@ -1121,6 +1128,7 @@ var _environment_cache: Dictionary = {}
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_settings()
+	call_deferred("_apply_controls_visibility")
 	if get_tree():
 		get_tree().scene_changed.connect(_on_scene_changed)
 		get_tree().node_added.connect(_on_node_added)
@@ -1140,6 +1148,11 @@ func _load_settings() -> void:
 		)
 		_controls_shown = bool(config.get_value("controls", "visible", true))
 
+func _apply_controls_visibility() -> void:
+	var touch_controls := get_node_or_null("/root/ControlsAndroid")
+	if touch_controls and touch_controls.has_method("set_controls_visible"):
+		touch_controls.set_controls_visible(_controls_shown)
+
 func _save_settings() -> void:
 	var config := ConfigFile.new()
 	config.set_value("graphics", "quality_profile", quality_profile)
@@ -1150,6 +1163,7 @@ func _save_settings() -> void:
 
 func _on_scene_changed() -> void:
 	_scene_root = get_tree().current_scene
+	_apply_controls_visibility()
 	_light_visibility_cache.clear()
 	_light_shadow_cache.clear()
 	_mesh_shadow_cache.clear()
