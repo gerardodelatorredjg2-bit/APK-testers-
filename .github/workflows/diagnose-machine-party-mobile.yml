@@ -61,7 +61,7 @@ jobs:
             find "$PROJECT" -type f \( -iname '*.png' -o -iname '*.webp' -o -iname '*.jpg' -o -iname '*.ogg' -o -iname '*.wav' \) -printf '%s %p\n' | sort -nr | head -100 || true
             echo
             echo "===== CHARACTER CUSTOMIZATION SOURCE FILES ====="
-            find "$PROJECT" -type f \\( -path '*character customization*' -o -iname '*customization*' -o -iname '*cosmetic*' -o -iname '*accessor*' \\) \\( -name '*.gd' -o -name '*.tscn' -o -name '*.tres' -o -name '*.import' \\) -print | sort
+            find "$PROJECT" -type f \( -path '*character customization*' -o -iname '*customization*' -o -iname '*cosmetic*' -o -iname '*accessor*' \) \( -name '*.gd' -o -name '*.tscn' -o -name '*.tres' -o -name '*.import' \) -print | sort
             while IFS= read -r file; do
               echo
               echo "----- ${file#"$PROJECT/"} -----"
@@ -70,10 +70,10 @@ jobs:
                 *.tscn|*.tres) sed -n '1,260p' "$file" ;;
                 *.import) sed -n '1,100p' "$file" ;;
               esac
-            done < <(find "$PROJECT" -type f \\( -path '*character customization*' -o -iname '*customization*' -o -iname '*cosmetic*' -o -iname '*accessor*' \\) \\( -name '*.gd' -o -name '*.tscn' -o -name '*.tres' -o -name '*.import' \\) -print | sort)
+            done < <(find "$PROJECT" -type f \( -path '*character customization*' -o -iname '*customization*' -o -iname '*cosmetic*' -o -iname '*accessor*' \) \( -name '*.gd' -o -name '*.tscn' -o -name '*.tres' -o -name '*.import' \) -print | sort)
             echo
             echo "===== CUSTOMIZATION RESOURCE REFERENCES ====="
-            grep -RIn --include='*.gd' --include='*.tscn' --include='*.tres' -E 'hat|glasses|cosmetic|accessor|customization|SubViewport|ViewportTexture|texture *=|load\\(|preload\\(' "$PROJECT/scripts" "$PROJECT/scenes" "$PROJECT/modules" 2>/dev/null | grep -Ei 'custom|hat|glass|cosmetic|accessor|viewport' | head -700 || true
+            grep -RIn --include='*.gd' --include='*.tscn' --include='*.tres' -E 'hat|glasses|cosmetic|accessor|customization|SubViewport|ViewportTexture|texture *=|load\(|preload\(' "$PROJECT/scripts" "$PROJECT/scenes" "$PROJECT/modules" 2>/dev/null | grep -Ei 'custom|hat|glass|cosmetic|accessor|viewport' | head -700 || true
             echo
             echo "===== MENU / SCENE LIFECYCLE SOURCE ====="
             for rel in scenes/main_menu/scripts/main_menu.gd scenes/character_customization.tscn scenes/main_menu/main_menu.tscn autoloads/game_manager.gd modules/multiplayer/network_manager.gd modules/player_presence/player_presence.gd modules/effect_manager/effect_manager.gd modules/decal_manager/decal_manager.gd modules/prop_manager/scripts/prop_manager.gd; do
@@ -86,7 +86,7 @@ jobs:
             done
             echo
             echo "===== MOBILE RENDER / PROJECT SETTINGS ====="
-            grep -nE '^\\[rendering\\]|renderer/|textures/|scaling_3d|fps|physics/common|environment/defaults' "$PROJECT/project.godot" || true
+            grep -nE '^\[rendering\]|renderer/|textures/|scaling_3d|fps|physics/common|environment/defaults' "$PROJECT/project.godot" || true
           } > "$REPORT"
           cat "$REPORT"
       - uses: actions/upload-artifact@v4
