@@ -1,0 +1,248 @@
+name: Android emulator performance smoke report
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "recovery/ui-performance-review"
+    paths:
+      - ".github/workflows/android-emulator-performance.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  emulator-report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout performance branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fL --retry 3 "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o /tmp/android-cmdline-tools.zip
+          mkdir -p /tmp/android-cmdline-tools
+          unzip -q /tmp/android-cmdline-tools.zip -d /tmp/android-cmdline-tools
+          mv /tmp/android-cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "platform-tools" "build-tools;35.0.0" "platforms;android-35" "ndk;28.1.13356709" "cmake;3.10.2.4988404"
+
+      - name: Download recovered game source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded build report
+          gh run download 44350091150 --repo "$GH_REPO" --name machine-party-recovery --dir downloaded
+          test -f downloaded/recovered/project.godot
+          python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
+          rm -f downloaded/recovered/addons/audio_gate/audio_gate.gdextension
+          rm -f downloaded/recovered/addons/godotsteam/godotsteam.gdextension
+          rm -f downloaded/recovered/addons/steam-multiplayer-peer/godotsteam.gdextension
+          rm -f downloaded/recovered/addons/steam-multiplayer-peer/steam-multiplayer-peer.gdextension
+
+      - name: Configure x86_64 emulator-test export
+        run: |
+          set -euo pipefail
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p "$PROJECT/build" /home/runner/.android
+          cat > "$PROJECT/export_presets.cfg" <<'EOF'
+          [preset.0]
+          name="Android Emulator Test (ARM + x86_64)"
+          platform="Android"
+          runnable=true
+          advanced_options=false
+          dedicated_server=false
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+          export_path="build/MachineParty-LAN-emulator.apk"
+          patches=PackedStringArray()
+          encryption_include_filters=""
+          encryption_exclude_filters=""
+          seed=0
+          encrypt_pck=false
+          encrypt_directory=false
+
+          [preset.0.options]
+          custom_template/debug=""
+          custom_template/release=""
+          gradle_build/use_gradle_build=false
+          architectures/armeabi-v7a=true
+          architectures/arm64-v8a=true
+          architectures/x86=false
+          architectures/x86_64=true
+          version/code=5
+          version/name="1.0.2-LAN-emulator-test"
+          package/unique_name="com.godot.game"
+          package/name="Machine Party"
+          package/signed=true
+          keystore/debug="/home/runner/.android/debug.keystore"
+          keystore/debug_user="androiddebugkey"
+          keystore/debug_password="android"
+          permissions/internet=true
+          screen/immersive_mode=true
+          EOF
+          keytool -genkeypair -v -keystore /home/runner/.android/debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Repair Ogg metadata before import
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          python3 tools/repair_ogg_comments.py downloaded/recovered
+
+      - name: Install Godot 4.5.2 and Android export templates
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip" -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          GODOT_BIN="$(find /tmp/godot -type f -name 'Godot_*_linux.x86_64' | head -n1)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "$GODOT_BIN" > /tmp/godot-bin-path
+          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_export_templates.tpz" -o /tmp/godot-templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.5.2.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          if [ -d /tmp/godot-templates/templates ]; then
+            cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
+          else
+            cp -a /tmp/godot-templates/. "$TEMPLATE_DIR/"
+          fi
+          echo "4.5.2.stable" > "$TEMPLATE_DIR/version.txt"
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+
+      - name: Import project and export emulator APK
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          rm -rf "$PROJECT/.godot/imported"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 25m "$GODOT_BIN" --headless --editor --path "$PROJECT" --quit 2>&1 | tee build/import.log
+          timeout 20m "$GODOT_BIN" --headless --path "$PROJECT" --export-debug "Android Emulator Test (ARM + x86_64)" "$PWD/build/MachineParty-LAN-emulator.apk" 2>&1 | tee build/export.log
+          test -s build/MachineParty-LAN-emulator.apk
+          unzip -l build/MachineParty-LAN-emulator.apk | grep -E 'lib/(x86_64|arm64-v8a|armeabi-v7a)/' | head -30
+          echo "Emulator APK exported. It includes x86_64 only for CI compatibility; the production ARM APK is unchanged."
+
+      - name: Boot Android 11 emulator, install and profile app
+        id: emulator
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            set -euo pipefail
+            mkdir -p report
+            adb install -r build/MachineParty-LAN-emulator.apk
+            adb shell getprop ro.build.version.release > report/android-version.txt
+            adb shell getprop ro.product.model > report/device-model.txt
+            adb shell getprop ro.product.cpu.abi > report/device-abi.txt
+            adb shell monkey -p com.godot.game 1
+            sleep 75
+            adb shell dumpsys meminfo com.godot.game > report/memory.txt
+            adb shell dumpsys gfxinfo com.godot.game > report/gfxinfo.txt
+            adb shell dumpsys gfxinfo com.godot.game framestats > report/framestats.txt
+            adb shell dumpsys SurfaceFlinger --latency > report/surfaceflinger-latency.txt || true
+            adb shell top -b -n 1 > report/cpu-top.txt || true
+            adb logcat -d -t 12000 '*:E' > report/android-errors.txt || true
+            adb shell pidof com.godot.game > report/app-pid.txt || true
+            echo "App launched and sampled for 75 seconds on the Android 11 x86_64 emulator." > report/test-status.txt
+
+      - name: Assemble readable performance report
+        if: always()
+        env:
+          EMULATOR_OUTCOME: ${{ steps.emulator.outcome }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, os
+          out = []
+          def read(name):
+              p = Path("report") / name
+              return p.read_text(errors="replace") if p.exists() else ""
+          out += ["MACHINE PARTY — ANDROID EMULATOR PERFORMANCE SMOKE REPORT",
+                  "=======================================================",
+                  f"Emulator step result: {os.getenv('EMULATOR_OUTCOME', 'not run')}",
+                  f"Android version: {read('android-version.txt').strip() or 'not captured'}",
+                  f"Virtual device: {read('device-model.txt').strip() or 'not captured'}",
+                  f"Emulator ABI: {read('device-abi.txt').strip() or 'not captured'}",
+                  "",
+                  "IMPORTANT: this is an Android 11 x86_64 emulator using software graphics (SwiftShader),",
+                  "not a Samsung Galaxy J7 Prime. Its FPS/GPU results are NOT a reliable prediction of",
+                  "the J7 Prime's real performance. The test APK adds x86_64 for emulator compatibility;",
+                  "the production ARM APK is not modified by this workflow.",
+                  "",
+                  "The app is launched at its initial screen and sampled for 75 seconds. This workflow",
+                  "does not yet automate entry into every minigame, so it cannot certify per-minigame FPS.",
+                  "",
+                  "=== GRAPHICS FRAME STATISTICS (Android gfxinfo) ==="]
+          gfx = read("gfxinfo.txt")
+          keys = ("Total frames rendered", "Janky frames", "50th percentile", "90th percentile", "95th percentile", "99th percentile")
+          found = [line.strip() for line in gfx.splitlines() if any(k in line for k in keys)]
+          out += found if found else ["No usable gfxinfo frame counters were exposed for the Godot surface."]
+          out += ["", "=== MEMORY SUMMARY ==="]
+          mem = read("memory.txt")
+          found = [line.strip() for line in mem.splitlines() if re.search(r"TOTAL PSS:|TOTAL RSS:|Native Heap:|Dalvik Heap:|EGL mtrack:", line)]
+          out += found[:30] if found else ["Memory summary unavailable; see memory.txt."]
+          out += ["", "=== CPU SNAPSHOT (top) ==="]
+          cpu = read("cpu-top.txt")
+          out += cpu.splitlines()[:24] if cpu else ["CPU snapshot unavailable."]
+          out += ["", "=== ANDROID ERRORS ==="]
+          errors = read("android-errors.txt")
+          out += errors.splitlines()[-100:] if errors.strip() else ["No error-level logcat entries captured, or logcat was unavailable."]
+          out += ["", "=== LIMITATIONS ===",
+                  "- Emulator uses a virtual Pixel 2 profile, not Samsung J7 Prime hardware.",
+                  "- SwiftShader software rendering differs substantially from the Mali GPU.",
+                  "- Main-screen sampling only; minigame scenes need separate automated navigation or physical-device testing.",
+                  "- Treat frame statistics as diagnostic clues, not a J7 Prime FPS guarantee."]
+          Path("report/README-performance-report.txt").write_text("\n".join(out) + "\n")
+          print("\n".join(out))
+          PY
+
+      - name: Upload emulator performance report and raw diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-android-emulator-report
+          path: |
+            report/
+            build/import.log
+            build/export.log
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
