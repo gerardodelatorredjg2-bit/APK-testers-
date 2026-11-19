@@ -1691,8 +1691,57 @@ mobile_settings_text = replace_function_block(
 mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
 
 
+
+
+# Make the existing render-scale slider actually control mobile resolution.
+# Keep the image sharp by constraining mobile scale to 0.70..1.00 instead of
+# forcing 1.0 (which made the menu/pause slider appear to do nothing).
+globals_path = "autoloads/globals.gd"
+globals_text = (root / globals_path).read_text(encoding="utf-8")
+globals_text = replace_function_block(
+    globals_text,
+    "func set_scaling_3d_scale(_value: float):",
+    "func enable_debug_tools():",
+    '''func set_scaling_3d_scale(_value: float):
+\tif OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]:
+\t\t_value = clampf(_value, 0.70, 1.0)
+\telse:
+\t\t_value = clampf(_value, 0.1, 1.0)
+\tsettings.set("scaling_3d_scale", _value)
+\tget_window().scaling_3d_scale = _value
+
+''',
+    "functional mobile render-scale slider",
+)
+(root / globals_path).write_text(globals_text, encoding="utf-8")
+
+mobile_settings_path = root / "MobileGameSettings.gd"
+mobile_settings_text = (root / mobile_settings_path).read_text(encoding="utf-8")
+mobile_settings_text = mobile_settings_text.replace(
+    "\tget_window().scaling_3d_scale = 1.0",
+    '''\tvar saved_scale: float = float(Globals.settings.get("scaling_3d_scale", 1.0))
+\tget_window().scaling_3d_scale = clampf(saved_scale, 0.70, 1.0)''',
+)
+mobile_settings_text = mobile_settings_text.replace(
+    '''\tif _is_mobile() and _is_minigame_scene(_scene_root):
+\t\t_create_overlay()''',
+    '''\tvar is_main_menu: bool = _scene_root != null and _scene_root.scene_file_path == "res://scenes/main_menu/main_menu.tscn"
+\tif _is_mobile() and (_is_minigame_scene(_scene_root) or is_main_menu):
+\t\t_create_overlay()''',
+)
+mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
+
+# Shorten only the unnecessary startup wait; keep the original menu fade animation.
+patch(
+    "scenes/main_menu/scripts/main_menu.gd",
+    "await get_tree().create_timer(0.5).timeout",
+    "await get_tree().create_timer(0.15).timeout",
+)
+
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
+    "autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
     "MobileGameSettings.gd": ["if node is SubViewport:", "previous_light_count"],
     "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
     "MobileGameSettings.gd": ["QualityProfile.AUTO:\n\t\t\tfps_limit = 60"],
