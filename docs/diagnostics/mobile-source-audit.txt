@@ -1,0 +1,422 @@
+=== FILES MATCHING OPTIMIZER / SETTINGS / CONTROL ===
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/MobileBoost.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/controls_android.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label_data.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label.tscn
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label_data.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/utilities/speaker_controller.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/utilities/speaker_controller.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/utilities/filter_controller.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/utilities/speaker_controller_3d.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/utilities/filter_controller.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/utilities/speaker_controller_3d.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/MobileLightOptimizer.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/CONTROLS.tscn
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/MobileLightOptimizer.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/minigame/train_race/sign_gate_control.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/minigame/train_race/sign_gate_control.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/hires/controller_left_button_2x.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/hires/controller_left_button_2x.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/hires/controller_left_shoulder_button_wide_2x.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/hires/controller_left_shoulder_button_wide_2x.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/hires/controller_right_shoulder_button_wide_2x.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/hires/controller_right_shoulder_button_wide_2x.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_right_shoulder.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_analog.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_analog_alt.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_left_trigger.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_west.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_left_shoulder.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_west.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_east.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_analog.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_left_trigger.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_right_trigger.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_east.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_right_shoulder.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_south.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_left_shoulder.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_dpad.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_dpad.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_south.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_analog_alt.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_north.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_right_trigger.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/textures/ui/control/controller_button_north.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/AllInOneMobileOptimizer.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/MobileBoost.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/burn_recycle/models/anim_burn recycle control panel idle1/anim_burn recycle control panel idle1.glb.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/burn_recycle/animations/standing idle control panel.res
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/burn_recycle/animations/thrown on control panel death1.res
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/models/chisel gauntlet art2/chisel gauntlet art2_control panel rust hole.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/models/chisel gauntlet art2/chisel gauntlet art2_chisel gauntlet control panel1.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/models/chisel gauntlet art2/chisel gauntlet art2_control panel rust hole.png
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/models/chisel gauntlet art2/chisel gauntlet art2_chisel gauntlet control panel1.png.import
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/animations/chisel control panel idle1.res
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/local_lobby/scripts/local_lobby_player_controls.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/local_lobby/scripts/local_lobby_player_controls.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/local_lobby/components/local_lobby_player_controls.tscn
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/main_menu/scripts/touch_controls_editor.gd.uid
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/main_menu/scripts/touch_controls_editor.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/AllInOneMobileOptimizer.gd
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/controls_android.gd
+=== JOIN / ADDRESS / VIRTUAL KEYBOARD REFERENCES ===
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/local_lobby/local_lobby.tscn:3568:[node name="PlaylistName" type="LineEdit" parent="Control/Playlist/PresetPanel/MarginContainer/Panel/MarginContainer/TextureRect/MarginContainer/Control/MarginContainer/Control"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:67:		start_client()
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:115:				text_to_copy = NetworkManager.active_backend.room_code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:189:		lobby_handler.update_room_code_display()
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:195:func start_client():
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:197:	if GameManager.join_lobby_id.is_empty():
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:206:	NetworkManager.active_backend_type = NetworkManager.backend_type_for_join_code(GameManager.join_lobby_id)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:207:	NetworkManager.start_client(_player_name(), GameManager.join_lobby_id)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/lobby_scene.tscn:3577:[node name="PlaylistName" type="LineEdit" parent="Playlist/PresetPanel/MarginContainer/Panel/MarginContainer/TextureRect/MarginContainer/Control/MarginContainer/Control"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/debug_lobby/_remove/multiplayer_menu.tscn:2586:[node name="PlaylistName" type="LineEdit" parent="Old/MinigameList/PresetPanel/MarginContainer/Panel/MarginContainer/TextureRect/MarginContainer/Control/MarginContainer/Control"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/debug_lobby/_remove/multiplayer_menu.tscn:5545:[node name="PlaylistName" type="LineEdit" parent="Playlist/PresetPanel/MarginContainer/Panel/MarginContainer/TextureRect/MarginContainer/Control/MarginContainer/Control"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/debug_lobby/debug_lobby.tscn:3255:[node name="PlaylistName" type="LineEdit" parent="Playlist/PresetPanel/MarginContainer/Panel/MarginContainer/TextureRect/MarginContainer/Control/MarginContainer/Control"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/bootstrap/scripts/bootstrap.gd:59:		GameManager.join_lobby_id = lobby_code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/main_menu/scripts/main_menu.gd:56:@export var name_edit: LineEdit
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/main_menu/scripts/main_menu.gd:86:	GameManager.join_lobby_id = ""
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/main_menu/scripts/main_menu.gd:380:		var clipboard = DisplayServer.clipboard_get().strip_edges().to_upper()
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/main_menu/scripts/main_menu.gd:393:		GameManager.join_lobby_id = clipboard
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/main_menu/main_menu.tscn:5469:[node name="NameEdit" type="LineEdit" parent="MainMenuScene/NameMargin/NameVBox"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/lobby_handler/lobby_handler.gd:216:	var text_to_copy: String = backend.direct_connect_address if not backend.direct_connect_address.is_empty() else backend.room_code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/lobby_handler/lobby_handler.gd:220:func update_room_code_display():
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/lobby_handler/lobby_handler.gd:229:		elif not backend.room_code.is_empty():
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/lobby_handler/lobby_handler.gd:230:			copy_lobby_id_button.text = backend.room_code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:2586:[node name="PlaylistName" type="LineEdit" parent="Old/MinigameList/PresetPanel/MarginContainer/Panel/MarginContainer/TextureRect/MarginContainer/Control/MarginContainer/Control"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:5526:[node name="PlaylistName" type="LineEdit" parent="Playlist/PresetPanel/MarginContainer/Panel/MarginContainer/TextureRect/MarginContainer/Control/MarginContainer/Control"]
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.gd:193:	NetworkManager.start_client(debug_lobby_handler.name_entry.text)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.gd:201:	var clipboard = DisplayServer.clipboard_get()
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.gd:203:		GameManager.join_lobby_id = clipboard
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.gd:210:		NetworkManager.start_client(debug_lobby_handler.name_entry.text, int(clipboard))
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/network_manager.gd:167:func start_client(player_name: String, room_code: String = "") -> void :
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/network_manager.gd:173:	var direct: bool = _is_direct_address(room_code)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/network_manager.gd:175:		active_backend.join_client_direct(player_name, room_code)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/network_manager.gd:177:		active_backend.join_client(player_name, room_code)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_multiplayer_peer.gd:9:var room_code: String = ""
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_multiplayer_peer.gd:26:	room_code = code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_multiplayer_peer.gd:71:				"code": room_code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/multiplayer_backend.gd:17:var room_code: String = ""
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/multiplayer_backend.gd:44:func join_client(_player_name: String, _room_code: String = "") -> void :
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/online_enet_backend.gd:131:	room_code = await _register_room(player_name, upnp_active, advertised_ip)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/online_enet_backend.gd:182:func join_client(player_name: String, room_code: String = "") -> void :
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/online_enet_backend.gd:183:	self.room_code = room_code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/online_enet_backend.gd:185:	var info: Dictionary = await Matchmaker.lookup(room_code)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/online_enet_backend.gd:250:		if not room_code.is_empty():
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/online_enet_backend.gd:251:			Matchmaker.leave(room_code)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_backend.gd:62:	room_code = Matchmaker.generate_code()
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_backend.gd:65:	var server_error: Error = multiplayer_peer.connect_to_relay(_relay_url(), room_code, true)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_backend.gd:78:	print("RelayBackend: host registered room %s on relay %s" % [room_code, _relay_url()])
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_backend.gd:82:func join_client(player_name: String, room_code: String = "") -> void :
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_backend.gd:83:	self.room_code = room_code
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_backend.gd:85:	if room_code.is_empty():
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/relay_backend.gd:90:	var client_error: Error = multiplayer_peer.connect_to_relay(_relay_url(), room_code, false)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer/backends/enet_backend.gd:69:func join_client(player_name: String, _room_code: String = "") -> void :
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/game_manager.gd:25:var join_lobby_id: String = ""
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/game_manager.gd:133:	GameManager.join_lobby_id = str(_new_lobby_id)
+=== QUALITY / RENDER SETTINGS REFERENCES ===
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:5:@export var shadow_position: Vector2 = Vector2(2, 2)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:6:@export var text_shadow_position: Vector2 = Vector2(2, 2)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:61:	var shadow_points: PackedVector2Array = [
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:62:		start_point + shadow_position, 
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:63:		start_point + (direction * 32.0) + shadow_position, 
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:66:		) + shadow_position
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:70:	var start: Vector2 = top_left + shadow_position
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:74:	start = top_left + (Vector2.RIGHT * bound_size.x) + shadow_position
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:78:	start = top_left + Vector2(bound_size.x, bound_size.y) + shadow_position
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:82:	start = top_left + Vector2(0.0, bound_size.y) + shadow_position
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:87:		shadow_points, Color.BLACK, 2.0, false
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator_control.gd:90:		font, text_point + Vector2(0, -4) + text_shadow_position, 
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/location_indicator/location_indicator.gd:4:@export var shadow_offset: Vector2 = Vector2(2, 2)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/minigame/components/overlay/minigame_overlay.tscn:387:theme_override_constants/shadow_outline_size = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/local_multiplayer/local_overlay_template/local_overlay_template.tscn:41:theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/local_multiplayer/local_overlay_template/local_overlay_template.tscn:42:theme_override_constants/shadow_offset_x = 2
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/local_multiplayer/local_overlay_template/local_overlay_template.tscn:43:theme_override_constants/shadow_offset_y = 2
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label.tscn:18:theme_override_constants/shadow_offset_x = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label.tscn:19:theme_override_constants/shadow_offset_y = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/user_interface/intermission_control_input_label/intermission_control_input_label.tscn:20:theme_override_constants/shadow_outline_size = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/player_list_item/lobby_player_list_item.tscn:1073:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/player_list_item/lobby_player_list_item.tscn:1074:shadow_blur = 4.378
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/player_list_item/lobby_player_list_item.tscn:1080:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/player_list_item/lobby_player_list_item.tscn:1081:shadow_blur = 4.378
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/player_list_item/lobby_player_list_item.tscn:1087:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/components/player_list_item/lobby_player_list_item.tscn:1088:shadow_blur = 4.378
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:793:shadow_mesh = SubResource("ArrayMesh_vgv4a")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:834:shadow_mesh = SubResource("ArrayMesh_1ag7k")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:868:shadow_mesh = SubResource("ArrayMesh_34jd4")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:902:shadow_mesh = SubResource("ArrayMesh_tpft7")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:936:shadow_mesh = SubResource("ArrayMesh_urc2d")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:970:shadow_mesh = SubResource("ArrayMesh_oll1m")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1004:shadow_mesh = SubResource("ArrayMesh_jay0l")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1038:shadow_mesh = SubResource("ArrayMesh_jxh7j")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1072:shadow_mesh = SubResource("ArrayMesh_t166g")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1106:shadow_mesh = SubResource("ArrayMesh_3vl3y")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1140:shadow_mesh = SubResource("ArrayMesh_dxy65")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1174:shadow_mesh = SubResource("ArrayMesh_c04nl")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1208:shadow_mesh = SubResource("ArrayMesh_lp0is")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:1247:shadow_mesh = SubResource("ArrayMesh_o6wx7")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:5008:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:5009:shadow_bias = 0.02
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:5010:shadow_opacity = 0.88
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:5011:shadow_blur = 2.626
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:5236:theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/multiplayer_lobby/multiplayer_menu.tscn:5238:theme_override_constants/shadow_offset_x = 2
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/pause_menu/scripts/pause_menu.gd:64:		Globals.settings.get("scaling_3d_scale", Globals.default_settings.get("scaling_3d_scale"))
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/pause_menu/scripts/pause_menu.gd:94:		Globals.set_scaling_3d_scale(value)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/pause_menu/scripts/pause_menu.gd:285:		"scaling_3d_scale": resolution_slider.value, 
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/modules/pause_menu/scripts/pause_menu.gd:306:		Globals.settings.get("scaling_3d_scale", Globals.default_settings.get("scaling_3d_scale"))
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/globals.gd:285:	"scaling_3d_scale": 0.6
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/globals.gd:462:		settings["scaling_3d_scale"] = (
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/globals.gd:463:			json.data.get("scaling_3d_scale", Globals.default_settings.get("scaling_3d_scale"))
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/globals.gd:471:		set_scaling_3d_scale(settings["scaling_3d_scale"])
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/globals.gd:566:func set_scaling_3d_scale(_value: float):
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/globals.gd:568:	settings.set("scaling_3d_scale", _value)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/autoloads/globals.gd:569:	get_window().scaling_3d_scale = clampf(_value, 0.1, 1.0)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/MobileBoost.gd:25:	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/MobileBoost.gd:26:	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/MobileBoost.gd:30:	RenderingServer.directional_shadow_atlas_set_size(1024, true)
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/prefabs/managed_effects/bloodmist.tscn:148:cast_shadow = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/prefabs/managed_effects/bloodmist.tscn:161:cast_shadow = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/prefabs/managed_effects/bloodmist_01.tscn:107:cast_shadow = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/prefabs/managed_effects/bloodmist_01.tscn:120:cast_shadow = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/project.godot:379:renderer/rendering_method="mobile"
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/project.godot:381:lights_and_shadows/directional_shadow/size=2048
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/project.godot:382:lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/project.godot:386:lights_and_shadows/positional_shadow/atlas_size=2048
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/project.godot:387:lights_and_shadows/directional_shadow/quantized_depth_bits=8
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:207:shadow_mesh = SubResource("ArrayMesh_ysh05")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:286:shadow_mesh = SubResource("ArrayMesh_i1u5q")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:327:shadow_mesh = SubResource("ArrayMesh_yf126")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:367:shadow_mesh = SubResource("ArrayMesh_u1lig")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:401:shadow_mesh = SubResource("ArrayMesh_p887s")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:435:shadow_mesh = SubResource("ArrayMesh_5dayi")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:469:shadow_mesh = SubResource("ArrayMesh_8al43")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:503:shadow_mesh = SubResource("ArrayMesh_y6rao")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:546:shadow_mesh = SubResource("ArrayMesh_lk517")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:580:shadow_mesh = SubResource("ArrayMesh_f7flv")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:614:shadow_mesh = SubResource("ArrayMesh_4exjk")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:648:shadow_mesh = SubResource("ArrayMesh_btf7m")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:809:shadow_mesh = SubResource("ArrayMesh_1ubdw")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:886:shadow_mesh = SubResource("ArrayMesh_52umw")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:936:shadow_mesh = SubResource("ArrayMesh_cc3wq")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:994:shadow_mesh = SubResource("ArrayMesh_r8o3m")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1026:shadow_mesh = SubResource("ArrayMesh_kb3cg")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1058:shadow_mesh = SubResource("ArrayMesh_axasn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1106:shadow_mesh = SubResource("ArrayMesh_88ifv")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1138:shadow_mesh = SubResource("ArrayMesh_u2qcs")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1179:shadow_mesh = SubResource("ArrayMesh_okd2b")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1213:shadow_mesh = SubResource("ArrayMesh_kxk0q")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1247:shadow_mesh = SubResource("ArrayMesh_kr2gp")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1281:shadow_mesh = SubResource("ArrayMesh_epnf1")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1315:shadow_mesh = SubResource("ArrayMesh_0ow31")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1355:shadow_mesh = SubResource("ArrayMesh_y42x6")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1389:shadow_mesh = SubResource("ArrayMesh_tw27h")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1507:shadow_mesh = SubResource("ArrayMesh_50eyj")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1541:shadow_mesh = SubResource("ArrayMesh_m8utn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1619:shadow_mesh = SubResource("ArrayMesh_ykfqc")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1705:shadow_mesh = SubResource("ArrayMesh_esl7f")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1739:shadow_mesh = SubResource("ArrayMesh_cv7lf")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1813:shadow_mesh = SubResource("ArrayMesh_3h2hr")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1847:shadow_mesh = SubResource("ArrayMesh_c6oky")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1957:shadow_mesh = SubResource("ArrayMesh_4dtlo")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:1991:shadow_mesh = SubResource("ArrayMesh_5rmnq")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2559:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2560:shadow_bias = 0.02
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2561:shadow_opacity = 0.85
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2562:shadow_blur = 0.865
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2563:directional_shadow_split_1 = 0.37
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2564:directional_shadow_fade_start = 0.136
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2565:directional_shadow_max_distance = 168.9
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2571:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2572:shadow_blur = 2.375
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2579:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2580:shadow_blur = 2.375
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2587:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2588:shadow_blur = 2.375
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2595:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2596:shadow_blur = 2.375
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2603:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2604:shadow_blur = 2.375
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2611:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2612:shadow_blur = 2.375
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2823:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/exploding_collar_race.tscn:2838:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/legs cut off/legs_cut_off_parent.tscn:115:shadow_mesh = SubResource("ArrayMesh_qg7au")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/legs cut off/legs_cut_off_parent.tscn:197:shadow_mesh = SubResource("ArrayMesh_whvcm")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/harvester/harvester.tscn:44:shadow_mesh = SubResource("ArrayMesh_50eyj")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/harvester/harvester.tscn:78:shadow_mesh = SubResource("ArrayMesh_m8utn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn:597:shadow_mesh = SubResource("ArrayMesh_trc5c")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn:673:shadow_mesh = SubResource("ArrayMesh_i0xle")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn:894:shadow_mesh = SubResource("ArrayMesh_ly303")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn:1608:cast_shadow = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn:2488:cast_shadow = 0
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/shape_cutter/shape_cutter.tscn:251:shadow_mesh = SubResource("ArrayMesh_yocjr")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/shape_cutter/shape_cutter.tscn:291:shadow_mesh = SubResource("ArrayMesh_tymkx")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/shape_cutter/shape_cutter.tscn:333:shadow_mesh = SubResource("ArrayMesh_tujhp")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/shape_cutter/shape_cutter.tscn:367:shadow_mesh = SubResource("ArrayMesh_nmb5j")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/shape_cutter/shape_cutter.tscn:401:shadow_mesh = SubResource("ArrayMesh_i4gnn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/right_part.tscn:37:shadow_mesh = SubResource("ArrayMesh_n38sg")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/right_part.tscn:72:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/right_part.tscn:81:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/left_part.tscn:37:shadow_mesh = SubResource("ArrayMesh_wtxm1")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/left_part.tscn:72:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/left_part.tscn:81:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/middle_part.tscn:37:shadow_mesh = SubResource("ArrayMesh_nivy4")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/middle_part.tscn:72:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/middle_part.tscn:81:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/components/parts/empty_part.tscn:35:shadow_mesh = SubResource("ArrayMesh_d5t1x")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:1571:shadow_mesh = SubResource("ArrayMesh_w1j4c")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:1615:shadow_mesh = SubResource("ArrayMesh_m6yfe")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4358:shadow_mesh = SubResource("ArrayMesh_8uu1w")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4416:shadow_mesh = SubResource("ArrayMesh_xxu55")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4474:shadow_mesh = SubResource("ArrayMesh_b8xwi")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4590:shadow_mesh = SubResource("ArrayMesh_ae6ia")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4645:shadow_mesh = SubResource("ArrayMesh_inqx4")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4691:shadow_mesh = SubResource("ArrayMesh_ekrrh")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4725:shadow_mesh = SubResource("ArrayMesh_cmq65")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4759:shadow_mesh = SubResource("ArrayMesh_27mkn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4793:shadow_mesh = SubResource("ArrayMesh_uhyrt")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4827:shadow_mesh = SubResource("ArrayMesh_mru7u")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4861:shadow_mesh = SubResource("ArrayMesh_viuhw")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4895:shadow_mesh = SubResource("ArrayMesh_fp4a7")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4929:shadow_mesh = SubResource("ArrayMesh_fc0op")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:4975:shadow_mesh = SubResource("ArrayMesh_poe1c")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5007:shadow_mesh = SubResource("ArrayMesh_0ta55")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5039:shadow_mesh = SubResource("ArrayMesh_fvci4")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5252:shadow_mesh = SubResource("ArrayMesh_knbx8")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5286:shadow_mesh = SubResource("ArrayMesh_xcomk")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5320:shadow_mesh = SubResource("ArrayMesh_ghsfc")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5380:shadow_mesh = SubResource("ArrayMesh_35v4c")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5434:shadow_mesh = SubResource("ArrayMesh_1h326")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5468:shadow_mesh = SubResource("ArrayMesh_fvrsn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5522:shadow_mesh = SubResource("ArrayMesh_otjsg")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5576:shadow_mesh = SubResource("ArrayMesh_xgmy0")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5610:shadow_mesh = SubResource("ArrayMesh_046g8")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5664:shadow_mesh = SubResource("ArrayMesh_t04l3")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5718:shadow_mesh = SubResource("ArrayMesh_vhg24")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5752:shadow_mesh = SubResource("ArrayMesh_dgi8q")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5806:shadow_mesh = SubResource("ArrayMesh_pxore")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5860:shadow_mesh = SubResource("ArrayMesh_hbvsd")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:5946:shadow_mesh = SubResource("ArrayMesh_7hrrn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6035:shadow_mesh = SubResource("ArrayMesh_xdeet")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6124:shadow_mesh = SubResource("ArrayMesh_phyyn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6221:shadow_mesh = SubResource("ArrayMesh_ro4re")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6301:shadow_mesh = SubResource("ArrayMesh_4b3cx")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6381:shadow_mesh = SubResource("ArrayMesh_ow85e")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6415:shadow_mesh = SubResource("ArrayMesh_jep0x")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6449:shadow_mesh = SubResource("ArrayMesh_n278o")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6483:shadow_mesh = SubResource("ArrayMesh_6blff")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6517:shadow_mesh = SubResource("ArrayMesh_d25hs")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6551:shadow_mesh = SubResource("ArrayMesh_ox3ld")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6585:shadow_mesh = SubResource("ArrayMesh_bk0bi")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6619:shadow_mesh = SubResource("ArrayMesh_krwmg")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6653:shadow_mesh = SubResource("ArrayMesh_rrjfq")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6687:shadow_mesh = SubResource("ArrayMesh_ov0x4")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6721:shadow_mesh = SubResource("ArrayMesh_iidqj")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6755:shadow_mesh = SubResource("ArrayMesh_hn0wc")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6789:shadow_mesh = SubResource("ArrayMesh_pvxli")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6823:shadow_mesh = SubResource("ArrayMesh_w7hyi")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6857:shadow_mesh = SubResource("ArrayMesh_k5pky")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6891:shadow_mesh = SubResource("ArrayMesh_y6l43")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6925:shadow_mesh = SubResource("ArrayMesh_f778h")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6959:shadow_mesh = SubResource("ArrayMesh_dgcjk")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:6993:shadow_mesh = SubResource("ArrayMesh_2cwr6")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7027:shadow_mesh = SubResource("ArrayMesh_2pom0")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7061:shadow_mesh = SubResource("ArrayMesh_s41b2")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7095:shadow_mesh = SubResource("ArrayMesh_2aqkr")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7129:shadow_mesh = SubResource("ArrayMesh_ybdf2")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7163:shadow_mesh = SubResource("ArrayMesh_w8iu1")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7197:shadow_mesh = SubResource("ArrayMesh_4nxs1")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7246:shadow_mesh = SubResource("ArrayMesh_3q022")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7313:shadow_mesh = SubResource("ArrayMesh_qp8jc")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7354:shadow_mesh = SubResource("ArrayMesh_11ehu")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7408:shadow_mesh = SubResource("ArrayMesh_uyujk")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7447:shadow_mesh = SubResource("ArrayMesh_6gvlm")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7481:shadow_mesh = SubResource("ArrayMesh_pvs6m")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7555:shadow_mesh = SubResource("ArrayMesh_p5d0c")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7634:shadow_mesh = SubResource("ArrayMesh_fkunc")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7696:shadow_mesh = SubResource("ArrayMesh_r8p1f")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7750:shadow_mesh = SubResource("ArrayMesh_62ru1")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7782:shadow_mesh = SubResource("ArrayMesh_vrd00")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7814:shadow_mesh = SubResource("ArrayMesh_s1idl")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7846:shadow_mesh = SubResource("ArrayMesh_11s0b")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7878:shadow_mesh = SubResource("ArrayMesh_3rppk")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7910:shadow_mesh = SubResource("ArrayMesh_wqsw6")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7951:shadow_mesh = SubResource("ArrayMesh_o2x31")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:7983:shadow_mesh = SubResource("ArrayMesh_vbprm")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:8015:shadow_mesh = SubResource("ArrayMesh_ufuss")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:8058:shadow_mesh = SubResource("ArrayMesh_nvomn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:8092:shadow_mesh = SubResource("ArrayMesh_4o8td")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:8163:shadow_mesh = SubResource("ArrayMesh_fcqlc")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:8366:shadow_mesh = SubResource("ArrayMesh_3ikgg")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:8400:shadow_mesh = SubResource("ArrayMesh_7hrec")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:9089:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:9090:shadow_blur = 1.133
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:9096:shadow_enabled = true
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:9097:shadow_blur = 1.133
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/intermission_new.tscn:9103:shadow_enabled = true
+=== MINIGAME ENTRY / LOADING REFERENCES ===
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:153:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:178:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:202:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:286:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:414:		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:462:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:484:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/scripts/lobby_scene.gd:516:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/scenes/lobby/components/playlist_handler.gd:5:const minigame_list_item_scene = preload("res://modules/minigame_list_handler/components/minigame_list_item/minigame_list_item.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/scripts/exploding_collar_race.gd:5:const player_scene = preload("res://minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/exploding_collar_race/scripts/exploding_collar_race.gd:6:const mine_scene = preload("res://minigames/exploding_collar_race/components/mine/mine.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/shape_cutter/scripts/projector_handler.gd:5:const player_score_container_scene = preload("uid://05hvj3bgt4p2")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/shape_cutter/scripts/shape_cutter.gd:5:const player_scene = preload("res://minigames/shape_cutter/components/player/shape_cutter_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/scripts/build_handler.gd:5:const left_scene = preload("uid://cp30fmfsl5pos")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/scripts/build_handler.gd:6:const middle_scene = preload("uid://dxjjpen7u18em")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/scripts/build_handler.gd:7:const right_scene = preload("uid://08jmrjjftk1q")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/scripts/build_handler.gd:9:const doorway_scene = preload("uid://bn2f1e8pcgi70")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/memorize_path/scripts/memorize_path.gd:5:const player_scene = preload("uid://jnaf4vyl80rv")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/components/intermission_session_end.gd:309:	get_tree().change_scene_to_file("res://scenes/local_lobby/local_lobby.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/components/intermission_session_end.gd:361:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/components/intermission_session_end.gd:368:	get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/intermission_new/components/intermission_briefing_screen.gd:4:const CONTROL_INPUT_LABEL = preload("uid://bwixccr50fbc2")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/manufacture_gun/scripts/manufacture_gun.gd:5:const player_scene = preload("res://minigames/manufacture_gun/components/player/manufacture_gun_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/manufacture_gun/scripts/manufacture_gun.gd:6:const workstation_scene = preload("res://minigames/manufacture_gun/components/workstation/manufacture_gun_workstation.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/manufacture_gun/scripts/manufacture_gun.gd:7:const item_scene = preload("res://minigames/manufacture_gun/components/item/manufacture_gun_item.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/manufacture_gun/components/workstation/scripts/manufacture_gun_workstation.gd:5:const blink_shader = preload("res://shaders/spatial/blink_shader.gdshader")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/forklift_certified/scripts/forklift_certified.gd:5:const player_scene = preload("uid://bsv3e0qog8k42")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/forklift_certified/scripts/crate_manager.gd:5:const crate_scene = preload("uid://dswpehgm6ottr")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/cutscene_game_02/scripts/cutscene_game_02.gd:5:const player_scene = preload("uid://wmjllhttc3q4")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/duck_hunt/scripts/duck_hunt.gd:5:const duck_player_scene = preload("uid://cav2dhye17owt")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/duck_hunt/scripts/duck_hunt.gd:6:const hunter_player_scene = preload("uid://bg7h0g6d2m2xu")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/smoke_break/scripts/smoke_break.gd:5:const player_scene = preload("res://minigames/smoke_break/components/player/smoke_break_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/disco_dodge/scrips/disco_dodge.gd:5:const player_scene = preload("res://minigames/disco_dodge/components/player/disco_dodge_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/disco_dodge/scrips/disco_dodge.gd:6:const tile_scene = preload("res://minigames/disco_dodge/components/tile/disco_dodge_tile.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/burn_recycle/scripts/burn_recycle_local_handler.gd:5:const LOCAL_OVERLAY_TEMPLATE = preload("uid://dt53xylkacp5y")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/burn_recycle/scripts/burn_recycle.gd:5:const player_scene = preload("uid://bpek5gf5j3uvq")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/burn_recycle/scripts/burn_recycle.gd:6:const burn_recycle_launched_item = preload("uid://rf7b70eld6jw")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/burn_recycle/components/player/burn_recycle_player.gd:5:const burn_recycle_item_scene = preload("uid://be31rc14r3lhd")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/train_race/scripts/train_race.gd:5:const player_scene = preload("res://minigames/train_race/components/player/train_race_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/knife_at_the_office/scripts/knife_at_the_office.gd:5:const player_scene = preload("res://minigames/knife_at_the_office/components/player/knife_at_the_office_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/knife_at_the_office/scripts/knife_at_the_office.gd:6:const searchable_scene = preload("res://minigames/knife_at_the_office/components/searchable/searchable.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/knife_at_the_office/scripts/knife_at_the_office_local_handler.gd:5:const KATO_VIGNETTE = preload("uid://f647oupqa4ce")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/knife_at_the_office/components/player/scripts/knife_at_the_office_player.gd:5:const stencil_shader: StandardMaterial3D = preload("uid://236g683ar66x")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/knife_at_the_office/components/player/components/fog_of_war/fog_of_war.gd:5:const shader: Shader = preload("res://shaders/minigame/knife_at_the_office_fow.gdshader")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/junk_platform/scripts/junk_handler.gd:5:const junk_scene = preload("uid://c0tipjbyg5ofd")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/junk_platform/scripts/junk_platform.gd:5:const player_scene = preload("uid://t7tv7x86oo7o")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/escalator_pit/scripts/escalator_pit.gd:5:const player_scene = preload("res://minigames/escalator_pit/components/player/escalator_pit_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/scavenger_chairs/scripts/scavenger_chairs.gd:5:const player_scene = preload("res://minigames/scavenger_chairs/components/player/scavanger_chairs_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/scavenger_chairs/scripts/scavenger_chairs.gd:6:const item_scene = preload("res://minigames/scavenger_chairs/components/item/scavenger_chairs_item.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/dvd_roomba/scripts/dvd_roomba.gd:5:const roomba_scene = preload("uid://badl26ts540cw")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/dvd_roomba/scripts/dvd_roomba.gd:6:const player_scene = preload("uid://w6wpt3kvl74p")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/cutscene_test/scripts/cutscene_test.gd:5:const player_scene = preload("uid://bevf2bgqaecaw")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/scripts/chisel_gauntlet_local_handler.gd:5:const LOCAL_OVERLAY_TEMPLATE = preload("uid://dt53xylkacp5y")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/scripts/chisel_gauntlet.gd:5:const player_scene = preload("res://minigames/chisel_gauntlet_multiplayer/components/player/chisel_gauntlet_player.tscn")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/components/cube_segment/cube_segment.gd:5:const segment_shader = preload("res://minigames/chisel_gauntlet_multiplayer/material/chisel_gauntlet_cube_segment_shader.tres")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/components/cube_segment/cube_segment.gd:6:const body_script = preload("uid://c06oyne3wootl")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/components/segment_button/segment_button.gd:3:const segment_shader = preload("res://minigames/chisel_gauntlet_multiplayer/material/chisel_gauntlet_cube_segment_shader.tres")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/chisel_gauntlet_multiplayer/components/player/components/interaction_handler/interaction_handler.gd:5:const cube_segment_script = preload("res://minigames/chisel_gauntlet_multiplayer/components/cube_segment/cube_segment.gd")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/spine_breaker/scripts/spine_breaker.gd:5:const player_scene = preload("uid://b774mjndcdeqg")
+/home/runner/work/APK-testers-/APK-testers-/downloaded/recovered/minigames/green_pea/scripts/green_pea.gd:5:const player_scene = preload("uid://cyhptkj072mxh")
