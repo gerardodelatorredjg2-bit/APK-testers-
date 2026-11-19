@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import sys
 
 root = Path(sys.argv[1]).resolve()
@@ -1453,4 +1454,9 @@ for check_path, required_strings in checks.items():
 	if missing:
 		raise SystemExit(f"{check_path}: missing required mobile performance feature(s): {missing}")
 
-print("Mobile performance baseline, in-game graphics menu, touch visibility toggle, Android JOIN keyboard and minigame load guards applied.")
+audio_repair_script = Path(__file__).with_name("repair_ogg_comments.py")
+if not audio_repair_script.is_file():
+	raise SystemExit(f"Required audio metadata repair tool is missing: {audio_repair_script}")
+subprocess.run([sys.executable, str(audio_repair_script), str(root)], check=True)
+
+print("Mobile performance baseline, in-game graphics menu, touch visibility toggle, Android JOIN keyboard, minigame load guards and lossless Ogg metadata repair applied.")
