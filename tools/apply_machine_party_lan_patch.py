@@ -767,5 +767,33 @@ patch(
     'focus_neighbor_top = NodePath("../StartHostButton")',
 )
 
+
+
+# Surface host startup failures instead of leaving the lobby on an endless loading screen.
+lobby_path = "scenes/lobby/scripts/lobby_scene.gd"
+lobby_text = (root / lobby_path).read_text(encoding="utf-8")
+if "NetworkManager.on_matchmaking_error.connect(_on_matchmaking_error)" not in lobby_text:
+	lobby_text = lobby_text.replace(
+		'\tNetworkManager.on_host_disconnected.connect(_on_host_disconnected)\n',
+		'\tNetworkManager.on_host_disconnected.connect(_on_host_disconnected)\n\tNetworkManager.on_matchmaking_error.connect(_on_matchmaking_error)\n'
+	)
+if "func _on_matchmaking_error" not in lobby_text:
+	lobby_text += r'''
+
+func _on_matchmaking_error(message: String) -> void:
+	loading = false
+	if load_timeout_timer:
+		load_timeout_timer.stop()
+	NetworkManager.leave_lobby()
+	NetworkManager.cancel(1)
+	GameManager.main_menu_message = message
+	GlobalOverlay.fade_overlay(Color.BLACK, 0.5)
+	set_ambience(false)
+	await GlobalOverlay.fade_finished
+	if is_inside_tree():
+		get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
+'''
+(root / lobby_path).write_text(lobby_text, encoding="utf-8")
+
 print("LAN patch applied successfully with local discovery, LAN menu, touch layout and J7 performance profile.")
 
