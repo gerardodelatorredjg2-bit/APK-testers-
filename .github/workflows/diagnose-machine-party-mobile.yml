@@ -121,18 +121,18 @@ jobs:
             done < <(find "$PROJECT/minigames/forklift_certified" -type f -name '*.gd' -print | sort | head -80)
             echo
             echo "===== EXACT CAPSULE ANIMATION LENGTHS ====="
-            python3 - "$PROJECT/minigames/intermission_new/intermission_new.tscn" <<'PY'
-            import sys
-            from pathlib import Path
-            p = Path(sys.argv[1])
-            lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-            targets = ("intro2 setup", "intro2", "intro3", "insert vessel")
-            for i, line in enumerate(lines):
-                if any(target in line for target in targets) and ("resource_name" in line or "&" in line):
-                    print(f"--- source line {i+1} ---")
-                    for j in range(max(0, i-3), min(len(lines), i+8)):
-                        print(f"{j+1}: {lines[j]}")
-            PY
+          python3 - "$PROJECT/minigames/intermission_new/intermission_new.tscn" <<'PY'
+          import sys
+          from pathlib import Path
+          p = Path(sys.argv[1])
+          lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+          targets = ("intro2 setup", "intro2", "intro3", "insert vessel")
+          for i, line in enumerate(lines):
+              if any(target in line for target in targets) and ("resource_name" in line or "&" in line):
+                  print(f"--- source line {i+1} ---")
+                  for j in range(max(0, i-3), min(len(lines), i+8)):
+                      print(f"{j+1}: {lines[j]}")
+          PY
             echo
             echo "===== MINIGAME LOAD / PRELOAD FLOW ====="
             grep -R -n -B8 -A140 --include='*.gd' -E 'func load_minigame|func set_game_scene|game_scene *=|ResourceLoader\.load_threaded|change_scene_to_packed' "$PROJECT" 2>/dev/null | head -1200 || true
