@@ -49,7 +49,7 @@ jobs:
             grep -R -n --include='*.gd' -E 'InputEventScreen|InputEventMouseButton|_input\(|_unhandled_input\(|gui_input|touch|joystick' "$PROJECT" 2>/dev/null | head -500 || true
             echo
             echo "===== FIRST MINIGAME CANDIDATES ====="
-            find "$PROJECT/minigames" -maxdepth 2 -type f \( -name '*.tscn' -o -name '*.gd' \) -print | sort | head -500
+            find "$PROJECT/minigames" -maxdepth 2 -type f \( -name '*.tscn' -o -name '*.gd' \) -print | sort | head -500 || true
             echo
             echo "===== SCENE LOADING / AUTO PLAYLIST / MENU REFERENCES ====="
             grep -R -n --include='*.gd' -E 'change_scene|instantiate\(|ResourceLoader|load_threaded|preload\(|shuffle|randomize|playlist|scaling_3d_scale|set_scaling_3d_scale' "$PROJECT/scenes" "$PROJECT/modules" "$PROJECT/autoloads" 2>/dev/null | head -700 || true
@@ -58,7 +58,7 @@ jobs:
             grep -R -n --include='*.gd' --include='*.tscn' --include='*.tres' -E 'scaling_3d_scale|quality|rendering_method|texture_filter|shadow|ssao|ssil|sdfgi|volumetric_fog|glow' "$PROJECT" 2>/dev/null | head -700 || true
             echo
             echo "===== LARGE TEXTURE / AUDIO INVENTORY ====="
-            find "$PROJECT" -type f \( -iname '*.png' -o -iname '*.webp' -o -iname '*.jpg' -o -iname '*.ogg' -o -iname '*.wav' \) -printf '%s %p\n' | sort -nr | head -100
+            find "$PROJECT" -type f \( -iname '*.png' -o -iname '*.webp' -o -iname '*.jpg' -o -iname '*.ogg' -o -iname '*.wav' \) -printf '%s %p\n' | sort -nr | head -100 || true
           } > "$REPORT"
           cat "$REPORT"
       - uses: actions/upload-artifact@v4
