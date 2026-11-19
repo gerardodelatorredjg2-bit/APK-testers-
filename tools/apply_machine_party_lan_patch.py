@@ -1277,11 +1277,14 @@ func _apply_quality_to_node(node: Node) -> void:
 				"volumetric_fog_enabled": environment.volumetric_fog_enabled
 			}
 		var state: Dictionary = _environment_cache[environment_id]
-		environment.ssao_enabled = state["ssao_enabled"] and _shadows_enabled()
-		environment.ssr_enabled = state["ssr_enabled"] and _shadows_enabled()
+		# Godot Compatibility renderer on Android does not support SSAO.
+		# Force it off for every mobile quality preset, including HIGH, so
+		# unsupported screen-space effects cannot break or stall scene rendering.
+		environment.ssao_enabled = false
+		environment.ssr_enabled = false
+		environment.sdfgi_enabled = false
+		environment.volumetric_fog_enabled = false
 		environment.glow_enabled = state["glow_enabled"] and _shadows_enabled()
-		environment.sdfgi_enabled = state["sdfgi_enabled"] and _shadows_enabled()
-		environment.volumetric_fog_enabled = state["volumetric_fog_enabled"] and _shadows_enabled()
 
 func _create_overlay() -> void:
 	if _overlay:
@@ -1443,6 +1446,7 @@ checks = {
 		"func _cycle_quality()",
 		"func _toggle_controls()",
 		"Viewport.SCREEN_SPACE_AA_DISABLED",
+		"environment.ssao_enabled = false",
 	],
 	"modules/multiplayer/network_manager.gd": [
 		"func _change_to_game_scene()",
