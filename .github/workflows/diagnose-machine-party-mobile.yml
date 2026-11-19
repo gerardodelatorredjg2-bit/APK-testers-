@@ -1,0 +1,38 @@
+name: Diagnose Machine Party mobile UI and minigame sources
+
+on:
+  push:
+    branches:
+      - "recovery/ui-performance-review"
+    paths:
+      - ".github/workflows/diagnose-machine-party-mobile.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Download recovered source and inspect target scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded
+          gh run download 44350091150 --repo "$GH_REPO" --name machine-party-recovery --dir downloaded
+          PROJECT="$PWD/downloaded/recovered"
+          echo "=== FILES MATCHING OPTIMIZER / SETTINGS / CONTROL ==="
+          find "$PROJECT" -type f \( -iname '*optim*' -o -iname '*mobile*' -o -iname '*quality*' -o -iname '*control*' \) | head -160
+          echo "=== JOIN / ADDRESS / VIRTUAL KEYBOARD REFERENCES ==="
+          grep -RIn --include='*.gd' --include='*.tscn' --include='*.tres' 'LineEdit\|virtual_keyboard\|join_lobby_id\|start_client\|room_code\|clipboard_get' "$PROJECT/scenes" "$PROJECT/modules" "$PROJECT/autoloads" 2>/dev/null | head -260 || true
+          echo "=== QUALITY / RENDER SETTINGS REFERENCES ==="
+          grep -RIn --include='*.gd' --include='*.tscn' --include='project.godot' 'max_fps\|scaling_3d_scale\|shadow\|quality\|rendering_method\|screen_space_roughness_limiter' "$PROJECT" | head -240 || true
+          echo "=== MINIGAME ENTRY / LOADING REFERENCES ==="
+          grep -RIn --include='*.gd' --include='*.tscn' 'change_scene_to_file\|ResourceLoader.load_threaded\|load_threaded_get\|preload(' "$PROJECT/scenes/lobby" "$PROJECT/minigames" 2>/dev/null | head -260 || true
