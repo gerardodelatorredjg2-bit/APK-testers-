@@ -6,6 +6,7 @@ on:
       - "recovery/**"
     paths:
       - "tools/apply_machine_party_lan_patch.py"
+      - "tools/repair_ogg_comments.py"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
 
@@ -152,6 +153,20 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
           keytool -list -keystore /home/runner/.android/debug.keystore -storepass android | grep androiddebugkey
+
+      - name: Ensure FFmpeg is available for lossless audio metadata repair
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version | head -n 1
+
+      - name: Repair malformed Ogg Vorbis comments without re-encoding
+        run: |
+          set -euo pipefail
+          python3 tools/repair_ogg_comments.py downloaded/recovered
 
       - name: Download Godot 4.5.2 editor and Android export templates
         run: |
