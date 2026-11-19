@@ -254,6 +254,23 @@ jobs:
           test -s build/MachineParty-LAN-universal.apk
           ls -lh build/MachineParty-LAN-universal.apk
 
+      - name: Run headless Android-project startup smoke test
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          if ! timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --quit-after 120 2>&1 | tee build/runtime-smoke.log; then
+            echo "===== GODOT RUNTIME SMOKE FAILURE ====="
+            tail -n 250 build/runtime-smoke.log
+            exit 1
+          fi
+          if grep -nEi 'SCRIPT ERROR:|Parse Error:|Failed to load script|ERROR: Failed to load script|Cannot open file|Invalid call|Invalid get index' build/runtime-smoke.log; then
+            echo "Godot startup smoke test emitted script or resource errors; refusing to package."
+            exit 1
+          fi
+          echo "Headless startup smoke test passed for 120 frames."
+
       - name: Collect Godot resource and audio warning diagnostics
         if: always()
         run: |
