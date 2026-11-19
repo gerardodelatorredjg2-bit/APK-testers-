@@ -122,17 +122,17 @@ jobs:
             echo
             echo "===== EXACT CAPSULE ANIMATION LENGTHS ====="
             python3 - "$PROJECT/minigames/intermission_new/intermission_new.tscn" <<'PY'
-import sys
-from pathlib import Path
-p = Path(sys.argv[1])
-lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-targets = ("intro2 setup", "intro2", "intro3", "insert vessel")
-for i, line in enumerate(lines):
-    if any(target in line for target in targets) and ("resource_name" in line or "&" in line):
-        print(f"--- source line {i+1} ---")
-        for j in range(max(0, i-3), min(len(lines), i+8)):
-            print(f"{j+1}: {lines[j]}")
-PY
+            import sys
+            from pathlib import Path
+            p = Path(sys.argv[1])
+            lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+            targets = ("intro2 setup", "intro2", "intro3", "insert vessel")
+            for i, line in enumerate(lines):
+                if any(target in line for target in targets) and ("resource_name" in line or "&" in line):
+                    print(f"--- source line {i+1} ---")
+                    for j in range(max(0, i-3), min(len(lines), i+8)):
+                        print(f"{j+1}: {lines[j]}")
+            PY
             echo
             echo "===== MOBILE RENDER / PROJECT SETTINGS ====="
             grep -nE '^\[rendering\]|renderer/|textures/|scaling_3d|fps|physics/common|environment/defaults' "$PROJECT/project.godot" || true
