@@ -1950,6 +1950,49 @@ if "preload_minigame_scene(identifier)" not in picker_text:
 picker_path.write_text(picker_text, encoding="utf-8")
 
 
+# Final Galaxy J7 Prime profile: prioritize stable frame pacing over peak refresh.
+# AUTO is intentionally conservative; users can still select MEDIUM/HIGH manually.
+mobile_settings_path = root / "MobileGameSettings.gd"
+mobile_settings_text = mobile_settings_path.read_text(encoding="utf-8")
+
+def replace_once(source: str, old: str, new: str, label: str) -> str:
+    count = source.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected exactly one match, found {count}")
+    return source.replace(old, new, 1)
+
+mobile_settings_text = replace_once(
+    mobile_settings_text,
+    "QualityProfile.AUTO:\\n\\t\\t\\tfps_limit = 60\\n\\t\\tQualityProfile.LOW:\\n\\t\\t\\tfps_limit = 30",
+    "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\tfps_limit = 30",
+    "J7 default frame cap",
+)
+mobile_settings_text = replace_once(
+    mobile_settings_text,
+    "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\treturn 2",
+    "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\treturn 1",
+    "J7 dynamic light budget",
+)
+mobile_settings_text = replace_once(
+    mobile_settings_text,
+    "QualityProfile.MEDIUM:\\n\\t\\t\\treturn 4",
+    "QualityProfile.MEDIUM:\\n\\t\\t\\treturn 2",
+    "medium dynamic light budget",
+)
+mobile_settings_text = replace_once(
+    mobile_settings_text,
+    "QualityProfile.HIGH:\\n\\t\\t\\treturn 8",
+    "QualityProfile.HIGH:\\n\\t\\t\\treturn 4",
+    "high dynamic light budget",
+)
+mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
+
+optimizer_path = root / "AllInOneMobileOptimizer.gd"
+optimizer_text = optimizer_path.read_text(encoding="utf-8")
+optimizer_text = optimizer_text.replace("@export var target_mobile_fps: int = 60", "@export var target_mobile_fps: int = 30")
+optimizer_text = optimizer_text.replace("@export var max_lights: int = 4", "@export var max_lights: int = 1")
+optimizer_path.write_text(optimizer_text, encoding="utf-8")
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
     "scripts/scenes/game/game.gd": ["func preload_minigame_scene(", "ResourceLoader.load_threaded_request", "_load_minigame_scene_threaded"],
@@ -1958,7 +2001,7 @@ checks = {
     "scripts/components/character customization/customization_selection_instance.gd": ["const COSMETIC_SCENES", "packed_scene.instantiate()", "SubViewport.UPDATE_ONCE"],
     "autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
     "MobileGameSettings.gd": ["if node is SubViewport:", "previous_light_count"],
-    "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
+    "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 30", "max_lights: int = 1"],
     "MobileGameSettings.gd": ["QualityProfile.AUTO:\n\t\t\tfps_limit = 60"],
     "MobileAppLifecycle.gd": ["NOTIFICATION_WM_GO_BACK_REQUEST", "LEAVE MATCH", "CONTINUE PLAYING"],
 	"project.godot": [
@@ -1976,7 +2019,7 @@ checks = {
 		"_user_controls_visible and",
 	],
 	"MobileGameSettings.gd": [
-		"func _cycle_quality()",
+		"func _cycle_quality()", "QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\treturn 1",
 		"func _toggle_controls()",
 		"Viewport.SCREEN_SPACE_AA_DISABLED",
 		"environment.ssao_enabled = false",
