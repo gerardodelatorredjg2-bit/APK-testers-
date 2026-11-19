@@ -373,7 +373,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          TAG="machine-party-lan-universal-${GITHUB_RUN_ID}"
+          TAG="machine-party-lan-universal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           gh release create "$TAG" \
             build/MachineParty-LAN-universal.7z \
             build/SHA256SUMS.txt \
