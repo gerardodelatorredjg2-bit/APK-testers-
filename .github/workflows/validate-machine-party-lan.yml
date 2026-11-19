@@ -141,6 +141,50 @@ jobs:
           echo "===== First audit matches ====="
           sed -n '1,1000p' "$OUT"
 
+      - name: Dump exact source files for LAN menu and mobile controls
+        run: |
+          set -euo pipefail
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p validation-output/source-review
+          OUT="validation-output/source-review/exact-files.txt"
+          : > "$OUT"
+          for candidate in \
+            "scenes/main_menu/scripts/main_menu.gd" \
+            "scenes/main_menu/main_menu.tscn" \
+            "scenes/main_menu/scripts/touch_controls_editor.gd" \
+            "CONTROLS.tscn" \
+            "controls_android.gd" \
+            "AllInOneMobileOptimizer.gd" \
+            "MobileBoost.gd" \
+            "autoloads/globals.gd" \
+            "autoloads/game_manager.gd" \
+            "modules/multiplayer/network_manager.gd" \
+            "modules/multiplayer/backends/lan_enet_backend.gd" \
+            "scenes/lobby/scripts/lobby_scene.gd"; do
+            if [ -f "$PROJECT/$candidate" ]; then
+              {
+                echo
+                echo "==================== $candidate ===================="
+                cat "$PROJECT/$candidate"
+              } >> "$OUT"
+            fi
+          done
+          {
+            echo
+            echo "==================== MENU/LOCAL SCENE FILES ===================="
+            find "$PROJECT/scenes/main_menu" -maxdepth 4 -type f \
+              \( -name '*.tscn' -o -name '*.gd' \) -printf '%P\n' | sort
+            echo
+            echo "==================== TOUCH SCRIPTS ===================="
+            find "$PROJECT" -maxdepth 3 -type f -name '*touch*.gd' -printf '%P\n' | sort
+            echo
+            echo "==================== LOCAL / JOIN MENU TEXT AND SCENES ===================="
+            grep -RIn --include='*.gd' --include='*.tscn' --include='*.csv' \
+              -E 'LOC_TAG_LOCAL|LOC_TAG_JOIN|LOC_TAG_HOST|Local|Join|Host|local_menu|join_menu' \
+              "$PROJECT/scenes/main_menu" "$PROJECT/localization" 2>/dev/null | head -600 || true
+          } >> "$OUT"
+          echo "Saved exact source dump to $OUT"
+          wc -c "$OUT"
       - name: Install Godot 4.5.2
         run: |
           set -euo pipefail
