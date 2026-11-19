@@ -1820,8 +1820,62 @@ func setup_cosmetic(assigned_cosmetic_name: String) -> void:
 (root / "scripts/components/character customization/customization_selection_instance.gd").write_text(preview_script, encoding="utf-8")
 
 
+
+
+# Shorten the capsule intro without cutting its authored animations off. Wait for
+# the actual animation-finished signals instead of fixed 3-second sleeps, run the
+# hand/camera animations slightly faster, and remove the accidental 4-second
+# blend on the final camera transition.
+intro_path = "minigames/intermission_new/components/intermission_cutscene_intro.gd"
+intro_text = (root / intro_path).read_text(encoding="utf-8")
+intro_text = replace_function_block(
+    intro_text,
+    "func start_intro_cutscene():",
+    "func play_nametag_death_1():",
+    '''func start_intro_cutscene():
+\tif multiplayer.get_unique_id() == get_multiplayer_authority():
+\t\tsetup_synced_player_name_list()
+\tfor vessel in vessels_in_main_rack:
+\t\tvessel.visible = false
+\tvessel_to_insert_index = 0
+\tvisual_parent_scientist_hand.visible = false
+\tik_scientist_arm.start()
+\tintermission_manager.intermission_main_parent.visible = true
+\tintermission_manager.intermission_cam.current = true
+
+\tanim_intermission_cam.speed_scale = 1.15
+\tanim_scientist_ik.speed_scale = 1.20
+\tanim_intermission_cam.play("intro2 setup")
+\tawait anim_intermission_cam.animation_finished
+
+\ttemp_viewblocker.visible = false
+\tMusicManager.play_intro_music()
+\tspeaker_intro_wind.play()
+\tvisual_parent_scientist_hand.visible = true
+\tanim_intermission_cam.play("intro2")
+\tawait get_tree().create_timer(1.0, false).timeout
+
+\tfor i in PlayerManager.player_presences.size():
+\t\tinsert_vessel_into_rack()
+\t\tawait anim_scientist_ik.animation_finished
+\t\tvessel_to_insert_index += 1
+
+\ttower_mesh_to_hide.visible = false
+\tanim_intermission_cam.play("intro3", 0.35)
+\tawait get_tree().create_timer(0.35, false).timeout
+\tintermission_manager.set_intermission_viewport_screen(true)
+\tawait get_tree().create_timer(0.25, false).timeout
+\tintermission_manager.picker.start_minigame_pick()
+
+''',
+    "capsule intro timing",
+)
+(root / intro_path).write_text(intro_text, encoding="utf-8")
+
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
+    "minigames/intermission_new/components/intermission_cutscene_intro.gd": ["await anim_intermission_cam.animation_finished", "await anim_scientist_ik.animation_finished", "anim_intermission_cam.play(\"intro3\", 0.35)"],
     "scripts/components/character customization/customization_selection_instance.gd": ["const COSMETIC_SCENES", "packed_scene.instantiate()", "SubViewport.UPDATE_ONCE"],
     "autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
     "MobileGameSettings.gd": ["if node is SubViewport:", "previous_light_count"],
