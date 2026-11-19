@@ -1,11 +1,10 @@
-name: Validate Machine Party LAN source
+name: Export Machine Party source for UI and LAN update
 
 on:
   push:
     branches:
-      - "recovery/**"
+      - "recovery/ui-performance-review"
     paths:
-      - "tools/apply_machine_party_lan_patch.py"
       - ".github/workflows/validate-machine-party-lan.yml"
   workflow_dispatch:
 
@@ -14,577 +13,67 @@ permissions:
   actions: read
 
 jobs:
-  validate:
+  export-source:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
-      - name: Checkout patch tools
+      - name: Checkout workflow
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
 
-      - name: Download recovered Machine Party project
+      - name: Download recovered source artifact on GitHub runner
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          mkdir -p downloaded validation-output
+          mkdir -p downloaded review
           gh run download 44350091150 --repo "$GH_REPO" --name machine-party-recovery --dir downloaded
-          test -f downloaded/recovered/project.godot
+          PROJECT="$PWD/downloaded/recovered"
+          test -f "$PROJECT/project.godot"
 
-      - name: Apply local multiplayer patch
+      - name: Export relevant source files and indexes
         run: |
           set -euo pipefail
           PROJECT="$PWD/downloaded/recovered"
-          python3 tools/apply_machine_party_lan_patch.py "$PROJECT"
-          rm -rf "$PROJECT/.godot/imported"
-          rm -f "$PROJECT/addons/audio_gate/audio_gate.gdextension"
-          rm -f "$PROJECT/addons/godotsteam/godotsteam.gdextension"
-          rm -f "$PROJECT/addons/steam-multiplayer-peer/steam-multiplayer-peer.gdextension"
-          test "$(wc -l < "$PROJECT/project.godot")" -gt 300
-          grep -Fqx '[application]' "$PROJECT/project.godot"
-          grep -Fqx '[rendering]' "$PROJECT/project.godot"
-          grep -Fqx 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
-          grep -Fqx 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
-          grep -q 'join_client_direct(player_name, room_code)' "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd"
-          grep -q 'NetworkBackendType.Lan' "$PROJECT/modules/multiplayer/network_manager.gd"
-          grep -q 'local_join_button.pressed.connect' "$PROJECT/scenes/main_menu/scripts/main_menu.gd"
-          grep -q 'LANDiscovery' "$PROJECT/scenes/main_menu/scripts/main_menu.gd"
-          grep -q 'MACHINE_PARTY_LAN_DISCOVER_V1' "$PROJECT/modules/multiplayer/backends/lan_discovery.gd"
-          grep -q 'start_host(host_port, player_name)' "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd"
-          grep -q 'func _show_lan_address_banner' "$PROJECT/scenes/lobby/scripts/lobby_scene.gd"
-          grep -q 'func _refresh_context_visibility' "$PROJECT/controls_android.gd"
-          grep -q 'SM-G610' "$PROJECT/AllInOneMobileOptimizer.gd"
-          if grep -q 'start_join_button' "$PROJECT/scenes/main_menu/scripts/main_menu.gd"; then
-            echo "Join must live under Local, not Start."
-            exit 1
-          fi
-          grep -q 'LocalJoinButton' "$PROJECT/scenes/main_menu/main_menu.tscn"
-          if grep -q 'StartJoinButton' "$PROJECT/scenes/main_menu/main_menu.tscn"; then
-            echo "Start submenu still contains Join."
-            exit 1
-          fi
-          if grep -RIn --include='*.gd' 'Engine.get_singleton("Steam")
-            echo "Unguarded Steam singleton lookup remains."
-            exit 1
-          fi
-          {
-            echo "LAN patch applied."
-            echo "Scripts: $(find "$PROJECT" -type f -name '*.gd' | wc -l)"
-            echo "Scenes: $(find "$PROJECT" -type f -name '*.tscn' | wc -l)"
-            echo "LAN backend: $(test -s "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd" && echo present)"
-            echo "Android renderer: Compatibility"
-            echo "Android texture import: ETC2/ASTC enabled"
-          } | tee validation-output/summary.txt
-          git diff --no-index /dev/null "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd" > validation-output/lan-backend.patch || true
-
-      - name: Inspect LAN integration paths
-        run: |
-          set -euo pipefail
-          PROJECT="$PWD/downloaded/recovered"
-          echo "===== NETWORK MANAGER: dispatch and address handling ====="
-          grep -n -E 'enum NetworkBackendType|active_backend_type|func (create_backend|set_active_backend|start_host|start_client|join_host|join_client|_is_direct_address|backend_type_for_join_code|leave_lobby|cancel)' "$PROJECT/modules/multiplayer/network_manager.gd" || true
-          echo "===== NETWORK MANAGER SOURCE ====="
-          sed -n '1,340p' "$PROJECT/modules/multiplayer/network_manager.gd"
-          echo "===== ONLINE ENET BACKEND SOURCE ====="
-          sed -n '1,420p' "$PROJECT/modules/multiplayer/backends/online_enet_backend.gd"
-          echo "===== LAN BACKEND SOURCE ====="
-          sed -n '1,240p' "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd"
-          echo "===== LOBBY NETWORK CALLS ====="
-          grep -n -C 5 -E 'start_host|start_client|join_host|join_client|on_client_created|on_server_created|on_matchmaking_error|join_lobby_id' "$PROJECT/scenes/lobby/scripts/lobby_scene.gd" || true
-          echo "===== MAIN MENU JOIN DIALOG AND HOST CALLS ====="
-          grep -n -C 5 -E '_show_lan_join_dialog|_join_with_address_or_code|start_join_button|start_host_button|host_game|join_lobby_id' "$PROJECT/scenes/main_menu/scripts/main_menu.gd" || true
-
-      - name: Audit Android touch controls, menus, networking fields and rendering settings
-        run: |
-          set -euo pipefail
-          PROJECT="$PWD/downloaded/recovered"
-          OUT="validation-output/mobile-ui-audit.txt"
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          root = Path("downloaded/recovered")
-          output = Path("validation-output/mobile-ui-audit.txt")
-          patterns = [
-              r"virtual.?joystick", r"joystick", r"edit.?controls", r"EDIT CONTROLS",
-              r"touchscreenbutton", r"touch.?controls", r"mobile.?controls",
-              r"InputEventScreen", r"show_virtual", r"hide_virtual",
-              r"LineEdit", r"TextEdit", r"DisplayServer\.virtual_keyboard",
-              r"host_ip", r"host_port", r"direct_connect_address",
-              r"join_lobby_id", r"name_entry", r"start_host", r"start_client",
-              r"rendering/quality", r"scaling_3d", r"msaa", r"screen_space_aa",
-              r"gl_compatibility", r"physics/common", r"max_fps"
-          ]
-          rx = re.compile("|".join(f"(?:{p})" for p in patterns), re.IGNORECASE)
-          exts = {".gd", ".tscn", ".tres", ".godot", ".cfg", ".csv", ".translation"}
-          hits = 0
-          lines_out = []
-          for path in sorted(root.rglob("*")):
-              if not path.is_file() or path.suffix.lower() not in exts:
-                  continue
-              if ".godot" in path.parts or "addons" in path.parts:
-                  continue
-              try:
-                  lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-              except OSError:
-                  continue
-              matching = [i for i, line in enumerate(lines) if rx.search(line)]
-              if not matching:
-                  continue
-              lines_out.append(f"\n===== {path.relative_to(root)} ({len(matching)} matching lines) =====")
-              seen = set()
-              for i in matching:
-                  for j in range(max(0, i-2), min(len(lines), i+3)):
-                      if j not in seen:
-                          lines_out.append(f"{j+1}: {lines[j]}")
-                          seen.add(j)
-                  lines_out.append("---")
-                  hits += 1
-                  if hits >= 500:
-                      lines_out.append("[LIMIT: 500 matching lines]")
-                      break
-              if hits >= 500:
-                  break
-          output.write_text("\n".join(lines_out) if lines_out else "No relevant UI/network/rendering matches found.", encoding="utf-8")
-          print(f"Saved {hits} matching source lines to {output}")
-          PY
-          find "$PROJECT" -type f \( -iname '*joystick*' -o -iname '*touch*control*' -o -iname '*mobile*control*' \) \
-            -not -path '*/.godot/*' -not -path '*/addons/*' | sort > validation-output/mobile-control-files.txt || true
-          echo "===== Relevant mobile control files ====="
-          cat validation-output/mobile-control-files.txt || true
-          echo "===== First audit matches ====="
-          sed -n '1,1000p' "$OUT"
-
-      - name: Dump exact source files for LAN menu and mobile controls
-        run: |
-          set -euo pipefail
-          PROJECT="$PWD/downloaded/recovered"
-          mkdir -p validation-output/source-review
-          OUT="validation-output/source-review/exact-files.txt"
+          OUT="$PWD/review/exact-source.txt"
           : > "$OUT"
           for candidate in \
-            "scenes/main_menu/scripts/main_menu.gd" \
-            "scenes/main_menu/main_menu.tscn" \
-            "scenes/main_menu/scripts/touch_controls_editor.gd" \
-            "CONTROLS.tscn" \
-            "controls_android.gd" \
-            "AllInOneMobileOptimizer.gd" \
-            "MobileBoost.gd" \
-            "autoloads/globals.gd" \
-            "autoloads/game_manager.gd" \
-            "modules/multiplayer/network_manager.gd" \
-            "modules/multiplayer/backends/lan_enet_backend.gd" \
-            "scenes/lobby/scripts/lobby_scene.gd"; do
+            project.godot \
+            scenes/main_menu/scripts/main_menu.gd \
+            scenes/main_menu/main_menu.tscn \
+            scenes/lobby/scripts/lobby_scene.gd \
+            scenes/lobby/lobby_scene.tscn \
+            scenes/local_lobby/local_lobby.tscn \
+            scenes/character_customization.tscn \
+            modules/multiplayer/network_manager.gd \
+            modules/multiplayer/backends/online_enet_backend.gd \
+            modules/multiplayer/backends/lan_enet_backend.gd \
+            modules/multiplayer/backends/lan_discovery.gd \
+            controls_android.gd CONTROLS.tscn \
+            AllInOneMobileOptimizer.gd MobileBoost.gd \
+            autoloads/game_manager.gd autoloads/globals.gd; do
             if [ -f "$PROJECT/$candidate" ]; then
-              {
-                echo
-                echo "==================== $candidate ===================="
-                cat "$PROJECT/$candidate"
-              } >> "$OUT"
+              printf '\n===== %s =====\n' "$candidate" >> "$OUT"
+              cat "$PROJECT/$candidate" >> "$OUT"
             fi
           done
-          {
-            echo
-            echo "==================== MENU/LOCAL SCENE FILES ===================="
-            find "$PROJECT/scenes/main_menu" -maxdepth 4 -type f \
-              \( -name '*.tscn' -o -name '*.gd' \) -printf '%P\n' | sort
-            echo
-            echo "==================== TOUCH SCRIPTS ===================="
-            find "$PROJECT" -maxdepth 3 -type f -name '*touch*.gd' -printf '%P\n' | sort
-            echo
-            echo "==================== LOCAL / JOIN MENU TEXT AND SCENES ===================="
-            grep -RIn --include='*.gd' --include='*.tscn' --include='*.csv' \
-              -E 'LOC_TAG_LOCAL|LOC_TAG_JOIN|LOC_TAG_HOST|Local|Join|Host|local_menu|join_menu' \
-              "$PROJECT/scenes/main_menu" "$PROJECT/localization" 2>/dev/null | head -600 || true
-          } >> "$OUT"
-          for candidate in \
-            "project.godot" \
-            "CONTROLS.tscn" \
-            "controls_android.gd" \
-            "touch_screen_button.gd" \
-            "touch_screen_button_3.gd" \
-            "touch_screen_button_4.gd" \
-            "touch_screen_button_5.gd" \
-            "touch_screen_button_6.gd" \
-            "a.gd" \
-            "addons/virtual_joystick/virtual_joystick_scene.tscn" \
-            "scenes/lobby/lobby_scene.tscn" \
-            "scenes/local_lobby/local_lobby.tscn" \
-            "scenes/character_customization.tscn" \
-            "autoloads/globals.gd"; do
-            if [ -f "$PROJECT/$candidate" ]; then
-              {
-                echo
-                echo "==================== $candidate ===================="
-                cat "$PROJECT/$candidate"
-              } >> "$OUT"
-            fi
-          done
-          for dir in "$PROJECT/scenes/lobby" "$PROJECT/scenes/local_lobby"; do
-            if [ -d "$dir" ]; then
-              while IFS= read -r file; do
-                {
-                  echo
-                  echo "==================== ${file#$PROJECT/} ===================="
-                  cat "$file"
-                } >> "$OUT"
-              done < <(find "$dir" -type f -name '*.gd' | sort)
-            fi
-          done
-          {
-            echo
-            echo "==================== ACTIVE CONTROL SCENE/AUTOLOAD REFERENCES ===================="
-            grep -nE 'ControlsAndroid|CONTROLS.tscn|AllInOneMobileOptimizer|MobileBoost|scaling_3d_scale|renderer/rendering_method|application/run/main_scene|autoload' "$PROJECT/project.godot" || true
-            echo
-            echo "==================== TOUCH BUTTON ACTION SCRIPTS ===================="
-            grep -RIn --include='*.gd' -E 'extends TouchScreenButton|action *=|key_to_press|KEY_ESCAPE|KEY_SPACE|ui_cancel|action_3' "$PROJECT" \
-              --exclude-dir=.godot --exclude-dir=addons | head -500 || true
-            echo
-            echo "==================== CUSTOMIZATION TOUCH / GAME STATE ===================="
-            grep -RIn --include='*.gd' -E 'GameManager\.in_game|GameManager\.local_game|ControlsAndroid|Input\.is_action_just_pressed|action_3|ui_accept' \
-              "$PROJECT/scenes/character_customization" "$PROJECT/scenes" 2>/dev/null | head -500 || true
-          } >> "$OUT"
-          echo "Saved exact source dump to $OUT"
-          wc -c "$OUT"
-      - name: Upload source review before long Godot import
+          find "$PROJECT" -type f \( -iname '*touch*.gd' -o -iname '*joystick*.gd' -o -iname '*mobile*control*.gd' \) \
+            -not -path '*/.godot/*' -not -path '*/addons/*' -print | sort > review/control-files.txt
+          while IFS= read -r file; do
+            printf '\n===== %s =====\n' "${file#$PROJECT/}" >> "$OUT"
+            cat "$file" >> "$OUT"
+          done < review/control-files.txt
+          grep -RIn --include='*.gd' --include='*.tscn' --include='*.godot' \
+            -E 'EDIT CONTROLS|Edit Controls|LocalJoinButton|StartJoinButton|host_ip|host_port|direct_connect_address|join_client_direct|TouchScreenButton|KEY_ESCAPE|KEY_SPACE|LineEdit|virtual_keyboard|scaling_3d|physics_ticks_per_second|application/run/max_fps' \
+            "$PROJECT/scenes" "$PROJECT/modules/multiplayer" "$PROJECT" 2>/dev/null | head -2000 > review/search-index.txt || true
+          du -h review/*
+
+      - name: Upload compact source review
         uses: actions/upload-artifact@v4
         with:
-          name: machine-party-lan-source-review
-          path: |
-            validation-output/source-review/exact-files.txt
-            validation-output/mobile-control-files.txt
-            validation-output/mobile-ui-audit.txt
+          name: machine-party-source-review
+          path: review/
           compression-level: 1
-          retention-days: 7
-
-      - name: Install Godot 4.5.2
-        run: |
-          set -euo pipefail
-          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip" -o godot.zip
-          unzip -q godot.zip -d godot
-          GODOT_BIN="$(find godot -type f -name 'Godot_*_linux.x86_64' | head -n 1)"
-          test -n "$GODOT_BIN"
-          chmod +x "$GODOT_BIN"
-          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
-          "$GODOT_BIN" --version
-
-      - name: Parse and import the recovered project
-        run: |
-          set -euo pipefail
-          export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 25m "$GODOT_BIN" --headless --editor --path "$PWD/downloaded/recovered" --quit --verbose 2>&1 | tee validation-output/godot-editor-check.log
-          if grep -E "SCRIPT ERROR:|Parse Error|Parse error" validation-output/godot-editor-check.log; then
-            echo "GDScript parse errors were reported."
-            exit 1
-          fi
-          ETC2_COUNT="$(find downloaded/recovered/.godot/imported -type f -name '*.etc2.ctex' | wc -l)"
-          echo "ETC2 imported textures: $ETC2_COUNT" | tee -a validation-output/summary.txt
-          test "$ETC2_COUNT" -gt 0
-          echo "Godot editor import completed without GDScript parse errors." | tee -a validation-output/summary.txt
-
-      - name: Test LAN discovery over UDP loopback
-        run: |
-          set -euo pipefail
-          cat > /tmp/lan_discovery_smoke.gd <<'EOF'
-          extends SceneTree
-
-          const LanDiscovery = preload("res://modules/multiplayer/backends/lan_discovery.gd")
-
-          func _initialize() -> void:
-              call_deferred("_run_test")
-
-          func _run_test() -> void:
-              var responder: Node = LanDiscovery.new()
-              root.add_child(responder)
-              var bind_error: Error = responder.start_host(25565, "CI Host")
-              if bind_error != OK:
-                  push_error("LAN discovery responder failed to bind: %s" % error_string(bind_error))
-                  quit(1)
-                  return
-
-              var scanner: Node = LanDiscovery.new()
-              root.add_child(scanner)
-              var hosts: Array[Dictionary] = await scanner.discover_hosts(1.5, "127.0.0.1")
-              if hosts.is_empty():
-                  push_error("LAN discovery loopback query returned no host.")
-                  quit(1)
-                  return
-
-              var first_host: Dictionary = hosts[0]
-              if first_host.get("address", "") != "127.0.0.1:25565":
-                  push_error("Unexpected discovered endpoint: %s" % str(first_host))
-                  quit(1)
-                  return
-
-              print("LAN discovery UDP loopback passed: ", first_host)
-              responder.queue_free()
-              scanner.queue_free()
-              quit(0)
-          EOF
-          export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 30s "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" \
-            --script /tmp/lan_discovery_smoke.gd 2>&1 | tee validation-output/lan-discovery-loopback.log
-          grep -q 'LAN discovery UDP loopback passed' validation-output/lan-discovery-loopback.log
-          echo "LAN discovery UDP loopback test passed." | tee -a validation-output/summary.txt
-
-      - name: Launch main scene headlessly
-        run: |
-          set -euo pipefail
-          export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" --quit-after 180 --verbose \
-            2>&1 | tee validation-output/main-scene-runtime.log
-          if grep -E "SCRIPT ERROR:|Parse Error:|Invalid call\.|Attempt to call function|Node not found" validation-output/main-scene-runtime.log; then
-            echo "Runtime smoke test detected a script or scene error."
-            exit 1
-          fi
-          echo "Main scene headless runtime smoke test passed." | tee -a validation-output/summary.txt
-
-      - name: Upload validation results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-lan-validation
-          path: validation-output/
-          compression-level: 1
-          retention-days: 30
- "$PROJECT/autoloads" "$PROJECT/modules/steamworks"; then
-            echo "Unguarded Steam singleton lookup remains."
-            exit 1
-          fi
-          {
-            echo "LAN patch applied."
-            echo "Scripts: $(find "$PROJECT" -type f -name '*.gd' | wc -l)"
-            echo "Scenes: $(find "$PROJECT" -type f -name '*.tscn' | wc -l)"
-            echo "LAN backend: $(test -s "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd" && echo present)"
-            echo "Android renderer: Compatibility"
-            echo "Android texture import: ETC2/ASTC enabled"
-          } | tee validation-output/summary.txt
-          git diff --no-index /dev/null "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd" > validation-output/lan-backend.patch || true
-
-      - name: Inspect LAN integration paths
-        run: |
-          set -euo pipefail
-          PROJECT="$PWD/downloaded/recovered"
-          echo "===== NETWORK MANAGER: dispatch and address handling ====="
-          grep -n -E 'enum NetworkBackendType|active_backend_type|func (create_backend|set_active_backend|start_host|start_client|join_host|join_client|_is_direct_address|backend_type_for_join_code|leave_lobby|cancel)' "$PROJECT/modules/multiplayer/network_manager.gd" || true
-          echo "===== NETWORK MANAGER SOURCE ====="
-          sed -n '1,340p' "$PROJECT/modules/multiplayer/network_manager.gd"
-          echo "===== ONLINE ENET BACKEND SOURCE ====="
-          sed -n '1,420p' "$PROJECT/modules/multiplayer/backends/online_enet_backend.gd"
-          echo "===== LAN BACKEND SOURCE ====="
-          sed -n '1,240p' "$PROJECT/modules/multiplayer/backends/lan_enet_backend.gd"
-          echo "===== LOBBY NETWORK CALLS ====="
-          grep -n -C 5 -E 'start_host|start_client|join_host|join_client|on_client_created|on_server_created|on_matchmaking_error|join_lobby_id' "$PROJECT/scenes/lobby/scripts/lobby_scene.gd" || true
-          echo "===== MAIN MENU JOIN DIALOG AND HOST CALLS ====="
-          grep -n -C 5 -E '_show_lan_join_dialog|_join_with_address_or_code|start_join_button|start_host_button|host_game|join_lobby_id' "$PROJECT/scenes/main_menu/scripts/main_menu.gd" || true
-
-      - name: Audit Android touch controls, menus, networking fields and rendering settings
-        run: |
-          set -euo pipefail
-          PROJECT="$PWD/downloaded/recovered"
-          OUT="validation-output/mobile-ui-audit.txt"
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          root = Path("downloaded/recovered")
-          output = Path("validation-output/mobile-ui-audit.txt")
-          patterns = [
-              r"virtual.?joystick", r"joystick", r"edit.?controls", r"EDIT CONTROLS",
-              r"touchscreenbutton", r"touch.?controls", r"mobile.?controls",
-              r"InputEventScreen", r"show_virtual", r"hide_virtual",
-              r"LineEdit", r"TextEdit", r"DisplayServer\.virtual_keyboard",
-              r"host_ip", r"host_port", r"direct_connect_address",
-              r"join_lobby_id", r"name_entry", r"start_host", r"start_client",
-              r"rendering/quality", r"scaling_3d", r"msaa", r"screen_space_aa",
-              r"gl_compatibility", r"physics/common", r"max_fps"
-          ]
-          rx = re.compile("|".join(f"(?:{p})" for p in patterns), re.IGNORECASE)
-          exts = {".gd", ".tscn", ".tres", ".godot", ".cfg", ".csv", ".translation"}
-          hits = 0
-          lines_out = []
-          for path in sorted(root.rglob("*")):
-              if not path.is_file() or path.suffix.lower() not in exts:
-                  continue
-              if ".godot" in path.parts or "addons" in path.parts:
-                  continue
-              try:
-                  lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-              except OSError:
-                  continue
-              matching = [i for i, line in enumerate(lines) if rx.search(line)]
-              if not matching:
-                  continue
-              lines_out.append(f"\n===== {path.relative_to(root)} ({len(matching)} matching lines) =====")
-              seen = set()
-              for i in matching:
-                  for j in range(max(0, i-2), min(len(lines), i+3)):
-                      if j not in seen:
-                          lines_out.append(f"{j+1}: {lines[j]}")
-                          seen.add(j)
-                  lines_out.append("---")
-                  hits += 1
-                  if hits >= 500:
-                      lines_out.append("[LIMIT: 500 matching lines]")
-                      break
-              if hits >= 500:
-                  break
-          output.write_text("\n".join(lines_out) if lines_out else "No relevant UI/network/rendering matches found.", encoding="utf-8")
-          print(f"Saved {hits} matching source lines to {output}")
-          PY
-          find "$PROJECT" -type f \( -iname '*joystick*' -o -iname '*touch*control*' -o -iname '*mobile*control*' \) \
-            -not -path '*/.godot/*' -not -path '*/addons/*' | sort > validation-output/mobile-control-files.txt || true
-          echo "===== Relevant mobile control files ====="
-          cat validation-output/mobile-control-files.txt || true
-          echo "===== First audit matches ====="
-          sed -n '1,1000p' "$OUT"
-
-      - name: Dump exact source files for LAN menu and mobile controls
-        run: |
-          set -euo pipefail
-          PROJECT="$PWD/downloaded/recovered"
-          mkdir -p validation-output/source-review
-          OUT="validation-output/source-review/exact-files.txt"
-          : > "$OUT"
-          for candidate in \
-            "scenes/main_menu/scripts/main_menu.gd" \
-            "scenes/main_menu/main_menu.tscn" \
-            "scenes/main_menu/scripts/touch_controls_editor.gd" \
-            "CONTROLS.tscn" \
-            "controls_android.gd" \
-            "AllInOneMobileOptimizer.gd" \
-            "MobileBoost.gd" \
-            "autoloads/globals.gd" \
-            "autoloads/game_manager.gd" \
-            "modules/multiplayer/network_manager.gd" \
-            "modules/multiplayer/backends/lan_enet_backend.gd" \
-            "scenes/lobby/scripts/lobby_scene.gd"; do
-            if [ -f "$PROJECT/$candidate" ]; then
-              {
-                echo
-                echo "==================== $candidate ===================="
-                cat "$PROJECT/$candidate"
-              } >> "$OUT"
-            fi
-          done
-          {
-            echo
-            echo "==================== MENU/LOCAL SCENE FILES ===================="
-            find "$PROJECT/scenes/main_menu" -maxdepth 4 -type f \
-              \( -name '*.tscn' -o -name '*.gd' \) -printf '%P\n' | sort
-            echo
-            echo "==================== TOUCH SCRIPTS ===================="
-            find "$PROJECT" -maxdepth 3 -type f -name '*touch*.gd' -printf '%P\n' | sort
-            echo
-            echo "==================== LOCAL / JOIN MENU TEXT AND SCENES ===================="
-            grep -RIn --include='*.gd' --include='*.tscn' --include='*.csv' \
-              -E 'LOC_TAG_LOCAL|LOC_TAG_JOIN|LOC_TAG_HOST|Local|Join|Host|local_menu|join_menu' \
-              "$PROJECT/scenes/main_menu" "$PROJECT/localization" 2>/dev/null | head -600 || true
-          } >> "$OUT"
-          for candidate in \
-            "project.godot" \
-            "CONTROLS.tscn" \
-            "controls_android.gd" \
-            "touch_screen_button.gd" \
-            "touch_screen_button_3.gd" \
-            "touch_screen_button_4.gd" \
-            "touch_screen_button_5.gd" \
-            "touch_screen_button_6.gd" \
-            "a.gd" \
-            "addons/virtual_joystick/virtual_joystick_scene.tscn" \
-            "scenes/lobby/lobby_scene.tscn" \
-            "scenes/local_lobby/local_lobby.tscn" \
-            "scenes/character_customization.tscn" \
-            "autoloads/globals.gd"; do
-            if [ -f "$PROJECT/$candidate" ]; then
-              {
-                echo
-                echo "==================== $candidate ===================="
-                cat "$PROJECT/$candidate"
-              } >> "$OUT"
-            fi
-          done
-          for dir in "$PROJECT/scenes/lobby" "$PROJECT/scenes/local_lobby"; do
-            if [ -d "$dir" ]; then
-              while IFS= read -r file; do
-                {
-                  echo
-                  echo "==================== ${file#$PROJECT/} ===================="
-                  cat "$file"
-                } >> "$OUT"
-              done < <(find "$dir" -type f -name '*.gd' | sort)
-            fi
-          done
-          {
-            echo
-            echo "==================== ACTIVE CONTROL SCENE/AUTOLOAD REFERENCES ===================="
-            grep -nE 'ControlsAndroid|CONTROLS.tscn|AllInOneMobileOptimizer|MobileBoost|scaling_3d_scale|renderer/rendering_method|application/run/main_scene|autoload' "$PROJECT/project.godot" || true
-            echo
-            echo "==================== TOUCH BUTTON ACTION SCRIPTS ===================="
-            grep -RIn --include='*.gd' -E 'extends TouchScreenButton|action *=|key_to_press|KEY_ESCAPE|KEY_SPACE|ui_cancel|action_3' "$PROJECT" \
-              --exclude-dir=.godot --exclude-dir=addons | head -500 || true
-            echo
-            echo "==================== CUSTOMIZATION TOUCH / GAME STATE ===================="
-            grep -RIn --include='*.gd' -E 'GameManager\.in_game|GameManager\.local_game|ControlsAndroid|Input\.is_action_just_pressed|action_3|ui_accept' \
-              "$PROJECT/scenes/character_customization" "$PROJECT/scenes" 2>/dev/null | head -500 || true
-          } >> "$OUT"
-          echo "Saved exact source dump to $OUT"
-          wc -c "$OUT"
-      - name: Upload source review before long Godot import
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-lan-source-review
-          path: |
-            validation-output/source-review/exact-files.txt
-            validation-output/mobile-control-files.txt
-            validation-output/mobile-ui-audit.txt
-          compression-level: 1
-          retention-days: 7
-
-      - name: Install Godot 4.5.2
-        run: |
-          set -euo pipefail
-          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip" -o godot.zip
-          unzip -q godot.zip -d godot
-          GODOT_BIN="$(find godot -type f -name 'Godot_*_linux.x86_64' | head -n 1)"
-          test -n "$GODOT_BIN"
-          chmod +x "$GODOT_BIN"
-          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
-          "$GODOT_BIN" --version
-
-      - name: Parse and import the recovered project
-        run: |
-          set -euo pipefail
-          export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 25m "$GODOT_BIN" --headless --editor --path "$PWD/downloaded/recovered" --quit --verbose 2>&1 | tee validation-output/godot-editor-check.log
-          if grep -E "SCRIPT ERROR:|Parse Error|Parse error" validation-output/godot-editor-check.log; then
-            echo "GDScript parse errors were reported."
-            exit 1
-          fi
-          ETC2_COUNT="$(find downloaded/recovered/.godot/imported -type f -name '*.etc2.ctex' | wc -l)"
-          echo "ETC2 imported textures: $ETC2_COUNT" | tee -a validation-output/summary.txt
-          test "$ETC2_COUNT" -gt 0
-          echo "Godot editor import completed without GDScript parse errors." | tee -a validation-output/summary.txt
-
-      - name: Launch main scene headlessly
-        run: |
-          set -euo pipefail
-          export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s "$GODOT_BIN" --headless --path "$PWD/downloaded/recovered" --quit-after 180 --verbose \
-            2>&1 | tee validation-output/main-scene-runtime.log
-          if grep -E "SCRIPT ERROR:|Parse Error:|Invalid call\.|Attempt to call function|Node not found" validation-output/main-scene-runtime.log; then
-            echo "Runtime smoke test detected a script or scene error."
-            exit 1
-          fi
-          echo "Main scene headless runtime smoke test passed." | tee -a validation-output/summary.txt
-
-      - name: Upload validation results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-lan-validation
-          path: validation-output/
-          compression-level: 1
-          retention-days: 30
+          retention-days: 14
