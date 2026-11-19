@@ -742,5 +742,30 @@ for marker in host_signals:
 		main_menu_text = main_menu_text.replace(marker, marker + '\n\t\t_save_player_name()\n', 1)
 (root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
 
+
+
+# Center the touch-control editor panel along the top edge instead of occupying
+# the left side of the screen, and keep focus navigation off the hidden START/JOIN.
+patch(
+    "scenes/main_menu/main_menu.tscn",
+    '[node name="HBoxContainer" type="HBoxContainer" parent="MainMenuScene/MarginContainer/EditControls"]\nlayout_mode = 1\nanchors_preset = 15',
+    '[node name="HBoxContainer" type="HBoxContainer" parent="MainMenuScene/MarginContainer/EditControls"]\nlayout_mode = 1\nanchors_preset = 15\nalignment = 1',
+)
+patch(
+    "scenes/main_menu/main_menu.tscn",
+    'theme_override_constants/margin_left = 64\ntheme_override_constants/margin_top = 64',
+    'theme_override_constants/margin_left = 20\ntheme_override_constants/margin_top = 16\ntheme_override_constants/margin_right = 20',
+)
+patch(
+    "scenes/main_menu/main_menu.tscn",
+    'focus_neighbor_bottom = NodePath("../StartJoinButton")',
+    'focus_neighbor_bottom = NodePath("../StartLocalButton")',
+)
+patch(
+    "scenes/main_menu/main_menu.tscn",
+    'focus_neighbor_top = NodePath("../StartJoinButton")',
+    'focus_neighbor_top = NodePath("../StartHostButton")',
+)
+
 print("LAN patch applied successfully with local discovery, LAN menu, touch layout and J7 performance profile.")
 
