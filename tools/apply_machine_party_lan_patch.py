@@ -1062,7 +1062,8 @@ controls_text = (root / controls_path).read_text(encoding="utf-8")
 if "var _user_controls_visible: bool" not in controls_text:
     controls_text = controls_text.replace(
         "var controls: Dictionary = {}",
-        "var controls: Dictionary = {}\nvar _user_controls_visible: bool = true",
+        "var controls: Dictionary = {}\nvar _user_controls_visible: bool = true
+var _default_control_visibility: Dictionary = {}",
         1,
     )
 controls_functions = r'''func set_controls_visible(value: bool) -> void:
@@ -1087,8 +1088,12 @@ func _refresh_context_visibility() -> void:
 		var control: Node = controls[control_name]
 		if not control is CanvasItem:
 			continue
+		var control_id: int = control.get_instance_id()
+		if not _default_control_visibility.has(control_id):
+			_default_control_visibility[control_id] = control.visible
 		var allowed_in_customization: bool = control_name in ["TouchScreenButton5", "TouchScreenButton6"]
-		control.visible = _user_controls_visible and (not customization or allowed_in_customization)
+		var default_visible: bool = bool(_default_control_visibility[control_id])
+		control.visible = _user_controls_visible and default_visible and (not customization or allowed_in_customization)
 '''
 # Replace only the previous helper block; never truncate the remainder of controls_android.gd.
 process_marker = "\nfunc _process(_delta: float) -> void:"
