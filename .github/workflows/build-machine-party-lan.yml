@@ -66,6 +66,20 @@ jobs:
             --name machine-party-recovery \
             --dir downloaded
           test -f downloaded/recovered/project.godot
+          PROJECT="$PWD/downloaded/recovered"
+          echo "===== AUDIT: Android/mobile renderer settings (before patch) ====="
+          grep -nE 'renderer/rendering_method|config/features|Steamworks' "$PROJECT/project.godot" || true
+          echo "===== AUDIT: Steamworks autoload script ====="
+          if [ -f "$PROJECT/modules/steamworks/steamworks.gd" ]; then sed -n '1,180p' "$PROJECT/modules/steamworks/steamworks.gd"; fi
+          echo "===== AUDIT: GameManager startup references ====="
+          if [ -f "$PROJECT/autoloads/game_manager.gd" ]; then sed -n '1,130p' "$PROJECT/autoloads/game_manager.gd"; fi
+          echo "===== AUDIT: Shape Cutter test and PatternMatcher references ====="
+          if [ -f "$PROJECT/minigames/shape_cutter/scripts/shape_cutter_test.gd" ]; then sed -n '1,180p' "$PROJECT/minigames/shape_cutter/scripts/shape_cutter_test.gd"; fi
+          grep -RIn --include='*.gd' 'class_name PatternMatcher\|pattern_points\|PatternPoints' "$PROJECT/minigames/shape_cutter" | head -60 || true
+          echo "===== AUDIT: affected texture import metadata ====="
+          find "$PROJECT" -type f -name '*.import' \
+            \( -iname '*smoke_07*' -o -iname '*Techno_03*' -o -iname '*blood11*' -o -iname '*server_rack_seamless*' \) \
+            -print -exec sed -n '1,120p' {} \; || true
           # The recovery artifact also contains a ZIP copy of the same project.
           # Keep the extracted project only to preserve disk space for APK signing.
           rm -rf downloaded/recovery-output

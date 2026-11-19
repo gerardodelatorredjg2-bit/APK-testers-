@@ -297,6 +297,35 @@ patch(
     'renderer/rendering_method="gl_compatibility"',
 )
 
+# Godot has a separate mobile renderer override. Changing only the base
+# rendering method leaves Android on the default Mobile/Vulkan renderer.
+project_file = root / "project.godot"
+project_lines = project_file.read_text(encoding="utf-8").splitlines()
+mobile_key = "renderer/rendering_method.mobile"
+mobile_setting = 'renderer/rendering_method.mobile="gl_compatibility"'
+rendering_index = next((i for i, line in enumerate(project_lines) if line.strip() == "[rendering]"), -1)
+if rendering_index < 0:
+    project_lines.extend(["", "[rendering]", mobile_setting])
+else:
+    existing_index = next(
+        (i for i, line in enumerate(project_lines[rendering_index + 1:], rendering_index + 1)
+         if line.strip().startswith(mobile_key + "=")),
+        -1,
+    )
+    if existing_index >= 0:
+        project_lines[existing_index] = mobile_setting
+    else:
+        project_lines.insert(rendering_index + 1, mobile_setting)
+project_file.write_text("\\n".join(project_lines) + "\\n", encoding="utf-8")
+
+# Repair an unrelated but real script-parse failure in the isolated Shape Cutter
+# test scene; keep its intended PatternMatcher API spelling.
+patch(
+    "minigames/shape_cutter/scripts/shape_cutter_test.gd",
+    "PatternMatcher.pattern_points",
+    "PatternMatcher.PatternPoints",
+)
+
 # The original project uses a custom AudioEffectGate GDExtension that is not
 # available in the recovered Android package's standard desktop editor toolchain.
 # Voice gating is non-essential to LAN gameplay; remove only those two bus effects
