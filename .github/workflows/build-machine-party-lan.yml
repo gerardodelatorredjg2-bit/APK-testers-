@@ -24,7 +24,7 @@ jobs:
           ref: ${{ github.ref_name }}
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -238,6 +238,71 @@ jobs:
           fi
           test -s build/MachineParty-LAN-universal.apk
           ls -lh build/MachineParty-LAN-universal.apk
+
+      - name: Collect Godot resource and audio warning diagnostics
+        if: always()
+        run: |
+          set -euo pipefail
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p build/resource-audit/source
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, shutil
+          root = Path("downloaded/recovered")
+          logs = [Path("build/godot-import.log"), Path("build/android-export.log")]
+          report = []
+          paths = set()
+          audio_paths = set()
+          for log in logs:
+              if not log.exists():
+                  continue
+              lines = log.read_text(errors="replace").splitlines()
+              for i, line in enumerate(lines):
+                  if "Resource still in use: res://" in line:
+                      rel = line.split("Resource still in use: res://",1)[1].split(" (",1)[0].strip()
+                      paths.add(rel)
+                  if "WARNING: Invalid comment in Ogg Vorbis file." in line:
+                      report.append(f"{log}:{i+1}: {line.strip()}")
+                      for nearby in lines[i+1:i+6]:
+                          m = re.search(r'EditorFileSystem: "(res://[^"]+)" import took', nearby)
+                          if m:
+                              audio_paths.add(m.group(1)[6:])
+                              break
+          report += ["", "=== Resource paths retained at shutdown ==="]
+          report += sorted(paths)
+          report += ["", "=== Ogg files associated with invalid Vorbis comments ==="]
+          report += sorted(audio_paths)
+          Path("build/resource-audit/report.txt").write_text("\n".join(report)+"\n")
+          for rel in sorted(paths | audio_paths):
+              src = root / rel
+              if src.is_file():
+                  dst = Path("build/resource-audit/source") / rel
+                  dst.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(src, dst)
+          for p in root.rglob("*intermission_user_container*"):
+              if p.is_file() and p.suffix in {".gd", ".tscn", ".tres"}:
+                  dst = Path("build/resource-audit/source") / p.relative_to(root)
+                  dst.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(p, dst)
+          print(f"Resource paths: {len(paths)}; Ogg warning files: {len(audio_paths)}")
+          print("\n".join(report[:160]))
+          PY
+          grep -RInE --include='*.gd' --include='*.tscn' 'remove_child|queue_free|\.free\(|intermission_user_container' build/resource-audit/source > build/resource-audit/lifecycle-references.txt || true
+          tar -czf build/resource-audit-source.tgz -C build/resource-audit .
+          ls -lh build/resource-audit-source.tgz build/resource-audit/report.txt
+
+      - name: Upload Godot resource audit source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-resource-audit
+          path: |
+            build/resource-audit-source.tgz
+            build/resource-audit/report.txt
+            build/resource-audit/lifecycle-references.txt
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
 
       - name: Verify APK and create compressed download
         run: |
