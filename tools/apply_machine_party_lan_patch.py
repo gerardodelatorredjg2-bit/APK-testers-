@@ -88,8 +88,8 @@ func join_client_direct(player_name: String, address: String) -> void:
 	save_player_info(player_name)
 	on_client_created.emit()
 
-func join_client(_player_name: String, _room_code: String = "") -> void:
-	join_refused.emit(0, NetworkManager.RefuseReason.None)
+func join_client(player_name: String, room_code: String = "") -> void:
+	join_client_direct(player_name, room_code)
 '''
 backend_path = root / "modules/multiplayer/backends/lan_enet_backend.gd"
 backend_path.parent.mkdir(parents=True, exist_ok=True)
