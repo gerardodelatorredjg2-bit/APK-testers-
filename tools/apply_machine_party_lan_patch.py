@@ -1660,8 +1660,40 @@ patch(
 )
 
 
+
+
+# Light budgets are per rendering viewport, not global: nine small cosmetic
+# preview SubViewports must each keep their own key/fill lights or their
+# thumbnails become unlit/black when the main-scene light cap is applied.
+mobile_settings_path = root / "MobileGameSettings.gd"
+mobile_settings_text = mobile_settings_path.read_text(encoding="utf-8")
+mobile_settings_text = replace_function_block(
+    mobile_settings_text,
+    "func _apply_quality_to_tree(node: Node) -> void:",
+    "func _apply_quality_to_node(node: Node) -> void:",
+    '''func _apply_quality_to_tree(node: Node) -> void:
+\tif node is SubViewport:
+\t\tvar previous_light_count: int = _active_light_count
+\t\t_active_light_count = 0
+\t\t_apply_quality_to_node(node)
+\t\tfor child in node.get_children():
+\t\t\t_apply_quality_to_tree(child)
+\t\t_active_light_count = previous_light_count
+\t\treturn
+
+\t_apply_quality_to_node(node)
+\tfor child in node.get_children():
+\t\t_apply_quality_to_tree(child)
+
+''',
+    "per-viewport light budgeting",
+)
+mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
+
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
+    "MobileGameSettings.gd": ["if node is SubViewport:", "previous_light_count"],
     "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
     "MobileGameSettings.gd": ["QualityProfile.AUTO:\n\t\t\tfps_limit = 60"],
     "MobileAppLifecycle.gd": ["NOTIFICATION_WM_GO_BACK_REQUEST", "LEAVE MATCH", "CONTINUE PLAYING"],
