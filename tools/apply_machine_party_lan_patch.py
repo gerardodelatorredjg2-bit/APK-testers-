@@ -1426,6 +1426,27 @@ network_text = network_text.replace(
 (root / network_path).write_text(network_text, encoding="utf-8")
 
 
+# Compatibility renderer does not implement SSAO/SSR/SDFGI/volumetric fog.
+# Disable these in serialized environments too, before Godot imports or instantiates them.
+unsupported_environment_flags = (
+    "ssao_enabled",
+    "ssr_enabled",
+    "sdfgi_enabled",
+    "volumetric_fog_enabled",
+)
+for resource_file in root.rglob("*"):
+    if resource_file.suffix not in {".tscn", ".tres"} or not resource_file.is_file():
+        continue
+    try:
+        resource_text = resource_file.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        continue
+    updated_text = resource_text
+    for flag in unsupported_environment_flags:
+        updated_text = updated_text.replace(f"{flag} = true", f"{flag} = false")
+    if updated_text != resource_text:
+        resource_file.write_text(updated_text, encoding="utf-8")
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
 	"project.godot": [
@@ -1458,6 +1479,17 @@ for check_path, required_strings in checks.items():
 	missing = [item for item in required_strings if item not in check_text]
 	if missing:
 		raise SystemExit(f"{check_path}: missing required mobile performance feature(s): {missing}")
+
+for resource_file in root.rglob("*"):
+	if resource_file.suffix not in {".tscn", ".tres"} or not resource_file.is_file():
+		continue
+	try:
+		resource_text = resource_file.read_text(encoding="utf-8")
+	except (UnicodeDecodeError, OSError):
+		continue
+	for flag in unsupported_environment_flags:
+		if f"{flag} = true" in resource_text:
+			raise SystemExit(f"{resource_file.relative_to(root)} still enables unsupported mobile effect {flag}")
 
 audio_repair_script = Path(__file__).with_name("repair_ogg_comments.py")
 if not audio_repair_script.is_file():
