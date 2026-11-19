@@ -1739,8 +1739,90 @@ patch(
 )
 
 
+
+
+# Build each cosmetic thumbnail with only its selected GLB. The original preview
+# scene instanced all ten accessories in each of nine SubViewports (90 model
+# instances); this keeps the same nine accessories but instantiates only nine
+# models total, without deleting any accessory used by the actual player.
+preview_scene_path = root / "modules/character_customization/cosmetic_selection_instance.tscn"
+preview_scene_text = preview_scene_path.read_text(encoding="utf-8")
+preview_scene_text = re.sub(
+    r'(?m)^\[ext_resource type="PackedScene".*? id="(?:2|3|4|5|6|7|8|9|10|11)"\]\n',
+    "",
+    preview_scene_text,
+)
+preview_model_names = (
+    "cap_blade", "sunglasses", "maska_helmet", "reading_glasses",
+    "rubiks_cube", "tophat", "traffic_cone", "beer_hat", "hard_hat", "drill_sgt_hat",
+)
+for model_name in preview_model_names:
+    preview_scene_text, removed = re.subn(
+        rf'(?m)^\[node name="{re.escape(model_name)}" parent="viewport_cosmetic selection/cosmetic selection camera parent/cosmetic holder parent" instance=ExtResource\("[0-9]+"\)\]\n(?:transform = [^\n]+\n)?',
+        "",
+        preview_scene_text,
+    )
+    if removed != 1:
+        raise SystemExit(f"cosmetic preview scene: expected one {model_name} model node, removed {removed}")
+preview_scene_text = preview_scene_text.replace("load_steps=16 format=3", "load_steps=6 format=3")
+preview_scene_path.write_text(preview_scene_text, encoding="utf-8")
+
+preview_script = r'''class_name Customization_SelectionInstance extends Node3D
+
+@export var cosmetic_holder_parent: Node3D
+@export var camera_parent: Node3D
+@export var assigned_viewport: SubViewport
+
+const COSMETIC_SCENES: Dictionary = {
+	"beer_hat": "res://models/character cosmetics/cosmetic_beer hat/cosmetic_beer hat.glb",
+	"cap_blade": "res://models/character cosmetics/cosmetic_cap blade/cosmetic_cap blade.glb",
+	"sunglasses": "res://models/character cosmetics/cosmetic_glasses sunglasses/cosmetic_glasses sunglasses.glb",
+	"reading_glasses": "res://models/character cosmetics/cosmetic_reading glasses/cosmetic_reading glasses.glb",
+	"tophat": "res://models/character cosmetics/cosmetic_tophat/cosmetic_tophat.glb",
+	"traffic_cone": "res://models/character cosmetics/cosmetic_traffic cone/cosmetic_traffic cone.glb",
+	"maska_helmet": "res://models/character cosmetics/cosmetic_maska helmet/cosmetic_maska helmet.glb",
+	"drill_sgt_hat": "res://models/character cosmetics/cosmetic_drill sgt hat/cosmetic_drill sgt hat.glb",
+	"hard_hat": "res://models/character cosmetics/cosmetic_hard hat/cosmetic_hard hat.glb",
+}
+
+func setup_cosmetic(assigned_cosmetic_name: String) -> void:
+	var scene_path: String = str(COSMETIC_SCENES.get(assigned_cosmetic_name, ""))
+	if scene_path.is_empty():
+		push_warning("Unknown cosmetic preview: " + assigned_cosmetic_name)
+		return
+
+	var packed_scene: PackedScene = load(scene_path) as PackedScene
+	if packed_scene == null:
+		push_warning("Could not load cosmetic preview: " + scene_path)
+		return
+
+	var model: Node3D = packed_scene.instantiate() as Node3D
+	if model == null:
+		push_warning("Cosmetic preview root is not Node3D: " + scene_path)
+		return
+
+	model.name = assigned_cosmetic_name
+	match assigned_cosmetic_name:
+		"sunglasses":
+			model.scale = Vector3.ONE * 1.95023
+		"reading_glasses":
+			model.scale = Vector3.ONE * 2.0008
+		"hard_hat":
+			model.scale = Vector3.ONE * 1.2323493
+		"drill_sgt_hat":
+			model.scale = Vector3.ONE * 0.9476613
+			model.position = Vector3(0.017949104, 0.110788226, 0.0037056282)
+
+	cosmetic_holder_parent.add_child(model)
+	if assigned_viewport:
+		assigned_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+'''
+(root / "scripts/components/character customization/customization_selection_instance.gd").write_text(preview_script, encoding="utf-8")
+
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
+    "scripts/components/character customization/customization_selection_instance.gd": ["const COSMETIC_SCENES", "packed_scene.instantiate()", "SubViewport.UPDATE_ONCE"],
     "autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
     "MobileGameSettings.gd": ["if node is SubViewport:", "previous_light_count"],
     "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
