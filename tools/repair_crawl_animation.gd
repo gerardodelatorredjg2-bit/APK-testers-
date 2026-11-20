@@ -87,15 +87,17 @@ func _repair() -> void:
 		push_error("CRAWL_REPAIR_FAILED: cannot read player scene")
 		quit(1)
 		return
+	var uid_regex := RegEx.new()
+	uid_regex.compile(' uid="uid://[^"]+"')
 	var lines := scene_text.split("\n")
 	var replaced := 0
 	for index in lines.size():
 		if lines[index].contains('id="25"') and lines[index].contains("crawl_idle_overwrite.res"):
-			lines[index] = lines[index].replace(" uid=\"uid://dvmyvikv5nd6m\"", "")
+			lines[index] = uid_regex.sub(lines[index], "", true)
 			lines[index] = lines[index].replace("crawl_idle_overwrite.res", "crawl_idle_overwrite_mobile.tres")
 			replaced += 1
 		elif lines[index].contains('id="26"') and lines[index].contains("crawl_overwrite.res"):
-			lines[index] = lines[index].replace(" uid=\"uid://dvmyvikv5nd6m\"", "")
+			lines[index] = uid_regex.sub(lines[index], "", true)
 			lines[index] = lines[index].replace("crawl_overwrite.res", "crawl_overwrite_mobile.tres")
 			replaced += 1
 	if replaced != 2:
