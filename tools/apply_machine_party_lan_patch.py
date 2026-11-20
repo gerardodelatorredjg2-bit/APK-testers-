@@ -2068,6 +2068,111 @@ main_menu_text = main_menu_text.replace(
 )
 (root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
 
+# Touchscreen cursor handling in gameplay: do not reactivate the desktop pointer when
+# the player opens a pause menu or changes input device on Android.
+briefing_path = "minigames/intermission_new/components/intermission_briefing_screen.gd"
+briefing_text = (root / briefing_path).read_text(encoding="utf-8")
+briefing_text = replace_function_block(
+	briefing_text,
+	"func _on_input_device_changed(input_device: GameManager.InputDevice) -> void :",
+	"func _on_unpaused():",
+	'''func _on_input_device_changed(input_device: GameManager.InputDevice) -> void:
+	if not active or PauseMenu.active:
+		return
+
+	match input_device:
+		GameManager.InputDevice.Controller:
+			if get_viewport():
+				get_viewport().gui_release_focus()
+				await get_tree().process_frame
+			CursorManager.set_mouse_mode(Input.MouseMode.MOUSE_MODE_CAPTURED)
+			CursorManager.set_active(false)
+			PauseMenu.game_target_can_set_cursor = false
+			PauseMenu.game_target_cursor_active = false
+			PauseMenu.game_target_cursor_visible = false
+			button_ready.grab_focus()
+
+		GameManager.InputDevice.Keyboard:
+			if get_viewport():
+				get_viewport().gui_release_focus()
+			PauseMenu.game_target_can_set_cursor = true
+			PauseMenu.game_target_cursor_active = true
+			PauseMenu.game_target_cursor_visible = true
+			CursorManager.set_locked(false, false)
+			CursorManager.set_active(true)
+			CursorManager.set_mouse_mode(Input.MouseMode.MOUSE_MODE_VISIBLE)
+			CursorManager.set_cursor(true, true)
+
+		GameManager.InputDevice.Touch:
+			if get_viewport():
+				get_viewport().gui_release_focus()
+			PauseMenu.game_target_can_set_cursor = false
+			PauseMenu.game_target_cursor_active = false
+			PauseMenu.game_target_cursor_visible = false
+			CursorManager.set_locked(false, false)
+			CursorManager.set_active(false)
+
+''',
+	"mobile intermission cursor handling",
+)
+briefing_text = replace_function_block(
+	briefing_text,
+	"func _on_unpaused():",
+	"func _on_ready_button_pressed():",
+	'''func _on_unpaused():
+	if not active:
+		return
+
+	if GameManager.is_using_controller():
+		button_ready.grab_focus()
+		PauseMenu.game_target_can_set_cursor = false
+		PauseMenu.game_target_cursor_active = false
+		PauseMenu.game_target_cursor_visible = false
+		CursorManager.set_active(false)
+	elif GameManager.is_using_touchscreen():
+		if get_viewport():
+			get_viewport().gui_release_focus()
+		PauseMenu.game_target_can_set_cursor = false
+		PauseMenu.game_target_cursor_active = false
+		PauseMenu.game_target_cursor_visible = false
+		CursorManager.set_locked(false)
+		CursorManager.set_active(false)
+	else:
+		if get_viewport():
+			get_viewport().gui_release_focus()
+		PauseMenu.game_target_can_set_cursor = true
+		PauseMenu.game_target_cursor_active = true
+		PauseMenu.game_target_cursor_visible = true
+		CursorManager.set_locked(false)
+		CursorManager.set_active(true)
+		CursorManager.set_mouse_mode(Input.MouseMode.MOUSE_MODE_VISIBLE)
+		CursorManager.set_cursor(true, true)
+
+''',
+	"mobile intermission resume handling",
+)
+(root / briefing_path).write_text(briefing_text, encoding="utf-8")
+
+interaction_path = "minigames/chisel_gauntlet_multiplayer/components/player/components/interaction_handler/interaction_handler.gd"
+interaction_text = (root / interaction_path).read_text(encoding="utf-8")
+keyboard_marker = "\t\tGameManager.InputDevice.Keyboard:\n\n\t\t\tif highlighted_segment:"
+touch_case = '''		GameManager.InputDevice.Touch:
+			if active_segment and active_segment is ChiselGauntletCubeSegment:
+				active_segment._on_mouse_exited()
+			active_segment = null
+			if highlighted_segment:
+				highlighted_segment.actual_mesh.set_instance_shader_parameter("strength", 0.0)
+			highlighted_segment = null
+			CursorManager.set_locked(false)
+			CursorManager.set_active(false)
+
+'''
+if "GameManager.InputDevice.Touch:" not in interaction_text:
+	if keyboard_marker not in interaction_text:
+		raise SystemExit("Chisel Gauntlet keyboard input branch not found")
+	interaction_text = interaction_text.replace(keyboard_marker, touch_case + keyboard_marker, 1)
+(root / interaction_path).write_text(interaction_text, encoding="utf-8")
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
 	"scripts/scenes/game/game.gd": ["func preload_minigame_scene(", "ResourceLoader.load_threaded_request", "_load_minigame_scene_threaded"],
@@ -2103,6 +2208,8 @@ checks = {
 		"GameManager.InputDevice.Touch", "icon_label.text = keyboard_text",
 	],
 	"modules/multiplayer/network_manager.gd": ["func _change_to_game_scene()", "game_scene == null"],
+	"minigames/intermission_new/components/intermission_briefing_screen.gd": ["GameManager.InputDevice.Touch:", "GameManager.is_using_touchscreen()", "CursorManager.set_active(false)"],
+	"minigames/chisel_gauntlet_multiplayer/components/player/components/interaction_handler/interaction_handler.gd": ["GameManager.InputDevice.Touch:", "CursorManager.set_active(false)"],
 }
 for check_path, required_strings in checks.items():
 	check_text = (root / check_path).read_text(encoding="utf-8")
