@@ -7,6 +7,8 @@ on:
       - "optimization/**"
     paths:
       - "tools/apply_machine_party_lan_patch.py"
+      - "tools/apply_gameplay_audit_fixes.py"
+      - "tools/test_shape_cutter_regression.gd"
       - "tools/optimize_mobile_performance.py"
       - "tools/test_mobile_optimizer.py"
       - "tools/smoke_test_minigame_scenes.gd"
@@ -106,6 +108,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
+          python3 tools/apply_gameplay_audit_fixes.py downloaded/recovered
+          cp tools/test_shape_cutter_regression.gd downloaded/recovered/test_shape_cutter_regression.gd
           python3 tools/optimize_mobile_performance.py downloaded/recovered
           python3 tools/test_recovered_gameplay_fixes.py downloaded/recovered
           cp recovered-project/controls_android.gd downloaded/recovered/controls_android.gd
@@ -225,6 +229,19 @@ jobs:
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
 
+      - name: Run Shape Cutter gameplay regression tests
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PROJECT/test_shape_cutter_regression.gd" 2>&1 | tee build/shape-cutter-regression.log
+          grep -q "SHAPE_CUTTER_REGRESSION_PASS" build/shape-cutter-regression.log
+          if grep -Eiq "SCRIPT ERROR:|Parse Error:|SHAPE_CUTTER_REGRESSION_FAILED" build/shape-cutter-regression.log; then
+            echo "===== SHAPE CUTTER REGRESSION FAILURE ====="
+            grep -Ein "SCRIPT ERROR:|Parse Error:|SHAPE_CUTTER_REGRESSION_FAILED" build/shape-cutter-regression.log
+            exit 1
+          fi
       - name: Repair crawl animation bone paths
         run: |
           set -euo pipefail
