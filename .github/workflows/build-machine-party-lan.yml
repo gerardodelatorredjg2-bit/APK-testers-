@@ -14,6 +14,7 @@ on:
       - "tools/test_recovered_gameplay_fixes.py"
       - "tools/smoke_test_crawl_animation.gd"
       - "tools/smoke_test_transition_overlay.gd"
+      - "tools/repair_crawl_animation.gd"
       - "tools/lan_loopback_smoke.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
@@ -223,6 +224,19 @@ jobs:
             --path "$PROJECT" --quit
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
+
+      - name: Repair crawl animation bone paths
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
+          grep -q 'CRAWL_REPAIR_PASS:' build/crawl-animation-repair.log
+          test -s "$PROJECT/animations/crawl_idle_overwrite_mobile.tres"
+          test -s "$PROJECT/animations/crawl_overwrite_mobile.tres"
+          grep -q 'crawl_idle_overwrite_mobile.tres' "$PROJECT/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn"
+          grep -q 'crawl_overwrite_mobile.tres' "$PROJECT/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn"
 
       - name: Run headless game startup smoke test
         run: |
