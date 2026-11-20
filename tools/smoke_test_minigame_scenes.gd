@@ -45,6 +45,7 @@ func _run_scene_smoke_test() -> void:
 			push_error("CORE_SCENE_MISSING: " + core_scene)
 	scene_paths.sort()
 	print("MINIGAME_SCENE_SMOKE_COUNT=", scene_paths.size())
+	var processed_scenes := 0
 	for scene_path in scene_paths:
 		var packed_scene: Resource = ResourceLoader.load(
 			scene_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE
@@ -53,6 +54,11 @@ func _run_scene_smoke_test() -> void:
 			failures.append(scene_path)
 			push_error("MINIGAME_SCENE_LOAD_FAILED: " + scene_path)
 		packed_scene = null
+		processed_scenes += 1
+		if processed_scenes % 8 == 0:
+			await process_frame
+	await process_frame
+	await process_frame
 	if failures.is_empty():
 		print("MINIGAME_SCENE_SMOKE_PASS: all ", scene_paths.size(), " scenes loaded")
 		quit(0)
