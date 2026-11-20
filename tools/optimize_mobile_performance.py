@@ -28,7 +28,7 @@ def set_project_setting(section: str, key: str, value: str) -> None:
         lines.extend([header, f"{key}={value}"])
         return
     end = next((i for i in range(start + 1, len(lines)) if lines[i].strip().startswith("[") and lines[i].strip().endswith("]")), len(lines))
-    pattern = re.compile(r"^\\s*" + re.escape(key) + r"\\s*=")
+    pattern = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
     matches = [i for i in range(start + 1, end) if pattern.match(lines[i])]
     if matches:
         lines[matches[-1]] = f"{key}={value}"
@@ -38,7 +38,7 @@ def set_project_setting(section: str, key: str, value: str) -> None:
 for key, value in settings.items():
     section = key.split("/", 1)[0]
     set_project_setting(section, key, value)
-project.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+project.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 # Existing runtime optimizers can override project defaults. Force their mobile
 # render scale to 50%, keep a stable 30 FPS target, and cap dynamic lights.
