@@ -12,6 +12,7 @@ on:
       - "tools/smoke_test_minigame_scenes.gd"
       - "tools/audit_recovered_minigames.py"
       - "tools/test_recovered_gameplay_fixes.py"
+      - "tools/smoke_test_crawl_animation.gd"
       - "tools/lan_loopback_smoke.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
@@ -257,6 +258,20 @@ jobs:
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed loading resource|MINIGAME_SCENE_LOAD_FAILED' build/minigame-scenes-smoke.log; then
             echo "===== MINIGAME RESOURCE OR SCRIPT ERRORS ====="
             grep -Ein 'SCRIPT ERROR:|Parse Error:|Failed loading resource|MINIGAME_SCENE_LOAD_FAILED' build/minigame-scenes-smoke.log
+            exit 1
+          fi
+
+      - name: Test injured-player crawl animation at runtime
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
+          grep -q 'CRAWL_ANIMATION_SMOKE_PASS:' build/crawl-animation-smoke.log
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log; then
+            echo "===== CRAWL ANIMATION SMOKE FAILURE ====="
+            grep -Ein 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log
             exit 1
           fi
 
