@@ -439,4 +439,71 @@ patch(
     '@export var action_left: = "left"\n@export var action_right: = "right"\n@export var action_up: = "up"\n@export var action_down: = "down"',
 )
 
+
+# Duck Hunt's keyboard/mouse aiming path must also accept mobile touchscreen
+# drags. The virtual fire/zoom controls continue to feed the existing actions.
+patch(
+    "minigames/duck_hunt/components/hunter_player/scripts/hunter_player.gd",
+    "\tif can_aim:\n\n\t\tif event is InputEventMouseMotion:\n\n\t\t\tlook_input = Vector2(\n\t\t\t\t- event.screen_relative.x * look_sensitivity / 1000, \n\t\t\t\t- event.screen_relative.y * look_sensitivity / 1000, \n\t\t\t)\n",
+    "\tif can_aim:\n\t\tvar relative_motion := Vector2.ZERO\n\t\tif event is InputEventMouseMotion:\n\t\t\trelative_motion = event.screen_relative\n\t\telif event is InputEventScreenDrag:\n\t\t\t# Touch dragging is the mobile equivalent of mouse-look in Duck Hunt.\n\t\t\trelative_motion = event.screen_relative\n\n\t\tif not relative_motion.is_zero_approx():\n\t\t\tlook_input = Vector2(\n\t\t\t\t- relative_motion.x * look_sensitivity / 1000.0,\n\t\t\t\t- relative_motion.y * look_sensitivity / 1000.0,\n\t\t\t)\n",
+)
+
+
+# The player swaps to its separate torso rig after the first mine hit.\n# The rig's crawl AnimationTree and imported clips remain untouched.\n\n# The physical in-game jumbotron reads a ViewportTexture from a SubViewport.
+# It is consumed by 3D screen materials; force continuous updates and explicitly
+# activate its camera so the feed cannot remain stale/black on Android.
+patch(
+    "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
+    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\nsize = Vector2i(702, 512)',
+    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\nsize = Vector2i(702, 512)\nrender_target_update_mode = 4',
+)
+
+patch(
+    "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
+    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\nfov = 41.3',
+    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\ncurrent = true\nfov = 41.3',
+)
+
+# Disable only optional full-screen SCREEN_TEXTURE post-processing for Android.
+# These overlays sit over the chisel reference monitor and the complete mine game,
+# and can output a black frame on GLES Compatibility devices.
+patch(
+    "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\nvisible = false\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
+)
+patch(
+    "minigames/exploding_collar_race/exploding_collar_race.tscn",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\nvisible = false\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
+)
+
+# Mine explosions used 16x16 world-space smoke quads scaled up to 2x.
+# At close range those billboards can cover the whole mobile camera for two seconds.
+# Keep the burst readable but shrink/shorten only the two smoke layers; debris and
+# sparks remain unchanged.
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\nsize = Vector2(16, 16)',
+    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\nsize = Vector2(6, 6)',
+)
+# Cap smoke particle size so nearby detonations no longer fill the camera frustum.
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    "scale_max = 2.0\nscale_curve = SubResource(\"CurveTexture_0irmn\")",
+    "scale_max = 1.0\nscale_curve = SubResource(\"CurveTexture_0irmn\")",
+)
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    "scale_max = 2.0\nscale_curve = SubResource(\"CurveTexture_0alh5\")",
+    "scale_max = 1.0\nscale_curve = SubResource(\"CurveTexture_0alh5\")",
+)
+
+# Prevent overlapping scene fades from emitting a false completion signal.
+patch(
+    "modules/global_overlay/global_overlay.gd",
+    "var overlay_tween: Tween\n\nsignal fade_finished()\n\nfunc fade_overlay(_to_color: Color, _duration: float = 0.5):\n\n\tif overlay_tween:\n\t\tif overlay_tween.is_running():\n\t\t\tawait get_tree().physics_frame\n\t\t\tfade_finished.emit()\n\t\toverlay_tween.kill()\n\n\tcontrol.mouse_filter = Control.MOUSE_FILTER_STOP\n\n\toverlay_tween = create_tween()\n\toverlay_tween.tween_property(\n\t\toverlay, \"color\", _to_color, _duration\n\t)\n\toverlay_tween.tween_callback( func():\n\t\tcontrol.mouse_filter = Control.MOUSE_FILTER_IGNORE\n\t\tfade_finished.emit()\n\t)\n",
+    "var overlay_tween: Tween\nvar fade_generation: int = 0\n\nsignal fade_finished()\n\nfunc fade_overlay(_to_color: Color, _duration: float = 0.5) -> void:\n\tfade_generation += 1\n\tvar this_generation: int = fade_generation\n\n\t# Cancel the previous transition without announcing that it finished.\n\t# Awaiting callers resume only when the newest fade has actually completed.\n\tif overlay_tween and overlay_tween.is_running():\n\t\toverlay_tween.kill()\n\n\tcontrol.mouse_filter = Control.MOUSE_FILTER_STOP\n\n\toverlay_tween = create_tween()\n\toverlay_tween.tween_property(overlay, \"color\", _to_color, _duration)\n\toverlay_tween.tween_callback(func():\n\t\tif this_generation != fade_generation:\n\t\t\treturn\n\t\tcontrol.mouse_filter = Control.MOUSE_FILTER_IGNORE\n\t\tfade_finished.emit()\n\t)\n",
+)
+
 print("LAN patch applied successfully.")

@@ -4,9 +4,18 @@ on:
   push:
     branches:
       - "recovery/**"
+      - "optimization/**"
     paths:
       - "tools/apply_machine_party_lan_patch.py"
       - "tools/optimize_mobile_performance.py"
+      - "tools/test_mobile_optimizer.py"
+      - "tools/smoke_test_minigame_scenes.gd"
+      - "tools/audit_recovered_minigames.py"
+      - "tools/test_recovered_gameplay_fixes.py"
+      - "tools/smoke_test_crawl_animation.gd"
+      - "tools/smoke_test_transition_overlay.gd"
+      - "tools/repair_crawl_animation.gd"
+      - "tools/lan_loopback_smoke.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
 
@@ -23,6 +32,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
+
+      - name: Unit-test mobile optimizer before building
+        run: python3 -m unittest -v tools/test_mobile_optimizer.py
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -77,6 +89,7 @@ jobs:
           echo "===== AUDIT: Shape Cutter test and PatternMatcher references ====="
           if [ -f "$PROJECT/minigames/shape_cutter/scripts/shape_cutter_test.gd" ]; then sed -n '1,180p' "$PROJECT/minigames/shape_cutter/scripts/shape_cutter_test.gd"; fi
           grep -RIn --include='*.gd' 'class_name PatternMatcher\|pattern_points\|PatternPoints' "$PROJECT/minigames/shape_cutter" | head -60 || true
+          python3 tools/audit_recovered_minigames.py "$PROJECT" | tee build/recovered-minigame-audit.txt
           echo "===== AUDIT: affected texture import metadata ====="
           find "$PROJECT" -type f -name '*.import' \
             \( -iname '*smoke_07*' -o -iname '*Techno_03*' -o -iname '*blood11*' -o -iname '*server_rack_seamless*' \) \
@@ -94,6 +107,9 @@ jobs:
           set -euo pipefail
           python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
           python3 tools/optimize_mobile_performance.py downloaded/recovered
+          python3 tools/test_recovered_gameplay_fixes.py downloaded/recovered
+          cp recovered-project/controls_android.gd downloaded/recovered/controls_android.gd
+          python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/test_recovered_gameplay_fixes.py
           PROJECT="$PWD/downloaded/recovered"
           test "$(wc -l < "$PROJECT/project.godot")" -gt 300
           grep -Fqx '[application]' "$PROJECT/project.godot"
@@ -209,6 +225,168 @@ jobs:
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
 
+      - name: Repair crawl animation bone paths
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
+          grep -q 'CRAWL_REPAIR_PASS:' build/crawl-animation-repair.log
+          test -s "$PROJECT/animations/crawl_idle_overwrite_mobile.tres"
+          test -s "$PROJECT/animations/crawl_overwrite_mobile.tres"
+          grep -q 'crawl_idle_overwrite_mobile.tres' "$PROJECT/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn"
+          grep -q 'crawl_overwrite_mobile.tres' "$PROJECT/minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn"
+
+      - name: Run headless game startup smoke test
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p build
+          export GODOT_SILENCE_ROOT_WARNING=1
+          if ! timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --quit-after 180 --verbose 2>&1 | tee build/headless-startup.log; then
+            echo "===== HEADLESS STARTUP FAILURE ====="
+            tail -n 240 build/headless-startup.log
+            exit 1
+          fi
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed loading resource' build/headless-startup.log; then
+            echo "===== SCRIPT OR RESOURCE ERRORS DURING STARTUP ====="
+            grep -Ein 'SCRIPT ERROR:|Parse Error:|Failed loading resource' build/headless-startup.log
+            exit 1
+          fi
+          echo "Headless startup smoke test passed (180 frames)."
+
+      - name: Load every minigame scene headlessly
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p build
+          export GODOT_SILENCE_ROOT_WARNING=1
+          if ! timeout 5m "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_minigame_scenes.gd" 2>&1 | tee build/minigame-scenes-smoke.log; then
+            echo "===== MINIGAME SCENE LOAD FAILURES ====="
+            tail -n 240 build/minigame-scenes-smoke.log
+            exit 1
+          fi
+          grep -q 'MINIGAME_SCENE_SMOKE_PASS' build/minigame-scenes-smoke.log
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed loading resource|MINIGAME_SCENE_LOAD_FAILED' build/minigame-scenes-smoke.log; then
+            echo "===== MINIGAME RESOURCE OR SCRIPT ERRORS ====="
+            grep -Ein 'SCRIPT ERROR:|Parse Error:|Failed loading resource|MINIGAME_SCENE_LOAD_FAILED' build/minigame-scenes-smoke.log
+            exit 1
+          fi
+
+      - name: Test injured-player crawl animation at runtime
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
+          grep -q 'CRAWL_ANIMATION_SMOKE_PASS:' build/crawl-animation-smoke.log
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log; then
+            echo "===== CRAWL ANIMATION SMOKE FAILURE ====="
+            grep -Ein 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log
+            exit 1
+          fi
+
+      - name: Test overlapping scene transition fades
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
+          grep -q 'TRANSITION_OVERLAY_SMOKE_PASS:' build/transition-overlay-smoke.log
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|TRANSITION_OVERLAY_SMOKE_FAILED' build/transition-overlay-smoke.log; then
+            echo "===== TRANSITION OVERLAY SMOKE FAILURE ====="
+            grep -Ein 'SCRIPT ERROR:|Parse Error:|TRANSITION_OVERLAY_SMOKE_FAILED' build/transition-overlay-smoke.log
+            exit 1
+          fi
+
+      - name: Test LAN host-client handshake over ENet
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p build
+          HOST_LOG="$PWD/build/lan-host-smoke.log"
+          CLIENT_LOG="$PWD/build/lan-client-smoke.log"
+          PROJECT_CONFIG="$PROJECT/project.godot"
+          CONFIG_BACKUP="$PWD/build/project.godot.before-lan-smoke"
+          TEST_SCRIPT="$PROJECT/lan_loopback_smoke.gd"
+          TEST_SCENE="$PROJECT/lan_loopback_smoke.tscn"
+          cp "$PROJECT_CONFIG" "$CONFIG_BACKUP"
+          cleanup() {
+            if [ -n "${HOST_PID:-}" ]; then
+              kill "$HOST_PID" 2>/dev/null || true
+            fi
+            cp "$CONFIG_BACKUP" "$PROJECT_CONFIG"
+            rm -f "$TEST_SCRIPT" "$TEST_SCENE"
+          }
+          trap cleanup EXIT
+          cp "$PWD/tools/lan_loopback_smoke.gd" "$TEST_SCRIPT"
+          cat > "$TEST_SCENE" <<'EOF'
+          [gd_scene load_steps=2 format=3]
+          [ext_resource type="Script" path="res://lan_loopback_smoke.gd" id="1"]
+          [node name="LanLoopbackSmoke" type="Node"]
+          script = ExtResource("1")
+          EOF
+          python3 - "$PROJECT_CONFIG" <<'PY'
+          import sys
+          from pathlib import Path
+          path = Path(sys.argv[1])
+          source = path.read_text(encoding="utf-8")
+          key = 'run/main_scene='
+          lines = source.splitlines()
+          matches = [i for i, line in enumerate(lines) if line.startswith(key)]
+          if len(matches) != 1:
+              raise SystemExit(f"Expected exactly one {key} setting, got {len(matches)}")
+          lines[matches[0]] = 'run/main_scene="res://lan_loopback_smoke.tscn"'
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
+          HOST_PID=$!
+          for attempt in $(seq 1 100); do
+            if grep -q 'LAN_TEST_HOST_READY=' "$HOST_LOG"; then
+              break
+            fi
+            if ! kill -0 "$HOST_PID" 2>/dev/null; then
+              wait "$HOST_PID" || true
+              cat "$HOST_LOG"
+              exit 1
+            fi
+            sleep 0.2
+          done
+          HOST_ADDRESS="$(sed -n 's/^LAN_TEST_HOST_READY=//p' "$HOST_LOG" | tail -n 1)"
+          if [ -z "$HOST_ADDRESS" ]; then
+            echo "LAN host did not become ready."
+            cat "$HOST_LOG"
+            exit 1
+          fi
+          echo "Testing LAN address: $HOST_ADDRESS"
+          if ! timeout 30s "$GODOT_BIN" --headless --path "$PROJECT" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
+            echo "===== LAN CLIENT FAILURE ====="
+            cat "$CLIENT_LOG"
+            cat "$HOST_LOG"
+            exit 1
+          fi
+          if ! wait "$HOST_PID"; then
+            echo "===== LAN HOST FAILURE ====="
+            cat "$HOST_LOG"
+            cat "$CLIENT_LOG"
+            exit 1
+          fi
+          HOST_PID=""
+          cp "$CONFIG_BACKUP" "$PROJECT_CONFIG"
+          rm -f "$TEST_SCRIPT" "$TEST_SCENE"
+          trap - EXIT
+          cat "$HOST_LOG"
+          cat "$CLIENT_LOG"
+          grep -q 'LAN_LOOPBACK_PASS:host:' "$HOST_LOG"
+          grep -q 'LAN_LOOPBACK_PASS:client:' "$CLIENT_LOG"
+
       - name: Export Android APK
         run: |
           set -euo pipefail
@@ -266,6 +444,24 @@ jobs:
                   print(f"{info.file_size:>12}  {info.filename}")
           PY
 
+      - name: Upload recovered gameplay source and audit logs for deeper review
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-gameplay-audit-source
+          path: |
+            downloaded/recovered-gameplay-source.zip
+            build/recovered-minigame-audit.txt
+            build/headless-startup.log
+            build/minigame-scenes-smoke.log
+            build/crawl-animation-repair.log
+            build/crawl-animation-smoke.log
+            build/transition-overlay-smoke.log
+            build/lan-host-smoke.log
+            build/lan-client-smoke.log
+          if-no-files-found: warn
+          compression-level: 1
+          retention-days: 7
+
       - name: Upload compressed package only
         uses: actions/upload-artifact@v4
         with:
@@ -285,10 +481,12 @@ jobs:
           set -euo pipefail
           TAG="machine-party-lan-universal-${GITHUB_RUN_ID}"
           gh release create "$TAG" \
+            build/MachineParty-LAN-universal.apk \
             build/MachineParty-LAN-universal.7z \
+            build/APK-SHA256SUMS.txt \
             build/SHA256SUMS.txt \
             --repo "$GH_REPO" \
             --title "Machine Party LAN - Android Universal (ARMv7 + ARM64)" \
-            --notes "Local ENet multiplayer over Wi-Fi/hotspot. Universal ARMv7 (armeabi-v7a) + ARM64 (arm64-v8a). Exported with Godot 4.5.2 and signed with a debug key for testing."
+            --notes "Direct APK plus compressed mirror. Universal ARMv7 (armeabi-v7a) + ARM64 (arm64-v8a). Godot 4.5.2. Debug-signed; for testing, not a production release."
 
 # Build universal ARMv7 + ARM64 LAN APK; package losslessly with ultra LZMA2.

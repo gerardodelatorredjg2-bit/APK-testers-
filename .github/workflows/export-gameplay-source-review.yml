@@ -1,0 +1,50 @@
+name: Export focused recovered gameplay source review
+
+on:
+  push:
+    branches:
+      - "optimization/**"
+    paths:
+      - "tools/audit_recovered_minigames.py"
+      - ".github/workflows/export-gameplay-source-review.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  source-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout audit tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Download recovered Machine Party source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded
+          gh run download 44350091150 \
+            --repo "$GH_REPO" \
+            --name machine-party-recovery \
+            --dir downloaded
+          test -f downloaded/recovered/project.godot
+          python3 tools/audit_recovered_minigames.py downloaded/recovered | tee downloaded/recovered-minigame-audit.txt
+          test -s downloaded/recovered-gameplay-source.zip
+          ls -lh downloaded/recovered-gameplay-source.zip
+
+      - name: Upload focused gameplay source
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovered-gameplay-source-review
+          path: |
+            downloaded/recovered-gameplay-source.zip
+            downloaded/recovered-minigame-audit.txt
+          compression-level: 0
+          retention-days: 3

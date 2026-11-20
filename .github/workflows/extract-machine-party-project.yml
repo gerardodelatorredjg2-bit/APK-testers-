@@ -1,0 +1,90 @@
+name: Extract recovered Godot project and inspect
+on:
+  workflow_dispatch:
+  push:
+    branches: ["optimization/**"]
+    paths: [".github/workflows/extract-machine-party-project.yml"]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  extract-project:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Download recovered ZIP artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" -o recovery.zip
+      - name: Verify and extract complete Godot project
+        run: |
+          set -euo pipefail
+          unzip -t recovery.zip >/dev/null
+          unzip -Z1 recovery.zip | grep -E 'machine-party-recovered-project[.]zip$' | head -1 > inner-path.txt
+          inner="$(cat inner-path.txt)"
+          test -n "$inner"
+          unzip -p recovery.zip "$inner" > project-inner.zip
+          unzip -t project-inner.zip >/dev/null
+          mkdir project
+          unzip -q project-inner.zip -d project
+          test -s project/project.godot
+          find project -type f -not -path '*/.godot/*' -not -path '*/.git/*' -not -path '*/__pycache__/*' -not -name '*.tmp' -not -name '*.bak' > source-inventory.txt
+          grep -Fx 'project/project.godot' source-inventory.txt
+          echo "Total project files: $(wc -l < source-inventory.txt)"
+          du -sh project
+      - name: Upload extracted project source inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-project-source-inventory
+          path: source-inventory.txt
+          retention-days: 5
+      - name: Create and verify full source bundle
+        run: |
+          set -euo pipefail
+          tar -czf godot-source-bundle.tar.gz -C . project
+          tar -tzf godot-source-bundle.tar.gz | grep -F 'project/project.godot'
+          archive_files="$(tar -tzf godot-source-bundle.tar.gz | grep -vc '/$')"
+          inventory_files="$(wc -l < source-inventory.txt)"
+          test "$archive_files" -ge "$inventory_files"
+          echo "Inventory files: $inventory_files"
+          echo "Archived files: $archive_files"
+          ls -lh godot-source-bundle.tar.gz
+      - name: Split full Godot source bundle for safe transfer
+        run: |
+          set -euo pipefail
+          split -b 300M -d -a 2 godot-source-bundle.tar.gz source-part-
+          ls -lh source-part-*
+          test -s source-part-00
+          test -s source-part-01
+          test -s source-part-02
+          test -s source-part-03
+      - name: Upload source part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-00
+          path: source-part-00
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source part 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-01
+          path: source-part-01
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source part 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-02
+          path: source-part-02
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source part 03
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-03
+          path: source-part-03
+          compression-level: 0
+          retention-days: 5
