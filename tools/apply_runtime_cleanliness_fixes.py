@@ -105,8 +105,9 @@ def audio_codec(ffprobe: str, path: Path) -> str:
 def sanitize_vorbis_comments(project: Path) -> tuple[int, int]:
     ffmpeg = shutil.which("ffmpeg")
     ffprobe = shutil.which("ffprobe")
-    if not ffmpeg or not ffprobe:
-        raise RuntimeError("ffmpeg and ffprobe are required to validate lossless OGG metadata cleanup")
+    vorbiscomment = shutil.which("vorbiscomment")
+    if not ffmpeg or not ffprobe or not vorbiscomment:
+        raise RuntimeError("ffmpeg, ffprobe and vorbiscomment are required for lossless OGG metadata cleanup")
     processed = 0
     skipped = 0
     for path in sorted(project.rglob("*.ogg")):
@@ -117,15 +118,16 @@ def sanitize_vorbis_comments(project: Path) -> tuple[int, int]:
         before_hash = decoded_audio_hash(ffmpeg, path)
         temp_path = path.with_name(path.stem + ".metadata-clean.ogg")
         try:
+            # vorbiscomment rewrites only the Vorbis comment header and copies
+            # the compressed audio packets; no decode/re-encode is performed.
+            # /dev/null as the comment file intentionally removes malformed tags.
             run_checked([
-                ffmpeg, "-nostdin", "-hide_banner", "-v", "error", "-y", "-i", str(path),
-                "-map", "0:a:0", "-map_metadata", "-1", "-map_metadata:s:a:0", "-1",
-                "-map_chapters", "-1", "-c:a", "copy", "-vn", "-sn", "-dn",
-                "-metadata", "encoder=", "-metadata:s:a:0", "encoder=", "-f", "ogg", str(temp_path),
+                vorbiscomment, "-q", "-w", "-R", "-c", os.devnull,
+                str(path), str(temp_path),
             ])
             after_codec = audio_codec(ffprobe, temp_path)
             if after_codec != "vorbis":
-                raise RuntimeError(f"Codec changed while remuxing {path}: {after_codec}")
+                raise RuntimeError(f"Codec changed while cleaning {path}: {after_codec}")
             after_hash = decoded_audio_hash(ffmpeg, temp_path)
             if before_hash != after_hash:
                 raise RuntimeError(f"Decoded audio changed while cleaning comments: {path}")
