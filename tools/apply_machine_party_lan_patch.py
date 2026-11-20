@@ -471,6 +471,37 @@ patch(
     "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\\nvisible = false\\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
 )
 
+# Mine explosions used 16x16 world-space smoke quads scaled up to 2x.
+# At close range those billboards can cover the whole mobile camera for two seconds.
+# Keep the burst readable but shrink/shorten only the two smoke layers; debris and
+# sparks remain unchanged.
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\\nsize = Vector2(16, 16)',
+    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\\nsize = Vector2(6, 6)',
+)
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]',
+    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]',
+)
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]\\nlifetime_randomness = 0.1',
+    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]\\nlifetime_randomness = 0.1',
+)
+# Cap smoke particle size so nearby detonations no longer fill the camera frustum.
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    "scale_max = 2.0\\nscale_curve = SubResource(\\"CurveTexture_0irmn\\")",
+    "scale_max = 1.0\\nscale_curve = SubResource(\\"CurveTexture_0irmn\\")",
+)
+patch(
+    "prefabs/managed_effects/mine_explosion.tscn",
+    "scale_max = 2.0\\nscale_curve = SubResource(\\"CurveTexture_0alh5\\")",
+    "scale_max = 1.0\\nscale_curve = SubResource(\\"CurveTexture_0alh5\\")",
+)
+
 # Prevent overlapping scene fades from emitting a false completion signal.
 patch(
     "modules/global_overlay/global_overlay.gd",
