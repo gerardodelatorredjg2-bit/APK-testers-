@@ -1,13 +1,13 @@
 extends SceneTree
 
-const MAIN_SCENE_UID := "uid://bkv1mt38s6xl5"
+const MAIN_SCENE_PATH := "res://scenes/bootstrap/bootstrap.tscn"
 const STARTUP_FRAMES := 180
 
 func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var packed := load(MAIN_SCENE_UID) as PackedScene
+	var packed := load(MAIN_SCENE_PATH) as PackedScene
 	if packed == null:
 		push_error("FULL_STARTUP_SMOKE_FAILED: main scene could not be loaded")
 		quit(1)
