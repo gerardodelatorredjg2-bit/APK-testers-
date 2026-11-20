@@ -20,6 +20,7 @@ on:
       - "tools/lan_loopback_smoke.gd"
       - "tools/apply_runtime_cleanliness_fixes.py"
       - "tools/test_runtime_cleanliness_fixes.py"
+      - "tools/smoke_test_full_startup.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
 
@@ -273,7 +274,7 @@ jobs:
           PROJECT="$PWD/downloaded/recovered"
           mkdir -p build
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --quit-after 180 --verbose 2>&1 | tee build/headless-startup.log; then
+          if ! timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_full_startup.gd" --verbose 2>&1 | tee build/headless-startup.log; then
             echo "===== HEADLESS STARTUP FAILURE ====="
             tail -n 240 build/headless-startup.log
             exit 1
@@ -283,7 +284,8 @@ jobs:
             grep -Ein 'SCRIPT ERROR:|Parse Error:|Failed loading resource' build/headless-startup.log
             exit 1
           fi
-          echo "Headless startup smoke test passed (180 frames)."
+          grep -q 'FULL_STARTUP_SMOKE_PASS:' build/headless-startup.log
+          echo "Full startup smoke test passed (180 frames; graceful shutdown)."
 
       - name: Load every minigame scene headlessly
         run: |
