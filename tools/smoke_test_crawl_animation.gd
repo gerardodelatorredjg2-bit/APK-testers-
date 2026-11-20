@@ -6,6 +6,13 @@ const TORSO_TREE := PLAYER_ROOT + "/TorsoAnimationTree"
 const TORSO_ANIM := PLAYER_ROOT + "/anim_character rig torso cut off"
 const TORSO_SKELETON := PLAYER_ROOT + "/Armature torso cut off/character torso cut off4/Armature/Skeleton3D"
 
+func _cleanup_project_autoloads() -> void:
+	for child in root.get_children():
+		if is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await process_frame
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -82,6 +89,5 @@ func _run() -> void:
 	tree = null
 	animation_player = null
 	skeleton = null
-	await process_frame
-	await process_frame
+	await _cleanup_project_autoloads()
 	quit(0)
