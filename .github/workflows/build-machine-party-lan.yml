@@ -237,7 +237,7 @@ jobs:
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 25m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" \
             --rendering-method gl_compatibility --audio-driver Dummy --editor \
-            --path "$PROJECT" --quit
+            --path "$PROJECT" --quit 2>&1 | tee build/project-import.log
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
 
@@ -417,21 +417,6 @@ jobs:
           grep -q 'LAN_LOOPBACK_PASS:host:' "$HOST_LOG"
           grep -q 'LAN_LOOPBACK_PASS:client:' "$CLIENT_LOG"
 
-      - name: Reject remaining Godot warnings and errors
-        if: success()
-        run: |
-          set -euo pipefail
-          echo "===== Runtime diagnostics audit ====="
-          if grep -Ein '(WARNING|ERROR):|SCRIPT ERROR:|Parse Error:|Unrecognized output string' \\
-            build/headless-startup.log build/minigame-scenes-smoke.log \\
-            build/crawl-animation-repair.log build/crawl-animation-smoke.log \\
-            build/transition-overlay-smoke.log build/lan-host-smoke.log \\
-            build/lan-client-smoke.log build/shape-cutter-regression.log; then
-            echo "Runtime diagnostics remain; refusing to publish this APK."
-            exit 1
-          fi
-          echo "RUNTIME_LOG_AUDIT_PASS: zero Godot warnings, errors, parser failures, or invalid controller mappings."
-
       - name: Export Android APK
         run: |
           set -euo pipefail
@@ -451,6 +436,22 @@ jobs:
           fi
           test -s build/MachineParty-LAN-universal.apk
           ls -lh build/MachineParty-LAN-universal.apk
+
+      - name: Reject remaining Godot warnings and errors
+        if: success()
+        run: |
+          set -euo pipefail
+          echo "===== Godot diagnostics audit ====="
+          if grep -Ein '(WARNING|ERROR):|SCRIPT ERROR:|Parse Error:|Unrecognized output string' \
+            build/project-import.log build/headless-startup.log build/minigame-scenes-smoke.log \
+            build/crawl-animation-repair.log build/crawl-animation-smoke.log \
+            build/transition-overlay-smoke.log build/lan-host-smoke.log \
+            build/lan-client-smoke.log build/shape-cutter-regression.log \
+            build/android-export.log; then
+            echo "Godot diagnostics remain; refusing to publish this APK."
+            exit 1
+          fi
+          echo "RUNTIME_LOG_AUDIT_PASS: zero Godot warnings, errors, parser failures, or invalid controller mappings."
 
       - name: Verify APK and create compressed download
         run: |
@@ -494,6 +495,9 @@ jobs:
           path: |
             downloaded/recovered-gameplay-source.zip
             build/recovered-minigame-audit.txt
+            build/runtime-cleanliness-fixes.log
+            build/project-import.log
+            build/android-export.log
             build/headless-startup.log
             build/minigame-scenes-smoke.log
             build/crawl-animation-repair.log
