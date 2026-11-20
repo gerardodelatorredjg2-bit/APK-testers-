@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply mobile runtime/log cleanliness fixes to a recovered Machine Party project.
 
-The OGG pass remuxes Vorbis streams without transcoding, strips malformed tags,
+The OGG pass repairs malformed Vorbis comments in place, preserving audio packets byte-for-byte,
 and verifies decoded PCM hashes are unchanged before replacing any original.
 """
 from __future__ import annotations
@@ -103,8 +103,8 @@ def audio_codec(ffprobe: str, path: Path) -> str:
     return output.splitlines()[0].strip()
 
 
-_VORBIS_IDENT = b"\\x01vorbis"
-_VORBIS_COMMENT = b"\\x03vorbis"
+_VORBIS_IDENT = b"\x01vorbis"
+_VORBIS_COMMENT = b"\x03vorbis"
 _VORBIS_TAG_NAME = re.compile(rb"^[A-Za-z0-9_]+$")
 
 
@@ -122,7 +122,7 @@ def _ogg_crc32(data: bytes | bytearray) -> int:
 
 
 def _update_ogg_page_crc(page: bytearray) -> None:
-    page[22:26] = b"\\x00\\x00\\x00\\x00"
+    page[22:26] = b"\x00\x00\x00\x00"
     page[22:26] = struct.pack("<I", _ogg_crc32(page))
 
 
@@ -137,7 +137,7 @@ def _valid_vorbis_comment_packet(packet: bytes) -> bool:
     if position + vendor_length + 4 > len(packet):
         return False
     vendor = packet[position:position + vendor_length]
-    if b"\\x00" in vendor:
+    if b"\x00" in vendor:
         return False
     try:
         vendor.decode("utf-8", "strict")
@@ -157,7 +157,7 @@ def _valid_vorbis_comment_packet(packet: bytes) -> bool:
             return False
         comment = packet[position:position + comment_length]
         position += comment_length
-        if b"\\x00" in comment or b"=" not in comment:
+        if b"\x00" in comment or b"=" not in comment:
             return False
         name, value = comment.split(b"=", 1)
         if not _VORBIS_TAG_NAME.fullmatch(name):
@@ -186,7 +186,7 @@ def _clean_vorbis_comment_packet(old_packet: bytes) -> bytes:
         + struct.pack("<I", len(vendor))
         + vendor
         + struct.pack("<I", 0)
-        + b"\\x01"
+        + b"\x01"
     )
     if len(cleaned) != size:
         raise AssertionError("Vorbis comment packet size changed")
