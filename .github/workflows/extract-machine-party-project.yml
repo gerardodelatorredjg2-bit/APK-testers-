@@ -1,0 +1,62 @@
+name: Extract recovered Godot project and inspect
+on:
+  workflow_dispatch:
+  push:
+    branches: ["optimization/**"]
+    paths: [".github/workflows/extract-machine-party-project.yml"]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  extract-project:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Download recovered ZIP artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" -o recovery.zip
+      - name: Rebuild and verify outer ZIP
+        run: |
+          set -euo pipefail
+          for n in $(seq 0 9); do i=$(printf '%02d' "$n"); test -s "chunks/part-$i" || true; done
+          # The recovery artifact is downloaded as a single ZIP; verify its central directory.
+          unzip -t recovery.zip >/dev/null
+      - name: Extract inner Godot project ZIP
+        run: |
+          set -euo pipefail
+          unzip -Z1 recovery.zip | grep -E 'machine-party-recovered-project\.zip$' | head -1 > inner-path.txt
+          inner="$(cat inner-path.txt)"
+          test -n "$inner"
+          unzip -p recovery.zip "$inner" > project-inner.zip
+          unzip -t project-inner.zip >/dev/null
+          mkdir project
+          unzip -q project-inner.zip -d project
+          find project -name project.godot -print
+          find project -type f | wc -l
+          find project -type f \( -name '*.gd' -o -name '*.tscn' -o -name '*.tres' -o -name 'project.godot' \) > source-inventory.txt
+          head -n 120 source-inventory.txt
+      - name: Upload extracted project source inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-project-source-inventory
+          path: source-inventory.txt
+          retention-days: 5
+      - name: Upload extracted project files (source and scenes)
+        run: |
+          set -euo pipefail
+          mkdir -p source-bundle
+          while IFS= read -r f; do
+            case "$f" in *.gd|*.tscn|*.tres|project.godot) cp --parents "$f" source-bundle/ ;; esac
+          done < source-inventory.txt
+          tar -czf godot-source-bundle.tar.gz -C source-bundle .
+          ls -lh godot-source-bundle.tar.gz
+      - name: Upload Godot source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-godot-source-bundle
+          path: godot-source-bundle.tar.gz
+          compression-level: 0
+          retention-days: 5
