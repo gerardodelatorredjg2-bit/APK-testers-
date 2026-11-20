@@ -254,6 +254,57 @@ jobs:
             exit 1
           fi
 
+      - name: Test LAN host-client handshake over ENet
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p build
+          HOST_LOG="$PWD/build/lan-host-smoke.log"
+          CLIENT_LOG="$PWD/build/lan-client-smoke.log"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/lan_loopback_smoke.gd" -- host >"$HOST_LOG" 2>&1 &
+          HOST_PID=$!
+          cleanup() {
+            kill "$HOST_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 100); do
+            if grep -q 'LAN_TEST_HOST_READY=' "$HOST_LOG"; then
+              break
+            fi
+            if ! kill -0 "$HOST_PID" 2>/dev/null; then
+              wait "$HOST_PID" || true
+              cat "$HOST_LOG"
+              exit 1
+            fi
+            sleep 0.2
+          done
+          HOST_ADDRESS="$(sed -n 's/^LAN_TEST_HOST_READY=//p' "$HOST_LOG" | tail -n 1)"
+          if [ -z "$HOST_ADDRESS" ]; then
+            echo "LAN host did not become ready."
+            cat "$HOST_LOG"
+            exit 1
+          fi
+          echo "Testing LAN address: $HOST_ADDRESS"
+          if ! timeout 30s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/lan_loopback_smoke.gd" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
+            echo "===== LAN CLIENT FAILURE ====="
+            cat "$CLIENT_LOG"
+            cat "$HOST_LOG"
+            exit 1
+          fi
+          if ! wait "$HOST_PID"; then
+            echo "===== LAN HOST FAILURE ====="
+            cat "$HOST_LOG"
+            cat "$CLIENT_LOG"
+            exit 1
+          fi
+          trap - EXIT
+          cat "$HOST_LOG"
+          cat "$CLIENT_LOG"
+          grep -q 'LAN_LOOPBACK_PASS:host:' "$HOST_LOG"
+          grep -q 'LAN_LOOPBACK_PASS:client:' "$CLIENT_LOG"
+
       - name: Export Android APK
         run: |
           set -euo pipefail
