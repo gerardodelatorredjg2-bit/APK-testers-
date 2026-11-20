@@ -23,7 +23,12 @@ chisel = "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn"
 require(
     chisel,
     '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\nsize = Vector2i(702, 512)\nrender_target_update_mode = 4',
-    "jumbotron source viewport renders continuously instead of remaining disabled",
+    "jumbotron source viewport renders continuously on Android",
+)
+require(
+    chisel,
+    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\ncurrent = true\nfov = 41.3',
+    "jumbotron feed camera is explicitly active",
 )
 require(
     chisel,
