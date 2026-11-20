@@ -3,6 +3,18 @@ extends SceneTree
 var scene_paths: Array = []
 var failures: Array[String] = []
 
+const CORE_GAME_SCENES: Array[String] = [
+	"res://scenes/bootstrap/bootstrap.tscn",
+	"res://scenes/main_menu/main_menu.tscn",
+	"res://scenes/lobby/lobby_scene.tscn",
+	"res://scenes/local_lobby/local_lobby.tscn",
+	"res://scenes/local_game/local_game.tscn",
+	"res://scenes/game.tscn",
+	"res://scenes/character_customization.tscn",
+	"res://scenes/credits/credits_scene.tscn",
+	"res://scenes/debug_lobby/debug_lobby.tscn",
+]
+
 func _initialize() -> void:
 	call_deferred("_run_scene_smoke_test")
 
@@ -25,6 +37,12 @@ func _collect_scenes(directory_path: String) -> void:
 
 func _run_scene_smoke_test() -> void:
 	_collect_scenes("res://minigames")
+	for core_scene in CORE_GAME_SCENES:
+		if ResourceLoader.exists(core_scene):
+			scene_paths.append(core_scene)
+		else:
+			failures.append(core_scene)
+			push_error("CORE_SCENE_MISSING: " + core_scene)
 	scene_paths.sort()
 	print("MINIGAME_SCENE_SMOKE_COUNT=", scene_paths.size())
 	for scene_path in scene_paths:
