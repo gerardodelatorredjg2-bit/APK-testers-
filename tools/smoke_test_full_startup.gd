@@ -3,6 +3,13 @@ extends SceneTree
 const MAIN_SCENE_PATH := "res://scenes/bootstrap/bootstrap.tscn"
 const STARTUP_FRAMES := 180
 
+func _cleanup_project_autoloads() -> void:
+	for child in root.get_children():
+		if is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await process_frame
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -35,6 +42,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	print("FULL_STARTUP_SMOKE_PASS: main scene ran for ", STARTUP_FRAMES, " frames and shut down cleanly")
+	await _cleanup_project_autoloads()
 	quit(0)
 
 func _stop_audio_nodes(node: Node) -> void:
