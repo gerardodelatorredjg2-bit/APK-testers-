@@ -45,7 +45,7 @@ print("PASS: overlapping fades no longer signal a false completion")
 
 mine_effect = "prefabs/managed_effects/mine_explosion.tscn"
 effect_source = (root / mine_effect).read_text(encoding="utf-8")
-require(mine_effect, '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\\nsize = Vector2(6, 6)', "mine smoke billboards reduced from 16m to 6m")
-require(mine_effect, 'scale_max = 1.0\\nscale_curve = SubResource("CurveTexture_0irmn")', "mine up-smoke scale capped")
-require(mine_effect, 'scale_max = 1.0\\nscale_curve = SubResource("CurveTexture_0alh5")', "mine ring-smoke scale capped")
+require(mine_effect, '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\nsize = Vector2(6, 6)', "mine smoke billboards reduced from 16m to 6m")
+require(mine_effect, 'scale_max = 1.0\nscale_curve = SubResource("CurveTexture_0irmn")', "mine up-smoke scale capped")
+require(mine_effect, 'scale_max = 1.0\nscale_curve = SubResource("CurveTexture_0alh5")', "mine ring-smoke scale capped")
 print("RECOVERED_GAMEPLAY_FIXES_PASS")
