@@ -15,10 +15,17 @@ def require(path: str, text: str, label: str) -> None:
     print(f"PASS: {label}")
 
 player = "minigames/exploding_collar_race/components/player/scripts/exploding_collar_race_player.gd"
-require(player, "animation_tree.active = true", "base locomotion AnimationTree enabled")
-require(player, "torso_animation_tree.active = true", "injured crawl AnimationTree enabled")
+player_scene = "minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn"
+require(player_scene, '[node name="TorsoAnimationTree" type="AnimationTree" parent="Visuals/main character2"]', "injured torso rig has a dedicated AnimationTree")
+require(player_scene, 'anim_player = NodePath("../anim_character rig torso cut off")', "torso animation tree is bound to the cutoff character")
+require(player_scene, '&"crawl_overwrite": ExtResource("26")', "torso rig retains the authored crawling animation")
 
 chisel = "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn"
+require(
+    chisel,
+    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\\nsize = Vector2i(702, 512)\\nrender_target_update_mode = 4',
+    "jumbotron source viewport renders continuously instead of remaining disabled",
+)
 require(
     chisel,
     '[node name="ColorRect" type="ColorRect" parent="SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy"]\nvisible = false',
