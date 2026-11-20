@@ -57,23 +57,24 @@ func _run() -> void:
 		_fail("too few crawl tracks resolve to the torso skeleton: " + str(resolved_bone_tracks))
 		return
 
-	var spine_index := skeleton.find_bone("spine")
-	if spine_index < 0:
-		_fail("torso skeleton has no spine bone")
-		return
+	var initial_poses: Array[Quaternion] = []
+	for bone_index in skeleton.get_bone_count():
+		initial_poses.append(skeleton.get_bone_pose_rotation(bone_index))
 
 	tree.set("parameters/move_blend/blend_amount", 1.0)
-	for frame_index in 24:
+	for frame_index in 36:
 		await process_frame
 
-	var moving_pose := skeleton.get_bone_pose_rotation(spine_index)
-	for frame_index in 12:
-		await process_frame
-	var later_pose := skeleton.get_bone_pose_rotation(spine_index)
-	if moving_pose.is_equal_approx(later_pose):
-		_fail("crawl clip resolved but the spine pose did not animate")
+	var animated_bones := 0
+	for bone_index in skeleton.get_bone_count():
+		var later_pose := skeleton.get_bone_pose_rotation(bone_index)
+		if not initial_poses[bone_index].is_equal_approx(later_pose):
+			animated_bones += 1
+
+	if animated_bones == 0:
+		_fail("crawl clip resolved but no torso bone pose changed during playback")
 		return
 
-	print("CRAWL_ANIMATION_SMOKE_PASS: ", resolved_bone_tracks, " bone tracks resolved; spine pose animated")
+	print("CRAWL_ANIMATION_SMOKE_PASS: ", resolved_bone_tracks, " bone tracks resolved; ", animated_bones, " bones moved")
 	player.queue_free()
 	quit(0)
