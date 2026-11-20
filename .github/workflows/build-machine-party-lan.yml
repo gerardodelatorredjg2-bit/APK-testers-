@@ -18,6 +18,8 @@ on:
       - "tools/smoke_test_transition_overlay.gd"
       - "tools/repair_crawl_animation.gd"
       - "tools/lan_loopback_smoke.gd"
+      - "tools/apply_runtime_cleanliness_fixes.py"
+      - "tools/test_runtime_cleanliness_fixes.py"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
 
@@ -31,7 +33,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Checkout LAN patch tools
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref_name }}
 
@@ -39,7 +41,7 @@ jobs:
         run: python3 -m unittest -v tools/test_mobile_optimizer.py
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -60,9 +62,15 @@ jobs:
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
+      - name: Install runtime validation and packaging tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth libgl1-mesa-dri p7zip-full
+
       - name: Install Android SDK components
         run: |
-          yes | sdkmanager --licenses >/dev/null
+          yes | sdkmanager --licenses >/dev/null 2>&1
           sdkmanager --install \
             "platform-tools" \
             "build-tools;35.0.0" \
@@ -112,6 +120,8 @@ jobs:
           cp tools/test_shape_cutter_regression.gd downloaded/recovered/test_shape_cutter_regression.gd
           python3 tools/optimize_mobile_performance.py downloaded/recovered
           python3 tools/test_recovered_gameplay_fixes.py downloaded/recovered
+          python3 -m unittest -v tools/test_runtime_cleanliness_fixes.py
+          python3 tools/apply_runtime_cleanliness_fixes.py downloaded/recovered | tee build/runtime-cleanliness-fixes.log
           cp recovered-project/controls_android.gd downloaded/recovered/controls_android.gd
           python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/apply_gameplay_audit_fixes.py tools/test_recovered_gameplay_fixes.py
           PROJECT="$PWD/downloaded/recovered"
@@ -224,7 +234,8 @@ jobs:
           # already imported for desktop. Remove only the generated import cache.
           rm -rf "$PROJECT/.godot/imported"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 25m "$GODOT_BIN" --headless --editor \
+          timeout 25m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" \
+            --rendering-method gl_compatibility --audio-driver Dummy --editor \
             --path "$PROJECT" --quit
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
@@ -235,7 +246,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PROJECT/test_shape_cutter_regression.gd" 2>&1 | tee build/shape-cutter-regression.log
+          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PROJECT/test_shape_cutter_regression.gd" 2>&1 | tee build/shape-cutter-regression.log
           grep -q "SHAPE_CUTTER_REGRESSION_PASS" build/shape-cutter-regression.log
           if grep -Eiq "SCRIPT ERROR:|Parse Error:|SHAPE_CUTTER_REGRESSION_FAILED" build/shape-cutter-regression.log; then
             echo "===== SHAPE CUTTER REGRESSION FAILURE ====="
@@ -248,7 +259,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
+          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
           grep -q 'CRAWL_REPAIR_PASS:' build/crawl-animation-repair.log
           test -s "$PROJECT/animations/crawl_idle_overwrite_mobile.tres"
           test -s "$PROJECT/animations/crawl_overwrite_mobile.tres"
@@ -262,7 +273,7 @@ jobs:
           PROJECT="$PWD/downloaded/recovered"
           mkdir -p build
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --quit-after 180 --verbose 2>&1 | tee build/headless-startup.log; then
+          if ! timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --quit-after 180 --verbose 2>&1 | tee build/headless-startup.log; then
             echo "===== HEADLESS STARTUP FAILURE ====="
             tail -n 240 build/headless-startup.log
             exit 1
@@ -281,7 +292,7 @@ jobs:
           PROJECT="$PWD/downloaded/recovered"
           mkdir -p build
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! timeout 5m "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_minigame_scenes.gd" 2>&1 | tee build/minigame-scenes-smoke.log; then
+          if ! timeout 5m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_minigame_scenes.gd" 2>&1 | tee build/minigame-scenes-smoke.log; then
             echo "===== MINIGAME SCENE LOAD FAILURES ====="
             tail -n 240 build/minigame-scenes-smoke.log
             exit 1
@@ -299,7 +310,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
+          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
           grep -q 'CRAWL_ANIMATION_SMOKE_PASS:' build/crawl-animation-smoke.log
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log; then
             echo "===== CRAWL ANIMATION SMOKE FAILURE ====="
@@ -313,7 +324,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
+          timeout 45s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
           grep -q 'TRANSITION_OVERLAY_SMOKE_PASS:' build/transition-overlay-smoke.log
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|TRANSITION_OVERLAY_SMOKE_FAILED' build/transition-overlay-smoke.log; then
             echo "===== TRANSITION OVERLAY SMOKE FAILURE ====="
@@ -363,7 +374,7 @@ jobs:
           path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
+          timeout 45s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
           HOST_PID=$!
           for attempt in $(seq 1 100); do
             if grep -q 'LAN_TEST_HOST_READY=' "$HOST_LOG"; then
@@ -383,7 +394,7 @@ jobs:
             exit 1
           fi
           echo "Testing LAN address: $HOST_ADDRESS"
-          if ! timeout 30s "$GODOT_BIN" --headless --path "$PROJECT" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
+          if ! timeout 30s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
             echo "===== LAN CLIENT FAILURE ====="
             cat "$CLIENT_LOG"
             cat "$HOST_LOG"
@@ -403,6 +414,21 @@ jobs:
           cat "$CLIENT_LOG"
           grep -q 'LAN_LOOPBACK_PASS:host:' "$HOST_LOG"
           grep -q 'LAN_LOOPBACK_PASS:client:' "$CLIENT_LOG"
+
+      - name: Reject remaining Godot warnings and errors
+        if: success()
+        run: |
+          set -euo pipefail
+          echo "===== Runtime diagnostics audit ====="
+          if grep -Ein '(WARNING|ERROR):|SCRIPT ERROR:|Parse Error:|Unrecognized output string' \\
+            build/headless-startup.log build/minigame-scenes-smoke.log \\
+            build/crawl-animation-repair.log build/crawl-animation-smoke.log \\
+            build/transition-overlay-smoke.log build/lan-host-smoke.log \\
+            build/lan-client-smoke.log build/shape-cutter-regression.log; then
+            echo "Runtime diagnostics remain; refusing to publish this APK."
+            exit 1
+          fi
+          echo "RUNTIME_LOG_AUDIT_PASS: zero Godot warnings, errors, parser failures, or invalid controller mappings."
 
       - name: Export Android APK
         run: |
@@ -432,8 +458,6 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN-universal.apk
           (cd build && sha256sum MachineParty-LAN-universal.apk > APK-SHA256SUMS.txt)
 
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
           (cd build && 7z a -t7z -mx=9 -m0=lzma2:d=128m:fb=273 -mmt=2 -ms=on \
             MachineParty-LAN-universal.7z MachineParty-LAN-universal.apk APK-SHA256SUMS.txt)
           (cd build && sha256sum MachineParty-LAN-universal.7z > SHA256SUMS.txt)
@@ -462,7 +486,7 @@ jobs:
           PY
 
       - name: Upload recovered gameplay source and audit logs for deeper review
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: machine-party-gameplay-audit-source
           path: |
@@ -481,7 +505,7 @@ jobs:
           retention-days: 7
 
       - name: Upload compressed package only
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: machine-party-lan-universal
           path: |
