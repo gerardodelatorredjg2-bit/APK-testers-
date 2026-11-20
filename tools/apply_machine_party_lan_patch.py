@@ -449,12 +449,13 @@ patch(
 )
 
 
-# Correct the injured-player crawl. This secondary rig has no autoplay
-# animation; activate its tree (and the base locomotion tree) explicitly.
+# The player swaps to its separate torso rig after the first mine hit.\n# The rig's crawl AnimationTree and imported clips remain untouched.\n\n# The physical in-game jumbotron reads a SubViewportTexture. The recovered
+# scene left its update mode at 0 (disabled), so the cube/instruction feed stays
+# black even though the camera and screen nodes are present. Keep it rendering.
 patch(
-    "minigames/exploding_collar_race/components/player/scripts/exploding_collar_race_player.gd",
-    "\tarmature_default.visible = true\n\tarmature_torso_cutoff.visible = false\n\n\tlives = max_lives",
-    "\tarmature_default.visible = true\n\tarmature_torso_cutoff.visible = false\n\n\t# Both locomotion trees must run. The cutoff torso has no autoplay\n\t# animation, so an inactive tree leaves its skeleton in a floating bind pose.\n\tanimation_tree.active = true\n\ttorso_animation_tree.active = true\n\n\tlives = max_lives",
+    "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
+    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\\nsize = Vector2i(702, 512)',
+    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\\nsize = Vector2i(702, 512)\\nrender_target_update_mode = 4',
 )
 
 # Disable only optional full-screen SCREEN_TEXTURE post-processing for Android.
