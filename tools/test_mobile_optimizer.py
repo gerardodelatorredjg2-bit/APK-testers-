@@ -96,6 +96,26 @@ class MobileOptimizerTests(unittest.TestCase):
         self.assertIn("max_lights: int = 10", unrelated.read_text(encoding="utf-8"))
         self.assertIn("99", (self.root / ".godot" / "AllInOneMobileOptimizer.gd").read_text(encoding="utf-8"))
 
+    def test_high_poly_static_environment_imports_enable_lod_safely(self):
+        relative = optimizer.STATIC_ENVIRONMENT_LOD_IMPORTS[0]
+        import_path = self.root / relative
+        import_path.parent.mkdir(parents=True, exist_ok=True)
+        original = (
+            '[remap]\\nimporter="scene"\\n\\n'
+            '[params]\\nmeshes/generate_lods=false\\nmeshes/create_shadow_meshes=true\\n'
+        )
+        import_path.write_text(original, encoding="utf-8")
+
+        report = optimizer.apply(self.root, "low")
+        updated = import_path.read_text(encoding="utf-8")
+        self.assertIn("meshes/generate_lods=true", updated)
+        self.assertIn("meshes/create_shadow_meshes=true", updated)
+        self.assertIn(relative, report["static_environment_lod_imports_enabled"])
+        self.assertIn(relative, report["files_to_write"])
+
+        second = optimizer.apply(self.root, "low")
+        self.assertEqual(second["static_environment_lod_imports_enabled"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
