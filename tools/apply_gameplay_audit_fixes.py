@@ -132,7 +132,7 @@ func verify_circle(points: Array[Vector2]):
 \tvar matched: int = 0
 \tfor point in centered_input:
 \t\tif abs(0.4 - point.length()) <= matched_tresshold:
-\t\t\matched += 1
+\t\tmatched += 1
 \tvar radial_accuracy: float = float(matched) / float(centered_input.size())
 \treturn radial_accuracy * angular_coverage * 100.0
 '''
