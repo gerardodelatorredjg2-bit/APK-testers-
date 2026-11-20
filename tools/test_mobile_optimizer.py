@@ -72,6 +72,15 @@ class MobileOptimizerTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first.count("scaling_3d/scale="), 1)
 
+    def test_dry_run_reports_changes_without_writing(self):
+        config_path = self.root / "project.godot"
+        original = config_path.read_text(encoding="utf-8")
+        report = optimizer.apply(self.root, "low", dry_run=True)
+        self.assertTrue(report["dry_run"])
+        self.assertIn("project.godot", report["files_to_write"])
+        self.assertEqual(config_path.read_text(encoding="utf-8"), original)
+        self.assertFalse((self.root.parent / "mobile-performance-report.json").exists())
+
     def test_invalid_profile_and_missing_project_fail(self):
         with self.assertRaises(ValueError):
             optimizer.apply(self.root, "ultra")
