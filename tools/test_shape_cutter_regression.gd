@@ -55,4 +55,8 @@ func _run() -> void:
 		return
 
 	print("SHAPE_CUTTER_REGRESSION_PASS: translated rectangle, offset full circle, and seam-crossing arc")
+	matcher = null
+	MatcherScript = null
+	await process_frame
+	await process_frame
 	quit(0)
