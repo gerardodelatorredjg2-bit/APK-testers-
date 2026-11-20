@@ -9,6 +9,13 @@ var finished := false
 var passed := false
 var result_message := ""
 
+func _cleanup_project_autoloads() -> void:
+	for child in get_tree().root.get_children():
+		if child != self and is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await get_tree().process_frame
+
 func _ready() -> void:
 	call_deferred("_run_test")
 
@@ -51,9 +58,8 @@ func _run_test() -> void:
 
 	NetworkManager.leave_lobby()
 	await get_tree().create_timer(0.15).timeout
-	await get_tree().process_frame
-	await get_tree().process_frame
 	print("LAN_LOOPBACK_PASS:", role, ":", result_message)
+	await _cleanup_project_autoloads()
 	get_tree().quit(0)
 
 func _on_server_created() -> void:
