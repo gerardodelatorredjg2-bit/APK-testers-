@@ -4,6 +4,13 @@ extends SceneTree
 var MatcherScript: Script
 
 
+func _cleanup_project_autoloads() -> void:
+	for child in root.get_children():
+		if is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await process_frame
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -57,6 +64,5 @@ func _run() -> void:
 	print("SHAPE_CUTTER_REGRESSION_PASS: translated rectangle, offset full circle, and seam-crossing arc")
 	matcher = null
 	MatcherScript = null
-	await process_frame
-	await process_frame
+	await _cleanup_project_autoloads()
 	quit(0)
