@@ -454,8 +454,8 @@ patch(
 # black even though the camera and screen nodes are present. Keep it rendering.
 patch(
     "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
-    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\\nsize = Vector2i(702, 512)',
-    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\\nsize = Vector2i(702, 512)\\nrender_target_update_mode = 4',
+    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\nsize = Vector2i(702, 512)',
+    '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\nsize = Vector2i(702, 512)\nrender_target_update_mode = 4',
 )
 
 # Disable only optional full-screen SCREEN_TEXTURE post-processing for Android.
@@ -463,13 +463,13 @@ patch(
 # and can output a black frame on GLES Compatibility devices.
 patch(
     "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
-    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
-    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\\nvisible = false\\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\nvisible = false\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
 )
 patch(
     "minigames/exploding_collar_race/exploding_collar_race.tscn",
-    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
-    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\\nvisible = false\\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\nvisible = false\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
 )
 
 # Mine explosions used 16x16 world-space smoke quads scaled up to 2x.
@@ -478,8 +478,8 @@ patch(
 # sparks remain unchanged.
 patch(
     "prefabs/managed_effects/mine_explosion.tscn",
-    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\\nsize = Vector2(16, 16)',
-    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\\nsize = Vector2(6, 6)',
+    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\nsize = Vector2(16, 16)',
+    '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\nsize = Vector2(6, 6)',
 )
 # Cap smoke particle size so nearby detonations no longer fill the camera frustum.
 patch(
