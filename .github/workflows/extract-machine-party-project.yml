@@ -36,8 +36,17 @@ jobs:
           unzip -q project-inner.zip -d project
           find project -name project.godot -print
           find project -type f | wc -l
-          find project -type f \( -name '*.gd' -o -name '*.tscn' -o -name '*.tres' -o -name 'project.godot' \) > source-inventory.txt
-          head -n 120 source-inventory.txt
+          # Inventory the entire recovered project, excluding only cache and editor metadata.
+          find project -type f \
+            -not -path '*/.godot/*' \
+            -not -path '*/.git/*' \
+            -not -path '*/__pycache__/*' \
+            -not -name '*.tmp' \
+            -not -name '*.bak' > source-inventory.txt
+          test -f project/project.godot
+          grep -Fx 'project/project.godot' source-inventory.txt
+          echo "Total project files: $(wc -l < source-inventory.txt)"
+          du -sh project
       - name: Upload extracted project source inventory
         uses: actions/upload-artifact@v4
         with:
@@ -49,8 +58,10 @@ jobs:
           set -euo pipefail
           mkdir -p source-bundle
           while IFS= read -r f; do
-            case "$f" in *.gd|*.tscn|*.tres|project.godot) cp --parents "$f" source-bundle/ ;; esac
+            cp --parents "$f" source-bundle/
           done < source-inventory.txt
+          # Compressed bundle now includes project.godot, scenes, scripts, textures,
+          # models, audio and import source assets, not just text files.
           tar -czf godot-source-bundle.tar.gz -C source-bundle .
           ls -lh godot-source-bundle.tar.gz
       - name: Upload Godot source bundle
