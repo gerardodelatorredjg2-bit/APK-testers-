@@ -448,4 +448,34 @@ patch(
     "\tif can_aim:\n\t\tvar relative_motion := Vector2.ZERO\n\t\tif event is InputEventMouseMotion:\n\t\t\trelative_motion = event.screen_relative\n\t\telif event is InputEventScreenDrag:\n\t\t\t# Touch dragging is the mobile equivalent of mouse-look in Duck Hunt.\n\t\t\trelative_motion = event.screen_relative\n\n\t\tif not relative_motion.is_zero_approx():\n\t\t\tlook_input = Vector2(\n\t\t\t\t- relative_motion.x * look_sensitivity / 1000.0,\n\t\t\t\t- relative_motion.y * look_sensitivity / 1000.0,\n\t\t\t)\n",
 )
 
+
+# Correct the injured-player crawl. This secondary rig has no autoplay
+# animation; activate its tree (and the base locomotion tree) explicitly.
+patch(
+    "minigames/exploding_collar_race/components/player/scripts/exploding_collar_race_player.gd",
+    "\tarmature_default.visible = true\n\tarmature_torso_cutoff.visible = false\n\n\tlives = max_lives",
+    "\tarmature_default.visible = true\n\tarmature_torso_cutoff.visible = false\n\n\t# Both locomotion trees must run. The cutoff torso has no autoplay\n\t# animation, so an inactive tree leaves its skeleton in a floating bind pose.\n\tanimation_tree.active = true\n\ttorso_animation_tree.active = true\n\n\tlives = max_lives",
+)
+
+# Disable only optional full-screen SCREEN_TEXTURE post-processing for Android.
+# These overlays sit over the chisel reference monitor and the complete mine game,
+# and can output a black frame on GLES Compatibility devices.
+patch(
+    "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"SubViewport_jumbotron feed/CanvasLayer/BackBufferCopy\"]\\nvisible = false\\nmaterial = SubResource(\"ShaderMaterial_kgyeu\")",
+)
+patch(
+    "minigames/exploding_collar_race/exploding_collar_race.tscn",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
+    "[node name=\"ColorRect\" type=\"ColorRect\" parent=\"post processing/posterization/BackBufferCopy\"]\\nvisible = false\\nmaterial = SubResource(\"ShaderMaterial_xvo8h\")",
+)
+
+# Prevent overlapping scene fades from emitting a false completion signal.
+patch(
+    "modules/global_overlay/global_overlay.gd",
+    "var overlay_tween: Tween\n\nsignal fade_finished()\n\nfunc fade_overlay(_to_color: Color, _duration: float = 0.5):\n\n\tif overlay_tween:\n\t\tif overlay_tween.is_running():\n\t\t\tawait get_tree().physics_frame\n\t\t\tfade_finished.emit()\n\t\toverlay_tween.kill()\n\n\tcontrol.mouse_filter = Control.MOUSE_FILTER_STOP\n\n\toverlay_tween = create_tween()\n\toverlay_tween.tween_property(\n\t\toverlay, \"color\", _to_color, _duration\n\t)\n\toverlay_tween.tween_callback( func():\n\t\tcontrol.mouse_filter = Control.MOUSE_FILTER_IGNORE\n\t\tfade_finished.emit()\n\t)\n",
+    "var overlay_tween: Tween\nvar fade_generation: int = 0\n\nsignal fade_finished()\n\nfunc fade_overlay(_to_color: Color, _duration: float = 0.5) -> void:\n\tfade_generation += 1\n\tvar this_generation: int = fade_generation\n\n\t# Cancel the previous transition without announcing that it finished.\n\t# Awaiting callers resume only when the newest fade has actually completed.\n\tif overlay_tween and overlay_tween.is_running():\n\t\toverlay_tween.kill()\n\n\tcontrol.mouse_filter = Control.MOUSE_FILTER_STOP\n\n\toverlay_tween = create_tween()\n\toverlay_tween.tween_property(overlay, \"color\", _to_color, _duration)\n\toverlay_tween.tween_callback(func():\n\t\tif this_generation != fade_generation:\n\t\t\treturn\n\t\tcontrol.mouse_filter = Control.MOUSE_FILTER_IGNORE\n\t\tfade_finished.emit()\n\t)\n",
+)
+
 print("LAN patch applied successfully.")
