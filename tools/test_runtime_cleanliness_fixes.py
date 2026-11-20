@@ -126,7 +126,7 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
 
     def test_valid_lowercase_vorbis_tags_are_not_modified(self):
         vendor = b"Test encoder"
-        fields = [b"title=valid", b"artist=valid"]
+        fields = [b"title=valid", b"artist-alt=valid"]
         packet = (
             b"\x03vorbis" + module.struct.pack("<I", len(vendor)) + vendor
             + module.struct.pack("<I", len(fields))
