@@ -50,6 +50,9 @@ func _run_test() -> void:
 		return
 
 	NetworkManager.leave_lobby()
+	await get_tree().create_timer(0.15).timeout
+	await get_tree().process_frame
+	await get_tree().process_frame
 	print("LAN_LOOPBACK_PASS:", role, ":", result_message)
 	get_tree().quit(0)
 
