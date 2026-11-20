@@ -105,7 +105,6 @@ def audio_codec(ffprobe: str, path: Path) -> str:
 
 _VORBIS_IDENT = b"\x01vorbis"
 _VORBIS_COMMENT = b"\x03vorbis"
-_VORBIS_TAG_NAME = re.compile(rb"^[A-Za-z0-9_]+$")
 
 
 def _ogg_crc32(data: bytes | bytearray) -> int:
@@ -160,7 +159,7 @@ def _valid_vorbis_comment_packet(packet: bytes) -> bool:
         if b"\x00" in comment or b"=" not in comment:
             return False
         name, value = comment.split(b"=", 1)
-        if not _VORBIS_TAG_NAME.fullmatch(name):
+        if any(byte < 0x20 or byte > 0x7D or byte == 0x3D for byte in name):
             return False
         try:
             value.decode("utf-8", "strict")
