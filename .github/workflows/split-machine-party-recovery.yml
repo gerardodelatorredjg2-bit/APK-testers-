@@ -6,6 +6,12 @@ on:
       - "optimization/**"
     paths:
       - ".github/workflows/split-machine-party-recovery.yml"
+  pull_request:
+    branches:
+      - "recovery/lan-multiplayer"
+    paths:
+      - ".github/workflows/split-machine-party-recovery.yml"
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
