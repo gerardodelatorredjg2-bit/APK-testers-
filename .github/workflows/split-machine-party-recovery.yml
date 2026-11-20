@@ -141,3 +141,37 @@ jobs:
           path: chunks/SHA256SUMS.txt
           compression-level: 0
           retention-days: 3
+
+      - name: Reassemble all uploaded recovery parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: machine-party-recovery-part-*
+          path: recovered_parts
+          merge-multiple: false
+
+      - name: Download recovery checksum manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: machine-party-recovery-manifest
+          path: recovered_manifest
+
+      - name: Rebuild and validate original ZIP
+        run: |
+          set -euo pipefail
+          for i in $(seq -w 0 9); do
+            part="recovered_parts/machine-party-recovery-part-$i/part-$i"
+            test -s "$part"
+          done
+          cat recovered_parts/machine-party-recovery-part-*/part-* > recovery-artifact.zip
+          cp recovered_manifest/SHA256SUMS.txt .
+          sha256sum --check SHA256SUMS.txt
+          unzip -t recovery-artifact.zip
+          stat -c 'Reassembled archive size: %s bytes' recovery-artifact.zip
+
+      - name: Upload reconstructed recovery ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-reassembled
+          path: recovery-artifact.zip
+          compression-level: 0
+          retention-days: 3
