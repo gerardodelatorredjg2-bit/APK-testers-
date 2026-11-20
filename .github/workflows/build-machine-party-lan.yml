@@ -444,6 +444,24 @@ jobs:
                   print(f"{info.file_size:>12}  {info.filename}")
           PY
 
+      - name: Upload recovered gameplay source and audit logs for deeper review
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-gameplay-audit-source
+          path: |
+            downloaded/recovered-gameplay-source.zip
+            build/recovered-minigame-audit.txt
+            build/headless-startup.log
+            build/minigame-scenes-smoke.log
+            build/crawl-animation-repair.log
+            build/crawl-animation-smoke.log
+            build/transition-overlay-smoke.log
+            build/lan-host-smoke.log
+            build/lan-client-smoke.log
+          if-no-files-found: warn
+          compression-level: 1
+          retention-days: 7
+
       - name: Upload compressed package only
         uses: actions/upload-artifact@v4
         with:
