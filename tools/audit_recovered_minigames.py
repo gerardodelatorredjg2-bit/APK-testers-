@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import sys
+import zipfile
 from pathlib import Path
 
 if len(sys.argv) != 2:
@@ -81,4 +82,28 @@ for path in sorted(mini.rglob("*.tscn")):
         for n, line in matches[:12]:
             print(f"  L{n} {line[:200]}")
 
+
+# Export only editable gameplay source files; omit the large media payload.
+source_roots = ("minigames", "autoloads", "modules", "scenes", "addons")
+source_extensions = {".gd", ".tscn", ".tres", ".gdshader", ".shader", ".import", ".cfg", ".gdextension", ".cs"}
+archive_path = root.parent / "recovered-gameplay-source.zip"
+written = 0
+with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=3) as bundle:
+    for folder_name in source_roots:
+        folder = root / folder_name
+        if not folder.is_dir():
+            continue
+        for source_path in sorted(folder.rglob("*")):
+            if not source_path.is_file() or source_path.suffix.lower() not in source_extensions:
+                continue
+            if ".godot" in source_path.parts:
+                continue
+            bundle.write(source_path, source_path.relative_to(root).as_posix())
+            written += 1
+    for root_file in ("project.godot", "bus_layout.tres", "default_bus_layout.tres", "export_presets.cfg"):
+        source_path = root / root_file
+        if source_path.is_file():
+            bundle.write(source_path, source_path.relative_to(root).as_posix())
+            written += 1
+print(f"GAMEPLAY_SOURCE_BUNDLE={archive_path} FILES={written} BYTES={archive_path.stat().st_size}")
 print("AUDIT_RECOVERED_MINIGAMES_COMPLETE")
