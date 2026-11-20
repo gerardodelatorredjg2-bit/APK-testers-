@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "recovery/**"
+      - "optimization/**"
     paths:
       - "tools/apply_machine_party_lan_patch.py"
       - "tools/optimize_mobile_performance.py"
