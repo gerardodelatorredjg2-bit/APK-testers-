@@ -120,7 +120,8 @@ def patch_effect_manager_for_compatibility(project: Path) -> bool:
     helper = (
         "func _disable_compatibility_particle_trails(node: Node) -> void:\n"
         "\tif RenderingServer.get_current_rendering_method() == \"gl_compatibility\" and node is GPUParticles3D:\n"
-        "\t\t(node as GPUParticles3D).trail_enabled = false\n"
+        "\t\tvar particles := node as GPUParticles3D\n"
+        "\t\tparticles.trail_enabled = false\n"
         "\tfor child in node.get_children():\n"
         "\t\t_disable_compatibility_particle_trails(child)\n\n"
     )
