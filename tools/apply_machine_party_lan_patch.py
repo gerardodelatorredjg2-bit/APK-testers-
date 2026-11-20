@@ -435,8 +435,8 @@ patch(
 # The ui_* defaults can animate the stick while gameplay scripts read left/right/up/down.
 patch(
     "addons/virtual_joystick/virtual_joystick.gd",
-    '@export var action_left: = "ui_left"\\n@export var action_right: = "ui_right"\\n@export var action_up: = "ui_up"\\n@export var action_down: = "ui_down"',
-    '@export var action_left: = "left"\\n@export var action_right: = "right"\\n@export var action_up: = "up"\\n@export var action_down: = "down"',
+    '@export var action_left: = "ui_left"\n@export var action_right: = "ui_right"\n@export var action_up: = "ui_up"\n@export var action_down: = "ui_down"',
+    '@export var action_left: = "left"\n@export var action_right: = "right"\n@export var action_up: = "up"\n@export var action_down: = "down"',
 )
 
 print("LAN patch applied successfully.")
