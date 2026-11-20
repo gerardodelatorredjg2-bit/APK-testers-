@@ -77,4 +77,11 @@ func _run() -> void:
 
 	print("CRAWL_ANIMATION_SMOKE_PASS: ", resolved_bone_tracks, " bone tracks resolved; ", animated_bones, " bones moved")
 	player.queue_free()
+	player = null
+	packed = null
+	tree = null
+	animation_player = null
+	skeleton = null
+	await process_frame
+	await process_frame
 	quit(0)
