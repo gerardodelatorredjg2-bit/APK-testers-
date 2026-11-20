@@ -293,7 +293,7 @@ jobs:
           if len(matches) != 1:
               raise SystemExit(f"Expected exactly one {key} setting, got {len(matches)}")
           lines[matches[0]] = 'run/main_scene="res://lan_loopback_smoke.tscn"'
-          path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
