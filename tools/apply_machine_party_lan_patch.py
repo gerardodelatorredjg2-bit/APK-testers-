@@ -480,16 +480,6 @@ patch(
     '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\\nsize = Vector2(16, 16)',
     '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\\nsize = Vector2(6, 6)',
 )
-patch(
-    "prefabs/managed_effects/mine_explosion.tscn",
-    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]',
-    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]',
-)
-patch(
-    "prefabs/managed_effects/mine_explosion.tscn",
-    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]\\nlifetime_randomness = 0.1',
-    '[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_md1tl"]\\nlifetime_randomness = 0.1',
-)
 # Cap smoke particle size so nearby detonations no longer fill the camera frustum.
 patch(
     "prefabs/managed_effects/mine_explosion.tscn",
