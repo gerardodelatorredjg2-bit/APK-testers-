@@ -111,6 +111,10 @@ func _repair() -> void:
 
 	print("CRAWL_REPAIR_PASS: repaired ", total_repaired, " mismatched bone tracks and rewired both crawl clips")
 	player.queue_free()
+	player = null
+	packed = null
+	await process_frame
+	await process_frame
 	quit(0)
 
 func _write_text(path: String, contents: String) -> bool:
