@@ -64,10 +64,29 @@ jobs:
           # models, audio and import source assets, not just text files.
           tar -czf godot-source-bundle.tar.gz -C source-bundle .
           ls -lh godot-source-bundle.tar.gz
-      - name: Upload Godot source bundle
+      - name: Split source bundle into download-safe parts
+        run: |
+          set -euo pipefail
+          split -b 350M -d -a 2 godot-source-bundle.tar.gz source-part-
+          ls -lh source-part-*
+      - name: Upload source bundle part 00
         uses: actions/upload-artifact@v4
         with:
-          name: machine-party-godot-source-bundle
-          path: godot-source-bundle.tar.gz
+          name: machine-party-source-part-00
+          path: source-part-00
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source bundle part 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-01
+          path: source-part-01
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source bundle part 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-02
+          path: source-part-02
           compression-level: 0
           retention-days: 5
