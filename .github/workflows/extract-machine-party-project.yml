@@ -18,32 +18,19 @@ jobs:
         run: |
           set -euo pipefail
           curl -fL --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" -o recovery.zip
-      - name: Rebuild and verify outer ZIP
+      - name: Verify and extract complete Godot project
         run: |
           set -euo pipefail
-          for n in $(seq 0 9); do i=$(printf '%02d' "$n"); test -s "chunks/part-$i" || true; done
-          # The recovery artifact is downloaded as a single ZIP; verify its central directory.
           unzip -t recovery.zip >/dev/null
-      - name: Extract inner Godot project ZIP
-        run: |
-          set -euo pipefail
-          unzip -Z1 recovery.zip | grep -E 'machine-party-recovered-project\.zip$' | head -1 > inner-path.txt
+          unzip -Z1 recovery.zip | grep -E 'machine-party-recovered-project[.]zip$' | head -1 > inner-path.txt
           inner="$(cat inner-path.txt)"
           test -n "$inner"
           unzip -p recovery.zip "$inner" > project-inner.zip
           unzip -t project-inner.zip >/dev/null
           mkdir project
           unzip -q project-inner.zip -d project
-          find project -name project.godot -print
-          find project -type f | wc -l
-          # Inventory the entire recovered project, excluding only cache and editor metadata.
-          find project -type f \
-            -not -path '*/.godot/*' \
-            -not -path '*/.git/*' \
-            -not -path '*/__pycache__/*' \
-            -not -name '*.tmp' \
-            -not -name '*.bak' > source-inventory.txt
-          test -f project/project.godot
+          test -s project/project.godot
+          find project -type f -not -path '*/.godot/*' -not -path '*/.git/*' -not -path '*/__pycache__/*' -not -name '*.tmp' -not -name '*.bak' > source-inventory.txt
           grep -Fx 'project/project.godot' source-inventory.txt
           echo "Total project files: $(wc -l < source-inventory.txt)"
           du -sh project
@@ -53,98 +40,21 @@ jobs:
           name: machine-party-project-source-inventory
           path: source-inventory.txt
           retention-days: 5
-      - name: Upload extracted project files (source and scenes)
+      - name: Create and verify full source bundle
         run: |
           set -euo pipefail
-          # Archive the extracted project directly. The previous cp --parents staging
-          # step could silently omit the root project.godot on the uploaded bundle.
-          test -s project/project.godot
-          rm -f godot-source-bundle.tar.gz
           tar -czf godot-source-bundle.tar.gz -C . project
-          tar -tzf godot-source-bundle.tar.gz | grep -Eq '(^|/)project/project\\.godot
-      - name: Split source bundle into download-safe parts
-        run: |
-          set -euo pipefail
-          split -b 350M -d -a 2 godot-source-bundle.tar.gz source-part-
-          ls -lh source-part-*
-      - name: Upload source bundle part 00
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-00
-          path: source-part-00
-          compression-level: 0
-          retention-days: 5
-      - name: Upload source bundle part 01
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-01
-          path: source-part-01
-          compression-level: 0
-          retention-days: 5
-      - name: Upload source bundle part 02
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-02
-          path: source-part-02
-          compression-level: 0
-          retention-days: 5
-
-          archive_files="$(tar -tzf godot-source-bundle.tar.gz | grep -vc '/
-      - name: Split source bundle into download-safe parts
-        run: |
-          set -euo pipefail
-          split -b 350M -d -a 2 godot-source-bundle.tar.gz source-part-
-          ls -lh source-part-*
-      - name: Upload source bundle part 00
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-00
-          path: source-part-00
-          compression-level: 0
-          retention-days: 5
-      - name: Upload source bundle part 01
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-01
-          path: source-part-01
-          compression-level: 0
-          retention-days: 5
-      - name: Upload source bundle part 02
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-02
-          path: source-part-02
-          compression-level: 0
-          retention-days: 5
-)"
+          tar -tzf godot-source-bundle.tar.gz | grep -F 'project/project.godot'
+          archive_files="$(tar -tzf godot-source-bundle.tar.gz | grep -vc '/$')"
           inventory_files="$(wc -l < source-inventory.txt)"
           test "$archive_files" -ge "$inventory_files"
           echo "Inventory files: $inventory_files"
           echo "Archived files: $archive_files"
           ls -lh godot-source-bundle.tar.gz
-      - name: Split source bundle into download-safe parts
-        run: |
-          set -euo pipefail
-          split -b 350M -d -a 2 godot-source-bundle.tar.gz source-part-
-          ls -lh source-part-*
-      - name: Upload source bundle part 00
+      - name: Upload complete Godot source bundle
         uses: actions/upload-artifact@v4
         with:
-          name: machine-party-source-part-00
-          path: source-part-00
-          compression-level: 0
-          retention-days: 5
-      - name: Upload source bundle part 01
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-01
-          path: source-part-01
-          compression-level: 0
-          retention-days: 5
-      - name: Upload source bundle part 02
-        uses: actions/upload-artifact@v4
-        with:
-          name: machine-party-source-part-02
-          path: source-part-02
+          name: machine-party-godot-source-bundle-complete
+          path: godot-source-bundle.tar.gz
           compression-level: 0
           retention-days: 5
