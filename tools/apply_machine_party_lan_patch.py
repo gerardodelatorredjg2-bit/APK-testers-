@@ -2039,42 +2039,34 @@ game_manager_text = replace_function_block(
 ''',
 	"Touchscreen cursor handling",
 )
-if (!game_manager_text.includes("func is_using_touchscreen() -> bool:")) {
+if "func is_using_touchscreen() -> bool:" not in game_manager_text:
 	game_manager_text = game_manager_text.replace(
 		"func is_using_controller() -> bool:\n\treturn current_input_device == GameManager.InputDevice.Controller",
 		"func is_using_controller() -> bool:\n\treturn current_input_device == GameManager.InputDevice.Controller\n\nfunc is_using_touchscreen() -> bool:\n\treturn current_input_device == GameManager.InputDevice.Touch",
-	);
-}
+	)
+if "func is_using_touchscreen() -> bool:" not in game_manager_text:
+	raise SystemExit("Could not add touchscreen query to GameManager")
 (root / game_manager_path).write_text(game_manager_text, encoding="utf-8")
 
-const labelPath = "modules/user_interface/intermission_control_input_label/intermission_control_input_label.gd";
-let labelText = (root / labelPath).read_text(encoding="utf-8");
-const keyboardCase = "\t\tGameManager.InputDevice.Keyboard:\n\t\t\ticon_label.text = keyboard_text\n\t\t\tfor i in keyboard_texture_rects:\n\t\t\t\ti.visible = true";
-if (!labelText.includes("GameManager.InputDevice.Touch:")) {
-	if (!labelText.includes(keyboardCase)) throw new Error("No se encontró la sección de iconos de teclado del HUD.");
-	labelText = labelText.replace(keyboardCase, keyboardCase + "\n\t\tGameManager.InputDevice.Touch:\n\t\t\t# Touch buttons are visible on-screen; retain the instruction but hide PC key icons.\n\t\t\ticon_label.text = keyboard_text");
-}
-(root / labelPath).write_text(labelText, encoding="utf-8");
+label_path = "modules/user_interface/intermission_control_input_label/intermission_control_input_label.gd"
+label_text = (root / label_path).read_text(encoding="utf-8")
+keyboard_case = "\t\tGameManager.InputDevice.Keyboard:\n\t\t\ticon_label.text = keyboard_text\n\t\t\tfor i in keyboard_texture_rects:\n\t\t\t\ti.visible = true"
+if "GameManager.InputDevice.Touch:" not in label_text:
+	if keyboard_case not in label_text:
+		raise SystemExit("IntermissionControlInputLabel keyboard branch not found")
+	label_text = label_text.replace(
+		keyboard_case,
+		keyboard_case + "\n\t\tGameManager.InputDevice.Touch:\n\t\t\t# Touch buttons are visible on-screen; keep the instruction but hide PC key icons.\n\t\t\ticon_label.text = keyboard_text",
+	)
+(root / label_path).write_text(label_text, encoding="utf-8")
 
-const briefingPath = "minigames/intermission_new/components/intermission_briefing_screen.gd";
-let briefingText = (root / briefingPath).read_text(encoding="utf-8");
-const localInputPattern = /^([ \t]*)var input_device = GameManager\.InputDevice\.Keyboard\n\1if player_presence\.using_joystick:\n\1\tinput_device = GameManager\.InputDevice\.Controller/gm;
-const inputMatches = briefingText.match(localInputPattern) || [];
-if (inputMatches.length > 0) {
-	briefingText = briefingText.replace(localInputPattern, (_match, indent) =>
-		indent + "var input_device = GameManager.current_input_device\n" +
-		indent + "if player_presence.using_joystick:\n" +
-		indent + "\tinput_device = GameManager.InputDevice.Controller"
-	);
-}
-(root / briefingPath).write_text(briefingText, encoding="utf-8");
-
-let mainMenuText = (root / "scenes/main_menu/scripts/main_menu.gd").read_text(encoding="utf-8");
-mainMenuText = mainMenuText.replaceAll(
+main_menu_path = "scenes/main_menu/scripts/main_menu.gd"
+main_menu_text = (root / main_menu_path).read_text(encoding="utf-8")
+main_menu_text = main_menu_text.replace(
 	"if not GameManager.is_using_controller():",
-	"if not GameManager.is_using_controller() and not GameManager.is_using_touchscreen():"
-);
-(root / "scenes/main_menu/scripts/main_menu.gd").write_text(mainMenuText, encoding="utf-8");
+	"if not GameManager.is_using_controller() and not GameManager.is_using_touchscreen():",
+)
+(root / main_menu_path).write_text(main_menu_text, encoding="utf-8")
 
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
