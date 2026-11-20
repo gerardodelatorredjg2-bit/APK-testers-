@@ -19,14 +19,14 @@ settings = {
 }
 lines = project.read_text(encoding="utf-8").splitlines()
 for key, value in settings.items():
-    pattern = re.compile(r"^\\s*" + re.escape(key) + r"\\s*=")
+    pattern = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
     matches = [i for i, line in enumerate(lines) if pattern.match(line)]
     replacement = f"{key}={value}"
     if matches:
         lines[matches[-1]] = replacement
     else:
         lines.append(replacement)
-project.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+project.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 # Existing runtime optimizers can override project defaults. Force their mobile
 # render scale to 50%, keep a stable 30 FPS target, and cap dynamic lights.
@@ -38,9 +38,9 @@ for path in root.rglob("*.gd"):
     if "mobilegamesettings" not in name and "allinonemobileoptimizer" not in name:
         continue
     source = path.read_text(encoding="utf-8")
-    updated = re.sub(r"(scaling_3d_scale\\s*=\\s*)[0-9]+(?:\\.[0-9]+)?", r"\\g<1>0.5", source)
-    updated = re.sub(r"(target_mobile_fps\\s*=\\s*)[0-9]+", r"\\g<1>30", updated)
-    updated = re.sub(r"(max_lights\\s*=\\s*)[0-9]+", r"\\g<1>2", updated)
+    updated = re.sub(r"(scaling_3d_scale\s*=\s*)[0-9]+(?:\\.[0-9]+)?", r"\g<1>0.5", source)
+    updated = re.sub(r"(target_mobile_fps\s*=\s*)[0-9]+", r"\g<1>30", updated)
+    updated = re.sub(r"(max_lights\s*=\s*)[0-9]+", r"\g<1>2", updated)
     if updated != source:
         path.write_text(updated, encoding="utf-8")
         touched.append(str(path.relative_to(root)))
