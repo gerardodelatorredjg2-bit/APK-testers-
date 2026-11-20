@@ -144,6 +144,53 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
         self.assertFalse(changed)
         self.assertEqual(cleaned, original)
 
+    def test_mobile_compatibility_shader_does_not_use_fma(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            shader = project / "shaders" / "spatial" / "grass_sway.gdshader"
+            shader.parent.mkdir(parents=True)
+            shader.write_text("float t = sin(fma(TIME + COLOR.r, 2.0, COLOR.g));\\n", encoding="utf-8")
+            self.assertTrue(module.patch_compatibility_shader(project))
+            patched = shader.read_text(encoding="utf-8")
+            self.assertIn("sin((TIME + COLOR.r) * 2.0 + COLOR.g)", patched)
+            self.assertNotIn("fma(", patched)
+            self.assertFalse(module.patch_compatibility_shader(project))
+
+    def test_pause_menu_removes_only_stale_texture_uid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            scene = project / "modules" / "pause_menu" / "pause_menu.tscn"
+            scene.parent.mkdir(parents=True)
+            scene.write_text(
+                '[ext_resource type="Texture2D" uid="uid://stale" path="res://textures/ui/white_border_ninepatch.png" id="9"]\\n'
+                '[ext_resource type="Script" uid="uid://valid" path="res://other.gd" id="1"]\\n',
+                encoding="utf-8",
+            )
+            self.assertTrue(module.patch_pause_menu_uid(project))
+            patched = scene.read_text(encoding="utf-8")
+            self.assertNotIn('uid="uid://stale"', patched)
+            self.assertIn('uid="uid://valid"', patched)
+            self.assertFalse(module.patch_pause_menu_uid(project))
+
+    def test_effect_manager_disables_compatibility_particle_trails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            manager = project / "modules" / "effect_manager" / "effect_manager.gd"
+            manager.parent.mkdir(parents=True)
+            manager.write_text(
+                "func _ready():\\n\\tinitialize()\\n\\tprecache()\\n"
+                "\\tvar effect_instance = effect.instantiate()\\n\\tinstanced.append(effect_instance)\\n"
+                "\\tvar instance = prefab_scenes[effect_name].instantiate()\\n\\tspawn_node.add_child(instance, true)\\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(module.patch_effect_manager_for_compatibility(project))
+            patched = manager.read_text(encoding="utf-8")
+            self.assertIn('get_current_rendering_method() == "gl_compatibility"', patched)
+            self.assertIn("(node as GPUParticles3D).trail_enabled = false", patched)
+            self.assertIn("_disable_compatibility_particle_trails(effect_instance)", patched)
+            self.assertIn("_disable_compatibility_particle_trails(instance)", patched)
+            self.assertFalse(module.patch_effect_manager_for_compatibility(project))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
