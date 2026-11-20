@@ -51,10 +51,40 @@ jobs:
           echo "Inventory files: $inventory_files"
           echo "Archived files: $archive_files"
           ls -lh godot-source-bundle.tar.gz
-      - name: Upload complete Godot source bundle
+      - name: Split full Godot source bundle for safe transfer
+        run: |
+          set -euo pipefail
+          split -b 300M -d -a 2 godot-source-bundle.tar.gz source-part-
+          ls -lh source-part-*
+          test -s source-part-00
+          test -s source-part-01
+          test -s source-part-02
+          test -s source-part-03
+      - name: Upload source part 00
         uses: actions/upload-artifact@v4
         with:
-          name: machine-party-godot-source-bundle-complete
-          path: godot-source-bundle.tar.gz
+          name: machine-party-source-part-00
+          path: source-part-00
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source part 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-01
+          path: source-part-01
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source part 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-02
+          path: source-part-02
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source part 03
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-03
+          path: source-part-03
           compression-level: 0
           retention-days: 5
