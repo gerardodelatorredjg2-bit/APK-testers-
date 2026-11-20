@@ -121,14 +121,14 @@ def apply(root, profile_name, dry_run=False):
             continue
         source = import_path.read_text(encoding="utf-8")
         updated, count = re.subn(
-            r"(?m)^(meshes/generate_lods\\s*=\\s*)false\\s*$",
-            r"\\1true",
+            r"(?m)^(meshes/generate_lods\s*=\s*)false\s*$",
+            r"\1true",
             source,
         )
         if count:
             pending_writes[import_path] = updated
             lod_imports_enabled.append(relative_path)
-        elif re.search(r"(?m)^meshes/generate_lods\\s*=\\s*true\\s*$", source):
+        elif re.search(r"(?m)^meshes/generate_lods\s*=\s*true\s*$", source):
             continue
         else:
             raise ValueError(f"{relative_path}: missing meshes/generate_lods import option")
