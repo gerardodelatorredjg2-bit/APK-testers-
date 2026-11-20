@@ -212,7 +212,7 @@ for rel in ("minigames/shape_cutter/scripts/cut_handler.gd", "minigames/shape_cu
         if text.count(cancel_marker) != 1:
             raise SystemExit(f"{rel}: debug cancel marker count mismatch")
         text = text.replace(cancel_marker, cancel_marker + "\t\theat_has_content = false\n\t\theat_idle_elapsed = 0.0\n\t\theat_fade_accumulator = 0.0\n", 1)
-        stroke_marker = "\t\timage_heat.blend_rect(\n"
+        stroke_marker = "\t\t\timage_heat.blend_rect(\n"
         if text.count(stroke_marker) != 1:
             raise SystemExit(f"{rel}: debug heat stroke marker count mismatch")
         text = text.replace(stroke_marker, "\t\t\theat_has_content = true\n\t\t\theat_idle_elapsed = 0.0\n" + stroke_marker, 1)
