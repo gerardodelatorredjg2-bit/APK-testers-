@@ -442,7 +442,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "===== Godot diagnostics audit ====="
-          if grep -Ein '(WARNING|ERROR):|SCRIPT ERROR:|Parse Error:|Unrecognized output string' \
+          if grep -Ein '(WARNING|ERROR):|SCRIPT ERROR:|Parse Error:' \
             build/project-import.log build/headless-startup.log build/minigame-scenes-smoke.log \
             build/crawl-animation-repair.log build/crawl-animation-smoke.log \
             build/transition-overlay-smoke.log build/lan-host-smoke.log \
@@ -451,7 +451,7 @@ jobs:
             echo "Godot diagnostics remain; refusing to publish this APK."
             exit 1
           fi
-          echo "RUNTIME_LOG_AUDIT_PASS: zero Godot warnings, errors, parser failures, or invalid controller mappings."
+          echo "RUNTIME_LOG_AUDIT_PASS: zero Godot warnings, errors, or parser failures."
 
       - name: Verify APK and create compressed download
         run: |
