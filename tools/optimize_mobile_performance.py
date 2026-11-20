@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 PROFILES = {
@@ -19,6 +20,24 @@ COMMON_SETTINGS = {
     "rendering/environment/ssil/quality": "0",
     "rendering/environment/screen_space_reflection/roughness_quality": "0",
 }
+
+
+def atomic_write(path: Path, content: str) -> None:
+    """Write text atomically so an interrupted optimizer cannot truncate a file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_name, path)
+    except BaseException:
+        try:
+            os.unlink(temp_name)
+        except OSError:
+            pass
+        raise
 
 
 def set_project_setting(lines, section, key, value):
@@ -60,7 +79,7 @@ def replace_typed_assignment(source, name, value):
     return pattern.subn(rf"\g<1>{value}\g<2>", source)
 
 
-def apply(root, profile_name):
+def apply(root, profile_name, dry_run=False):
     if profile_name not in PROFILES:
         raise ValueError(f"Unknown profile {profile_name}; choose low, balanced, high")
     project = root / "project.godot"
@@ -76,20 +95,23 @@ def apply(root, profile_name):
     for key, value in settings.items():
         section, setting = key.split("/", 1)
         set_project_setting(lines, section, setting, value)
-    project.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
+    project_content = "\n".join(lines) + "\n"
     changed = []
+    pending_writes = {}
+    if project_content != project.read_text(encoding="utf-8"):
+        pending_writes[project] = project_content
+
     allowed = {"mobilegamesettings", "mobileboost", "mobilelightoptimizer", "allinonemobileoptimizer"}
     for path in root.rglob("*.gd"):
-        if ".godot" in path.parts or path.stem.lower() not in allowed:
+        if ".godot" in path.parts or path.stem.lower() not in allowed or path.is_symlink():
             continue
         source = path.read_text(encoding="utf-8")
         updated = source
         for name, val in (("scaling_3d_scale", scale), ("target_mobile_fps", fps), ("max_lights", lights)):
             updated, _ = replace_typed_assignment(updated, name, val)
         if updated != source:
-            path.write_text(updated, encoding="utf-8")
             changed.append(str(path.relative_to(root)))
+            pending_writes[path] = updated
 
     report = {
         "profile": profile_name,
@@ -98,21 +120,26 @@ def apply(root, profile_name):
         "max_dynamic_lights": lights,
         "disabled_quality_features": ["MSAA 3D", "screen-space AA", "SSAO", "SSIL", "SSR quality"],
         "runtime_optimizer_files_changed": sorted(changed),
-        "note": "Static profile, not dynamic runtime adaptation.",
+        "files_to_write": sorted(str(path.relative_to(root)) for path in pending_writes),
+        "dry_run": bool(dry_run),
+        "note": "Static profile, not dynamic runtime adaptation. Settings require device testing.",
     }
-    report_path = Path(os.environ.get("MOBILE_PERFORMANCE_REPORT", root.parent / "mobile-performance-report.json"))
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if not dry_run:
+        for path, content in pending_writes.items():
+            atomic_write(path, content)
+        report_path = Path(os.environ.get("MOBILE_PERFORMANCE_REPORT", root.parent / "mobile-performance-report.json"))
+        atomic_write(report_path, json.dumps(report, indent=2) + "\n")
     return report
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Apply a mobile rendering/performance profile.")
+    parser = argparse.ArgumentParser(description="Apply a mobile rendering/performance profile safely.")
     parser.add_argument("project", type=Path)
     parser.add_argument("--profile", choices=sorted(PROFILES), default=os.environ.get("MOBILE_PROFILE", "low"))
+    parser.add_argument("--dry-run", action="store_true", help="Report planned changes without writing any files.")
     args = parser.parse_args()
     try:
-        print(json.dumps(apply(args.project.resolve(), args.profile), indent=2))
+        print(json.dumps(apply(args.project.resolve(), args.profile, dry_run=args.dry_run), indent=2))
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
