@@ -11,6 +11,7 @@ on:
       - "tools/test_mobile_optimizer.py"
       - "tools/smoke_test_minigame_scenes.gd"
       - "tools/audit_recovered_minigames.py"
+      - "tools/test_recovered_gameplay_fixes.py"
       - "tools/lan_loopback_smoke.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
@@ -103,8 +104,9 @@ jobs:
           set -euo pipefail
           python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
           python3 tools/optimize_mobile_performance.py downloaded/recovered
+          python3 tools/test_recovered_gameplay_fixes.py downloaded/recovered
           cp recovered-project/controls_android.gd downloaded/recovered/controls_android.gd
-          python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py
+          python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/test_recovered_gameplay_fixes.py
           PROJECT="$PWD/downloaded/recovered"
           test "$(wc -l < "$PROJECT/project.godot")" -gt 300
           grep -Fqx '[application]' "$PROJECT/project.godot"
