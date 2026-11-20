@@ -21,6 +21,20 @@ COMMON_SETTINGS = {
     "rendering/environment/screen_space_reflection/roughness_quality": "0",
 }
 
+# Static, high-polygon environments with LOD generation disabled in the recovered
+# project. LODs are enabled only on these verified non-animated scene assets.
+# Animated characters, VFX, collision meshes and small props are intentionally omitted.
+STATIC_ENVIRONMENT_LOD_IMPORTS = (
+    "minigames/knife_at_the_office/models/kato office art1/kato office art1.glb.import",
+    "minigames/junk_platform/models/junk platform visuals2/junk platform visuals2.glb.import",
+    "minigames/knife_at_the_office/models/kato office4/kato office4.glb.import",
+    "models/tower scene export2/tower scene export2.glb.import",
+    "minigames/duck_hunt/models/duck hunt environment2/duck hunt environment2.glb.import",
+    "minigames/spine_breaker/models/spinebreaker visuals2/spinebreaker visuals2.glb.import",
+    "minigames/duck_hunt/models/duck hunt covers revised1/duck hunt covers revised1.glb.import",
+    "minigames/escalator_pit/models/escalator pit fence1/escalator pit fence1.glb.import",
+)
+
 
 def atomic_write(path: Path, content: str) -> None:
     """Write text atomically so an interrupted optimizer cannot truncate a file."""
@@ -98,6 +112,26 @@ def apply(root, profile_name, dry_run=False):
     project_content = "\n".join(lines) + "\n"
     changed = []
     pending_writes = {}
+    lod_imports_enabled = []
+    lod_imports_missing = []
+    for relative_path in STATIC_ENVIRONMENT_LOD_IMPORTS:
+        import_path = root / relative_path
+        if not import_path.is_file():
+            lod_imports_missing.append(relative_path)
+            continue
+        source = import_path.read_text(encoding="utf-8")
+        updated, count = re.subn(
+            r"(?m)^(meshes/generate_lods\\s*=\\s*)false\\s*$",
+            r"\\1true",
+            source,
+        )
+        if count:
+            pending_writes[import_path] = updated
+            lod_imports_enabled.append(relative_path)
+        elif re.search(r"(?m)^meshes/generate_lods\\s*=\\s*true\\s*$", source):
+            continue
+        else:
+            raise ValueError(f"{relative_path}: missing meshes/generate_lods import option")
     if project_content != project.read_text(encoding="utf-8"):
         pending_writes[project] = project_content
 
@@ -120,6 +154,8 @@ def apply(root, profile_name, dry_run=False):
         "max_dynamic_lights": lights,
         "disabled_quality_features": ["MSAA 3D", "screen-space AA", "SSAO", "SSIL", "SSR quality"],
         "runtime_optimizer_files_changed": sorted(changed),
+        "static_environment_lod_imports_enabled": sorted(lod_imports_enabled),
+        "static_environment_lod_imports_missing": sorted(lod_imports_missing),
         "files_to_write": sorted(str(path.relative_to(root)) for path in pending_writes),
         "dry_run": bool(dry_run),
         "note": "Static profile, not dynamic runtime adaptation. Settings require device testing.",
