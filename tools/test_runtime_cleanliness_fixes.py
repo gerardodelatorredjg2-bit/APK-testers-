@@ -55,9 +55,9 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             remaining -= 255
         lacing.append(remaining)
         header = (
-            b"OggS" + b"\\x00" + b"\\x00" + (0).to_bytes(8, "little", signed=True)
+            b"OggS" + b"\x00" + b"\x00" + (0).to_bytes(8, "little", signed=True)
             + serial.to_bytes(4, "little") + sequence.to_bytes(4, "little")
-            + b"\\x00\\x00\\x00\\x00" + bytes([len(lacing)]) + bytes(lacing)
+            + b"\x00\x00\x00\x00" + bytes([len(lacing)]) + bytes(lacing)
         )
         page = bytearray(header + packet)
         page[22:26] = module.struct.pack("<I", module._ogg_crc32(page))
@@ -85,16 +85,16 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
         return packets
 
     def test_malformed_vorbis_comment_repair_preserves_audio_packets_and_page_size(self):
-        identification = b"\\x01vorbis" + bytes(range(23))
+        identification = b"\x01vorbis" + bytes(range(23))
         vendor = b"Original Encoder"
         malformed = b"NO_SEPARATOR_TAG"
         comment = (
-            b"\\x03vorbis" + module.struct.pack("<I", len(vendor)) + vendor
+            b"\x03vorbis" + module.struct.pack("<I", len(vendor)) + vendor
             + module.struct.pack("<I", 1) + module.struct.pack("<I", len(malformed))
-            + malformed + b"\\x01"
+            + malformed + b"\x01"
         )
-        setup = b"\\x05vorbis" + b"unchanged setup packet"
-        audio = b"\\x00" + bytes(range(64))
+        setup = b"\x05vorbis" + b"unchanged setup packet"
+        audio = b"\x00" + bytes(range(64))
         original = b"".join([
             self._ogg_page(identification, 0),
             self._ogg_page(comment, 1),
@@ -120,7 +120,7 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             page_end = offset + 27 + segment_count + sum(cleaned[offset + 27:offset + 27 + segment_count])
             page = bytearray(cleaned[offset:page_end])
             expected_crc = int.from_bytes(page[22:26], "little")
-            page[22:26] = b"\\x00\\x00\\x00\\x00"
+            page[22:26] = b"\x00\x00\x00\x00"
             self.assertEqual(module._ogg_crc32(page), expected_crc)
             offset = page_end
 
@@ -128,17 +128,17 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
         vendor = b"Test encoder"
         fields = [b"title=valid", b"artist=valid"]
         packet = (
-            b"\\x03vorbis" + module.struct.pack("<I", len(vendor)) + vendor
+            b"\x03vorbis" + module.struct.pack("<I", len(vendor)) + vendor
             + module.struct.pack("<I", len(fields))
             + b"".join(module.struct.pack("<I", len(field)) + field for field in fields)
-            + b"\\x01"
+            + b"\x01"
         )
         self.assertTrue(module._valid_vorbis_comment_packet(packet))
         original = b"".join([
-            self._ogg_page(b"\\x01vorbis" + bytes(range(23)), 0),
+            self._ogg_page(b"\x01vorbis" + bytes(range(23)), 0),
             self._ogg_page(packet, 1),
-            self._ogg_page(b"\\x05vorbissetup", 2),
-            self._ogg_page(b"\\x00audio packet", 3),
+            self._ogg_page(b"\x05vorbissetup", 2),
+            self._ogg_page(b"\x00audio packet", 3),
         ])
         cleaned, changed = module._sanitize_ogg_comment_bytes(original)
         self.assertFalse(changed)
