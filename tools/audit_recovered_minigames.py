@@ -84,8 +84,8 @@ for path in sorted(mini.rglob("*.tscn")):
 
 
 # Export only editable gameplay source files; omit the large media payload.
-source_roots = ("minigames", "autoloads", "modules", "scenes", "addons")
-source_extensions = {".gd", ".tscn", ".tres", ".gdshader", ".shader", ".import", ".cfg", ".gdextension", ".cs"}
+source_roots = ("minigames", "autoloads", "modules", "scenes", "addons", "shaders", "scripts", "animations", "prefabs/managed_effects")
+source_extensions = {".gd", ".tscn", ".tres", ".gdshader", ".shader", ".res", ".import", ".cfg", ".gdextension", ".cs"}
 archive_path = root.parent / "recovered-gameplay-source.zip"
 written = 0
 with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=3) as bundle:
