@@ -1946,41 +1946,171 @@ if "preload_minigame_scene(identifier)" not in picker_text:
 picker_path.write_text(picker_text, encoding="utf-8")
 
 
+# Android touchscreen is a first-class input device. Keep PC keyboard prompts and
+# emulated mouse clicks out of the phone UI unless a real external keyboard is used.
+game_manager_path = "autoloads/game_manager.gd"
+game_manager_text = (root / game_manager_path).read_text(encoding="utf-8")
+game_manager_text = game_manager_text.replace(
+	"enum InputDevice{None, Keyboard, Controller}",
+	"enum InputDevice{None, Keyboard, Controller, Touch}",
+)
+game_manager_text = game_manager_text.replace(
+	"var current_input_device: InputDevice = InputDevice.Keyboard",
+	'var current_input_device: InputDevice = InputDevice.Touch if (OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]) else InputDevice.Keyboard',
+)
+game_manager_text = replace_function_block(
+	game_manager_text,
+	"func _input(event: InputEvent) -> void :",
+	"func switch_input_device(input_device: InputDevice) -> bool:",
+	'''func _input(event: InputEvent) -> void:
+	if not game_focused:
+		return
+
+	var mobile_platform: bool = OS.has_feature("mobile") or OS.get_name() in ["Android", "iOS"]
+	if mobile_platform:
+		if event is InputEventScreenTouch:
+			if event.pressed:
+				switch_input_device(InputDevice.Touch)
+			return
+		if event is InputEventScreenDrag:
+			switch_input_device(InputDevice.Touch)
+			return
+		# Android can emulate a mouse click for every finger tap. Do not let
+		# those synthetic events switch the HUD back to desktop keyboard mode.
+		if event is InputEventMouseButton or event is InputEventMouseMotion:
+			return
+
+	var event_class: String = event.get_class()
+	if event_class == "InputEventMouseMotion":
+		return
+
+	var changed: bool = false
+	if event_class in ["InputEventKey", "InputEventMouseButton"]:
+		changed = switch_input_device(InputDevice.Keyboard)
+	elif event_class == "InputEventJoypadButton":
+		changed = switch_input_device(InputDevice.Controller)
+	elif event_class == "InputEventJoypadMotion":
+		if abs(event.axis_value) > 0.5:
+			changed = switch_input_device(InputDevice.Controller)
+
+	if changed:
+		mouse_blocker.accept_event()
+
+''',
+	"Android touch input mode",
+)
+game_manager_text = replace_function_block(
+	game_manager_text,
+	"func switch_input_device(input_device: InputDevice) -> bool:",
+	"func is_using_controller() -> bool:",
+	'''func switch_input_device(input_device: InputDevice) -> bool:
+	if not can_input_switch:
+		return false
+	if current_input_device == input_device:
+		return false
+
+	current_input_device = input_device
+	match current_input_device:
+		InputDevice.Controller:
+			if can_set_cursor:
+				CursorManager.set_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+				mouse_blocker.visible = true
+				Input.warp_mouse(Vector2.ZERO)
+				CursorManager.set_locked(true)
+		InputDevice.Keyboard:
+			if can_set_cursor:
+				mouse_blocker.visible = false
+				CursorManager.set_locked(false)
+				CursorManager.set_active(true)
+				var screen_center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+				Input.warp_mouse(screen_center)
+				CursorManager.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+				CursorManager.set_cursor_image(&"point")
+		InputDevice.Touch:
+			if can_set_cursor:
+				mouse_blocker.visible = false
+				CursorManager.set_locked(false)
+				CursorManager.set_active(false)
+
+	print("Input device switched to: ", GameManager.InputDevice.keys()[GameManager.current_input_device])
+	input_device_changed.emit(current_input_device)
+	return true
+
+''',
+	"Touchscreen cursor handling",
+)
+if (!game_manager_text.includes("func is_using_touchscreen() -> bool:")) {
+	game_manager_text = game_manager_text.replace(
+		"func is_using_controller() -> bool:\n\treturn current_input_device == GameManager.InputDevice.Controller",
+		"func is_using_controller() -> bool:\n\treturn current_input_device == GameManager.InputDevice.Controller\n\nfunc is_using_touchscreen() -> bool:\n\treturn current_input_device == GameManager.InputDevice.Touch",
+	);
+}
+(root / game_manager_path).write_text(game_manager_text, encoding="utf-8")
+
+const labelPath = "modules/user_interface/intermission_control_input_label/intermission_control_input_label.gd";
+let labelText = (root / labelPath).read_text(encoding="utf-8");
+const keyboardCase = "\t\tGameManager.InputDevice.Keyboard:\n\t\t\ticon_label.text = keyboard_text\n\t\t\tfor i in keyboard_texture_rects:\n\t\t\t\ti.visible = true";
+if (!labelText.includes("GameManager.InputDevice.Touch:")) {
+	if (!labelText.includes(keyboardCase)) throw new Error("No se encontró la sección de iconos de teclado del HUD.");
+	labelText = labelText.replace(keyboardCase, keyboardCase + "\n\t\tGameManager.InputDevice.Touch:\n\t\t\t# Touch buttons are visible on-screen; retain the instruction but hide PC key icons.\n\t\t\ticon_label.text = keyboard_text");
+}
+(root / labelPath).write_text(labelText, encoding="utf-8");
+
+const briefingPath = "minigames/intermission_new/components/intermission_briefing_screen.gd";
+let briefingText = (root / briefingPath).read_text(encoding="utf-8");
+const localInputPattern = /^([ \t]*)var input_device = GameManager\.InputDevice\.Keyboard\n\1if player_presence\.using_joystick:\n\1\tinput_device = GameManager\.InputDevice\.Controller/gm;
+const inputMatches = briefingText.match(localInputPattern) || [];
+if (inputMatches.length > 0) {
+	briefingText = briefingText.replace(localInputPattern, (_match, indent) =>
+		indent + "var input_device = GameManager.current_input_device\n" +
+		indent + "if player_presence.using_joystick:\n" +
+		indent + "\tinput_device = GameManager.InputDevice.Controller"
+	);
+}
+(root / briefingPath).write_text(briefingText, encoding="utf-8");
+
+let mainMenuText = (root / "scenes/main_menu/scripts/main_menu.gd").read_text(encoding="utf-8");
+mainMenuText = mainMenuText.replaceAll(
+	"if not GameManager.is_using_controller():",
+	"if not GameManager.is_using_controller() and not GameManager.is_using_touchscreen():"
+);
+(root / "scenes/main_menu/scripts/main_menu.gd").write_text(mainMenuText, encoding="utf-8");
+
 # Static assertions ensure future source recoveries do not silently lose features.
 checks = {
-    "scripts/scenes/game/game.gd": ["func preload_minigame_scene(", "ResourceLoader.load_threaded_request", "_load_minigame_scene_threaded"],
-    "scenes/local_game/script/local_game.gd": ["func preload_minigame_scene(", "_load_minigame_scene_threaded"],
-    "minigames/intermission_new/components/intermission_cutscene_intro.gd": ["await anim_intermission_cam.animation_finished", "await anim_scientist_ik.animation_finished", "anim_intermission_cam.play(\"intro3\", 0.35)"],
-    "scripts/components/character customization/customization_selection_instance.gd": ["const COSMETIC_SCENES", "packed_scene.instantiate()", "SubViewport.UPDATE_ONCE"],
-    "autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
-    "MobileGameSettings.gd": ["if node is SubViewport:", "previous_light_count"],
-    "AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
-    "MobileGameSettings.gd": ["QualityProfile.AUTO:\n\t\t\tfps_limit = 60"],
-    "MobileAppLifecycle.gd": ["NOTIFICATION_WM_GO_BACK_REQUEST", "LEAVE MATCH", "CONTINUE PLAYING"],
+	"scripts/scenes/game/game.gd": ["func preload_minigame_scene(", "ResourceLoader.load_threaded_request", "_load_minigame_scene_threaded"],
+	"scenes/local_game/script/local_game.gd": ["func preload_minigame_scene(", "_load_minigame_scene_threaded"],
+	"minigames/intermission_new/components/intermission_cutscene_intro.gd": ["await anim_intermission_cam.animation_finished", "await anim_scientist_ik.animation_finished", 'anim_intermission_cam.play("intro3", 0.35)'],
+	"scripts/components/character customization/customization_selection_instance.gd": ["const COSMETIC_SCENES", "packed_scene.instantiate()", "SubViewport.UPDATE_ONCE"],
+	"autoloads/globals.gd": ["_value = clampf(_value, 0.70, 1.0)", "get_window().scaling_3d_scale = _value"],
+	"MobileGameSettings.gd": [
+		"if node is SubViewport:", "previous_light_count",
+		"QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\tfps_limit = 30",
+		"QualityProfile.MEDIUM:\n\t\t\tfps_limit = 45",
+		"QualityProfile.HIGH:\n\t\t\tfps_limit = 60",
+		"func _cycle_quality()", "func _toggle_controls()",
+		"Viewport.SCREEN_SPACE_AA_DISABLED", "environment.ssao_enabled = false",
+	],
+	"AllInOneMobileOptimizer.gd": ["set_process(false)", "target_mobile_fps: int = 60"],
+	"MobileAppLifecycle.gd": ["NOTIFICATION_WM_GO_BACK_REQUEST", "LEAVE MATCH", "CONTINUE PLAYING"],
 	"project.godot": [
 		'renderer/rendering_method.mobile="gl_compatibility"',
 		'scaling_3d/scale=1.0',
 		'MobileGameSettings="*res://MobileGameSettings.gd"',
 	],
 	"scenes/main_menu/scripts/main_menu.gd": [
-		"func _show_lan_join_dialog",
-		"virtual_keyboard_enabled = true",
-		"LineEdit.KEYBOARD_TYPE_URL",
+		"func _show_lan_join_dialog", "virtual_keyboard_enabled = true",
+		"LineEdit.KEYBOARD_TYPE_URL", "GameManager.is_using_touchscreen()",
 	],
-	"controls_android.gd": [
-		"func set_controls_visible(value: bool)",
-		"_user_controls_visible and",
+	"controls_android.gd": ["func set_controls_visible(value: bool)", "_user_controls_visible and"],
+	"autoloads/game_manager.gd": [
+		"enum InputDevice{None, Keyboard, Controller, Touch}",
+		"InputEventScreenTouch", "InputEventScreenDrag", "func is_using_touchscreen() -> bool",
 	],
-	"MobileGameSettings.gd": [
-		"func _cycle_quality()",
-		"func _toggle_controls()",
-		"Viewport.SCREEN_SPACE_AA_DISABLED",
-		"environment.ssao_enabled = false",
+	"modules/user_interface/intermission_control_input_label/intermission_control_input_label.gd": [
+		"GameManager.InputDevice.Touch", "icon_label.text = keyboard_text",
 	],
-	"modules/multiplayer/network_manager.gd": [
-		"func _change_to_game_scene()",
-		"game_scene == null",
-	],
+	"modules/multiplayer/network_manager.gd": ["func _change_to_game_scene()", "game_scene == null"],
 }
 for check_path, required_strings in checks.items():
 	check_text = (root / check_path).read_text(encoding="utf-8")
