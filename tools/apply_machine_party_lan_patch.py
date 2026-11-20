@@ -460,8 +460,8 @@ patch(
 
 patch(
     "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
-    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\\nfov = 41.3',
-    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\\ncurrent = true\\nfov = 41.3',
+    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\nfov = 41.3',
+    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\ncurrent = true\nfov = 41.3',
 )
 
 # Disable only optional full-screen SCREEN_TEXTURE post-processing for Android.
