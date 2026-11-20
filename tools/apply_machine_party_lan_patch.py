@@ -439,4 +439,13 @@ patch(
     '@export var action_left: = "left"\n@export var action_right: = "right"\n@export var action_up: = "up"\n@export var action_down: = "down"',
 )
 
+
+# Duck Hunt's keyboard/mouse aiming path must also accept mobile touchscreen
+# drags. The virtual fire/zoom controls continue to feed the existing actions.
+patch(
+    "minigames/duck_hunt/components/hunter_player/scripts/hunter_player.gd",
+    "\tif can_aim:\n\n\t\tif event is InputEventMouseMotion:\n\n\t\t\tlook_input = Vector2(\n\t\t\t\t- event.screen_relative.x * look_sensitivity / 1000, \n\t\t\t\t- event.screen_relative.y * look_sensitivity / 1000, \n\t\t\t)\n",
+    "\tif can_aim:\n\t\tvar relative_motion := Vector2.ZERO\n\t\tif event is InputEventMouseMotion:\n\t\t\trelative_motion = event.screen_relative\n\t\telif event is InputEventScreenDrag:\n\t\t\t# Touch dragging is the mobile equivalent of mouse-look in Duck Hunt.\n\t\t\trelative_motion = event.screen_relative\n\n\t\tif not relative_motion.is_zero_approx():\n\t\t\tlook_input = Vector2(\n\t\t\t\t- relative_motion.x * look_sensitivity / 1000.0,\n\t\t\t\t- relative_motion.y * look_sensitivity / 1000.0,\n\t\t\t)\n",
+)
+
 print("LAN patch applied successfully.")
