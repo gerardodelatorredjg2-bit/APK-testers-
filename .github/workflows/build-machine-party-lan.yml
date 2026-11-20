@@ -113,7 +113,7 @@ jobs:
           python3 tools/optimize_mobile_performance.py downloaded/recovered
           python3 tools/test_recovered_gameplay_fixes.py downloaded/recovered
           cp recovered-project/controls_android.gd downloaded/recovered/controls_android.gd
-          python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/test_recovered_gameplay_fixes.py
+          python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/apply_gameplay_audit_fixes.py tools/test_recovered_gameplay_fixes.py
           PROJECT="$PWD/downloaded/recovered"
           test "$(wc -l < "$PROJECT/project.godot")" -gt 300
           grep -Fqx '[application]' "$PROJECT/project.godot"
@@ -475,6 +475,7 @@ jobs:
             build/transition-overlay-smoke.log
             build/lan-host-smoke.log
             build/lan-client-smoke.log
+            build/shape-cutter-regression.log
           if-no-files-found: warn
           compression-level: 1
           retention-days: 7
