@@ -237,7 +237,7 @@ jobs:
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 25m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" \
             --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --editor \
-            --path "$PROJECT" --quit 2>&1 | tee build/project-import.log
+            --path "$PROJECT" --import 2>&1 | tee build/project-import.log
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
 
