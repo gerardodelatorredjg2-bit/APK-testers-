@@ -13,6 +13,7 @@ on:
       - "tools/audit_recovered_minigames.py"
       - "tools/test_recovered_gameplay_fixes.py"
       - "tools/smoke_test_crawl_animation.gd"
+      - "tools/smoke_test_transition_overlay.gd"
       - "tools/lan_loopback_smoke.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
@@ -272,6 +273,20 @@ jobs:
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log; then
             echo "===== CRAWL ANIMATION SMOKE FAILURE ====="
             grep -Ein 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log
+            exit 1
+          fi
+
+      - name: Test overlapping scene transition fades
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
+          grep -q 'TRANSITION_OVERLAY_SMOKE_PASS:' build/transition-overlay-smoke.log
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|TRANSITION_OVERLAY_SMOKE_FAILED' build/transition-overlay-smoke.log; then
+            echo "===== TRANSITION OVERLAY SMOKE FAILURE ====="
+            grep -Ein 'SCRIPT ERROR:|Parse Error:|TRANSITION_OVERLAY_SMOKE_FAILED' build/transition-overlay-smoke.log
             exit 1
           fi
 
