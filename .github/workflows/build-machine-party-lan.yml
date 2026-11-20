@@ -236,7 +236,7 @@ jobs:
           rm -rf "$PROJECT/.godot/imported"
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 25m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" \
-            --rendering-method gl_compatibility --audio-driver Dummy --editor \
+            --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --editor \
             --path "$PROJECT" --quit 2>&1 | tee build/project-import.log
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
@@ -247,7 +247,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PROJECT/test_shape_cutter_regression.gd" 2>&1 | tee build/shape-cutter-regression.log
+          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" --script "$PROJECT/test_shape_cutter_regression.gd" 2>&1 | tee build/shape-cutter-regression.log
           grep -q "SHAPE_CUTTER_REGRESSION_PASS" build/shape-cutter-regression.log
           if grep -Eiq "SCRIPT ERROR:|Parse Error:|SHAPE_CUTTER_REGRESSION_FAILED" build/shape-cutter-regression.log; then
             echo "===== SHAPE CUTTER REGRESSION FAILURE ====="
@@ -260,7 +260,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
+          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
           grep -q 'CRAWL_REPAIR_PASS:' build/crawl-animation-repair.log
           test -s "$PROJECT/animations/crawl_idle_overwrite_mobile.tres"
           test -s "$PROJECT/animations/crawl_overwrite_mobile.tres"
@@ -274,7 +274,7 @@ jobs:
           PROJECT="$PWD/downloaded/recovered"
           mkdir -p build
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_full_startup.gd" --verbose 2>&1 | tee build/headless-startup.log; then
+          if ! timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_full_startup.gd" --verbose 2>&1 | tee build/headless-startup.log; then
             echo "===== HEADLESS STARTUP FAILURE ====="
             tail -n 240 build/headless-startup.log
             exit 1
@@ -294,7 +294,7 @@ jobs:
           PROJECT="$PWD/downloaded/recovered"
           mkdir -p build
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! timeout 5m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_minigame_scenes.gd" 2>&1 | tee build/minigame-scenes-smoke.log; then
+          if ! timeout 5m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_minigame_scenes.gd" 2>&1 | tee build/minigame-scenes-smoke.log; then
             echo "===== MINIGAME SCENE LOAD FAILURES ====="
             tail -n 240 build/minigame-scenes-smoke.log
             exit 1
@@ -312,7 +312,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
+          timeout 90s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
           grep -q 'CRAWL_ANIMATION_SMOKE_PASS:' build/crawl-animation-smoke.log
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log; then
             echo "===== CRAWL ANIMATION SMOKE FAILURE ====="
@@ -326,7 +326,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 45s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
+          timeout 45s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
           grep -q 'TRANSITION_OVERLAY_SMOKE_PASS:' build/transition-overlay-smoke.log
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|TRANSITION_OVERLAY_SMOKE_FAILED' build/transition-overlay-smoke.log; then
             echo "===== TRANSITION OVERLAY SMOKE FAILURE ====="
@@ -376,7 +376,7 @@ jobs:
           path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 45s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
+          timeout 45s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
           HOST_PID=$!
           for attempt in $(seq 1 100); do
             if grep -q 'LAN_TEST_HOST_READY=' "$HOST_LOG"; then
@@ -396,7 +396,7 @@ jobs:
             exit 1
           fi
           echo "Testing LAN address: $HOST_ADDRESS"
-          if ! timeout 30s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --audio-driver Dummy --path "$PROJECT" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
+          if ! timeout 30s xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync --audio-driver Dummy --path "$PROJECT" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
             echo "===== LAN CLIENT FAILURE ====="
             cat "$CLIENT_LOG"
             cat "$HOST_LOG"
@@ -427,7 +427,9 @@ jobs:
           grep -q 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
           grep -q 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! "$GODOT_BIN" --headless --path "$PROJECT" --verbose \
+          if ! timeout 30m xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 "$GODOT_BIN" \
+            --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync \
+            --audio-driver Dummy --path "$PROJECT" --verbose \
             --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/build/MachineParty-LAN-universal.apk" \
             2>&1 | tee build/android-export.log; then
             echo "===== ANDROID EXPORT FAILURE DETAILS ====="
