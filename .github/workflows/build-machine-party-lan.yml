@@ -273,6 +273,7 @@ jobs:
 
       - name: Run ARM64 Android emulator performance smoke test
         uses: reactivecircus/android-emulator-runner@v2
+        continue-on-error: true # Keep APK packaging/release available if the hosted emulator fails to boot.
         with:
           api-level: 30
           target: google_apis
