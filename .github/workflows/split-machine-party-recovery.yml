@@ -1,0 +1,137 @@
+name: Split Machine Party recovery artifact into small download parts
+
+on:
+  push:
+    branches:
+      - "optimization/**"
+    paths:
+      - ".github/workflows/split-machine-party-recovery.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  split-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Download the original recovery artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p chunks
+          curl -fL --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" \
+            -o recovery-artifact.zip
+          test -s recovery-artifact.zip
+          actual_size="$(stat -c %s recovery-artifact.zip)"
+          echo "Downloaded ZIP bytes: $actual_size"
+          sha256sum recovery-artifact.zip | tee chunks/SHA256SUMS.txt
+          split -b 180M -d -a 2 recovery-artifact.zip chunks/part-
+          count="$(find chunks -maxdepth 1 -name 'part-*' | wc -l)"
+          echo "Created $count parts"
+          test "$count" -le 10
+          ls -lh chunks/part-*
+
+      - name: Upload part 00
+        if: ${{ hashFiles('chunks/part-00') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-00
+          path: chunks/part-00
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 01
+        if: ${{ hashFiles('chunks/part-01') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-01
+          path: chunks/part-01
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 02
+        if: ${{ hashFiles('chunks/part-02') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-02
+          path: chunks/part-02
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 03
+        if: ${{ hashFiles('chunks/part-03') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-03
+          path: chunks/part-03
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 04
+        if: ${{ hashFiles('chunks/part-04') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-04
+          path: chunks/part-04
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 05
+        if: ${{ hashFiles('chunks/part-05') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-05
+          path: chunks/part-05
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 06
+        if: ${{ hashFiles('chunks/part-06') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-06
+          path: chunks/part-06
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 07
+        if: ${{ hashFiles('chunks/part-07') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-07
+          path: chunks/part-07
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 08
+        if: ${{ hashFiles('chunks/part-08') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-08
+          path: chunks/part-08
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload part 09
+        if: ${{ hashFiles('chunks/part-09') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-part-09
+          path: chunks/part-09
+          compression-level: 0
+          retention-days: 3
+
+      - name: Upload ZIP checksum manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-recovery-manifest
+          path: chunks/SHA256SUMS.txt
+          compression-level: 0
+          retention-days: 3
