@@ -216,6 +216,25 @@ jobs:
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
 
+      - name: Run headless game startup smoke test
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          mkdir -p build
+          export GODOT_SILENCE_ROOT_WARNING=1
+          if ! timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --quit-after 180 --verbose 2>&1 | tee build/headless-startup.log; then
+            echo "===== HEADLESS STARTUP FAILURE ====="
+            tail -n 240 build/headless-startup.log
+            exit 1
+          fi
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed loading resource' build/headless-startup.log; then
+            echo "===== SCRIPT OR RESOURCE ERRORS DURING STARTUP ====="
+            grep -Ein 'SCRIPT ERROR:|Parse Error:|Failed loading resource' build/headless-startup.log
+            exit 1
+          fi
+          echo "Headless startup smoke test passed (180 frames)."
+
       - name: Export Android APK
         run: |
           set -euo pipefail
