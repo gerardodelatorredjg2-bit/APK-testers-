@@ -156,20 +156,26 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             self.assertNotIn("fma(", patched)
             self.assertFalse(module.patch_compatibility_shader(project))
 
-    def test_pause_menu_removes_only_stale_texture_uid(self):
+    def test_stale_shared_texture_uid_is_removed_from_all_scenes(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
-            scene = project / "modules" / "pause_menu" / "pause_menu.tscn"
-            scene.parent.mkdir(parents=True)
-            scene.write_text(
+            pause_scene = project / "modules" / "pause_menu" / "pause_menu.tscn"
+            pause_scene.parent.mkdir(parents=True)
+            pause_scene.write_text(
                 '[ext_resource type="Texture2D" uid="uid://stale" path="res://textures/ui/white_border_ninepatch.png" id="9"]\n'
                 '[ext_resource type="Script" uid="uid://valid" path="res://other.gd" id="1"]\n',
                 encoding="utf-8",
             )
+            lobby_scene = project / "scenes" / "lobby" / "lobby_scene.tscn"
+            lobby_scene.parent.mkdir(parents=True)
+            lobby_scene.write_text(
+                '[ext_resource type="Texture2D" uid="uid://stale" path="res://textures/ui/white_border_ninepatch.png" id="54"]\n',
+                encoding="utf-8",
+            )
             self.assertTrue(module.patch_pause_menu_uid(project))
-            patched = scene.read_text(encoding="utf-8")
-            self.assertNotIn('uid="uid://stale"', patched)
-            self.assertIn('uid="uid://valid"', patched)
+            self.assertNotIn('uid="uid://stale"', pause_scene.read_text(encoding="utf-8"))
+            self.assertNotIn('uid="uid://stale"', lobby_scene.read_text(encoding="utf-8"))
+            self.assertIn('uid="uid://valid"', pause_scene.read_text(encoding="utf-8"))
             self.assertFalse(module.patch_pause_menu_uid(project))
 
     def test_effect_manager_disables_compatibility_particle_trails(self):
