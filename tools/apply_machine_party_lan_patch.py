@@ -1472,17 +1472,13 @@ optimizer_text = optimizer_text.replace(
 )
 optimizer_path.write_text(optimizer_text, encoding="utf-8")
 
-# Auto is the high-refresh default; LOW remains available for devices that need
-# a stable 30 FPS cap. No profile lowers the native 3D resolution.
+# AUTO/LOW cap at 30 FPS to reduce sustained load and heat on entry-level
+# Android devices such as the Galaxy J7 Prime. MEDIUM/HIGH remain 45/60 FPS.
 mobile_settings_path = root / "MobileGameSettings.gd"
 mobile_settings_text = mobile_settings_path.read_text(encoding="utf-8")
 mobile_settings_text = mobile_settings_text.replace(
-    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\tfps_limit = 30",
-    "QualityProfile.AUTO:\n\t\t\tfps_limit = 60\n\t\tQualityProfile.LOW:\n\t\t\tfps_limit = 30",
-)
-mobile_settings_text = mobile_settings_text.replace(
-    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\treturn 2",
-    "QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\treturn 2",
+    "QualityProfile.AUTO:\n\t\t\tfps_limit = 30",
+    "QualityProfile.AUTO:\n\t\t\tfps_limit = 30",
 )
 mobile_settings_path.write_text(mobile_settings_text, encoding="utf-8")
 
