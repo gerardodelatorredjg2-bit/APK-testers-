@@ -1207,10 +1207,18 @@ func _apply_profile() -> void:
 			fps_limit = 60
 
 	Engine.max_fps = fps_limit
+	var render_scale: float = 0.75
+	match quality_profile:
+		QualityProfile.AUTO, QualityProfile.LOW:
+			render_scale = 0.75
+		QualityProfile.MEDIUM:
+			render_scale = 0.85
+		QualityProfile.HIGH:
+			render_scale = 1.0
 	var viewport := get_viewport()
 	viewport.msaa_3d = Viewport.MSAA_DISABLED
 	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
-	get_window().scaling_3d_scale = 1.0
+	get_window().scaling_3d_scale = render_scale
 
 	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
 	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
@@ -2185,6 +2193,9 @@ checks = {
 		"QualityProfile.AUTO, QualityProfile.LOW:\n\t\t\tfps_limit = 30",
 		"QualityProfile.MEDIUM:\n\t\t\tfps_limit = 45",
 		"QualityProfile.HIGH:\n\t\t\tfps_limit = 60",
+		"QualityProfile.AUTO, QualityProfile.LOW:\\n\\t\\t\\trender_scale = 0.75",
+		"QualityProfile.MEDIUM:\\n\\t\\t\\trender_scale = 0.85",
+		"get_window().scaling_3d_scale = render_scale",
 		"func _cycle_quality()", "func _toggle_controls()",
 		"Viewport.SCREEN_SPACE_AA_DISABLED", "environment.ssao_enabled = false",
 	],
