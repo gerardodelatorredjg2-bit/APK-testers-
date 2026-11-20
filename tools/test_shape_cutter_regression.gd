@@ -1,3 +1,4 @@
+# Re-run full Android validation after Shape Cutter corrections.
 extends SceneTree
 
 var MatcherScript: Script
