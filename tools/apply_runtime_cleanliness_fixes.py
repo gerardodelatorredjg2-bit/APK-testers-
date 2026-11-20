@@ -73,6 +73,84 @@ def disable_unsupported_ssao(project: Path) -> int:
     return count
 
 
+
+def patch_compatibility_shader(project: Path) -> bool:
+    path = project / "shaders/spatial/grass_sway.gdshader"
+    if not path.is_file():
+        raise RuntimeError(f"Required grass sway shader not found: {path}")
+    source = path.read_text(encoding="utf-8")
+    original = "sin(fma(TIME + COLOR.r, 2.0, COLOR.g))"
+    replacement = "sin((TIME + COLOR.r) * 2.0 + COLOR.g)"
+    if original in source:
+        source = source.replace(original, replacement, 1)
+        path.write_text(source, encoding="utf-8")
+        return True
+    if replacement in source:
+        return False
+    raise RuntimeError("Could not locate the unsupported fma() expression in grass_sway.gdshader")
+
+
+def patch_pause_menu_uid(project: Path) -> bool:
+    path = project / "modules/pause_menu/pause_menu.tscn"
+    if not path.is_file():
+        raise RuntimeError(f"Required pause menu scene not found: {path}")
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    changed = False
+    for index, line in enumerate(lines):
+        if "path=\"res://textures/ui/white_border_ninepatch.png\"" in line:
+            updated = re.sub(r' uid="uid://[^"]+"', "", line)
+            if updated != line:
+                lines[index] = updated
+                changed = True
+            break
+    else:
+        if not any("path=\"res://textures/ui/white_border_ninepatch.png\"" in line for line in lines):
+            raise RuntimeError("Pause menu white-border texture reference not found")
+    if changed:
+        path.write_text("".join(lines), encoding="utf-8")
+    return changed
+
+
+def patch_effect_manager_for_compatibility(project: Path) -> bool:
+    path = project / "modules/effect_manager/effect_manager.gd"
+    if not path.is_file():
+        raise RuntimeError(f"Required effect manager not found: {path}")
+    source = path.read_text(encoding="utf-8")
+    changed = False
+    helper = (
+        "func _disable_compatibility_particle_trails(node: Node) -> void:\n"
+        "\tif RenderingServer.get_current_rendering_method() == \"gl_compatibility\" and node is GPUParticles3D:\n"
+        "\t\t(node as GPUParticles3D).trail_enabled = false\n"
+        "\tfor child in node.get_children():\n"
+        "\t\t_disable_compatibility_particle_trails(child)\n\n"
+    )
+    if "func _disable_compatibility_particle_trails(" not in source:
+        marker = "func _ready():"
+        if marker not in source:
+            raise RuntimeError("Effect manager _ready() insertion point not found")
+        source = source.replace(marker, helper + marker, 1)
+        changed = True
+
+    old_precache = "\t\tvar effect_instance = effect.instantiate()\n\t\tinstanced.append(effect_instance)"
+    new_precache = "\t\tvar effect_instance = effect.instantiate()\n\t\t_disable_compatibility_particle_trails(effect_instance)\n\t\tinstanced.append(effect_instance)"
+    if old_precache in source:
+        source = source.replace(old_precache, new_precache, 1)
+        changed = True
+    elif new_precache not in source:
+        raise RuntimeError("Effect manager precache instantiation point not found")
+
+    old_spawn = "\tvar instance = prefab_scenes[effect_name].instantiate()\n\tspawn_node.add_child(instance, true)"
+    new_spawn = "\tvar instance = prefab_scenes[effect_name].instantiate()\n\t_disable_compatibility_particle_trails(instance)\n\tspawn_node.add_child(instance, true)"
+    if old_spawn in source:
+        source = source.replace(old_spawn, new_spawn, 1)
+        changed = True
+    elif new_spawn not in source:
+        raise RuntimeError("Effect manager spawn instantiation point not found")
+
+    if changed:
+        path.write_text(source, encoding="utf-8")
+    return changed
+
 def run_checked(args: list[str]) -> str:
     result = subprocess.run(args, text=True, capture_output=True)
     if result.returncode != 0:
@@ -313,9 +391,15 @@ def main() -> int:
         parser.error(f"Not a Godot project: {project}")
     menu_changed = patch_menu_visual_manager(project)
     ssao_count = disable_unsupported_ssao(project)
+    shader_changed = patch_compatibility_shader(project)
+    pause_uid_changed = patch_pause_menu_uid(project)
+    effect_manager_changed = patch_effect_manager_for_compatibility(project)
     vorbis_count, skipped_count = sanitize_vorbis_comments(project)
     print(f"MENU_ANCHOR_FIX={'applied' if menu_changed else 'already_applied'}")
     print(f"MOBILE_SSAO_DISABLED={ssao_count}")
+    print(f"COMPATIBILITY_SHADER_FMA_FIXED={shader_changed}")
+    print(f"PAUSE_MENU_STALE_UID_REMOVED={pause_uid_changed}")
+    print(f"EFFECT_MANAGER_COMPATIBILITY_PATCHED={effect_manager_changed}")
     print(f"VORBIS_METADATA_SANITIZED={vorbis_count}")
     print(f"NON_VORBIS_OGG_SKIPPED={skipped_count}")
     print("RUNTIME_CLEANLINESS_FIXES_PASS: menu geometry, mobile renderer settings, and lossless audio metadata checks")
