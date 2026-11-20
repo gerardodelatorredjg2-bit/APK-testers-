@@ -186,7 +186,7 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             self.assertTrue(module.patch_effect_manager_for_compatibility(project))
             patched = manager.read_text(encoding="utf-8")
             self.assertIn('get_current_rendering_method() == "gl_compatibility"', patched)
-            self.assertIn("(node as GPUParticles3D).trail_enabled = false", patched)
+            self.assertIn("particles.trail_enabled = false", patched)
             self.assertIn("_disable_compatibility_particle_trails(effect_instance)", patched)
             self.assertIn("_disable_compatibility_particle_trails(instance)", patched)
             self.assertFalse(module.patch_effect_manager_for_compatibility(project))
