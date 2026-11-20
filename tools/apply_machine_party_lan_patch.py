@@ -483,13 +483,13 @@ patch(
 # Cap smoke particle size so nearby detonations no longer fill the camera frustum.
 patch(
     "prefabs/managed_effects/mine_explosion.tscn",
-    "scale_max = 2.0\\nscale_curve = SubResource(\\"CurveTexture_0irmn\\")",
-    "scale_max = 1.0\\nscale_curve = SubResource(\\"CurveTexture_0irmn\\")",
+    "scale_max = 2.0\nscale_curve = SubResource(\"CurveTexture_0irmn\")",
+    "scale_max = 1.0\nscale_curve = SubResource(\"CurveTexture_0irmn\")",
 )
 patch(
     "prefabs/managed_effects/mine_explosion.tscn",
-    "scale_max = 2.0\\nscale_curve = SubResource(\\"CurveTexture_0alh5\\")",
-    "scale_max = 1.0\\nscale_curve = SubResource(\\"CurveTexture_0alh5\\")",
+    "scale_max = 2.0\nscale_curve = SubResource(\"CurveTexture_0alh5\")",
+    "scale_max = 1.0\nscale_curve = SubResource(\"CurveTexture_0alh5\")",
 )
 
 # Prevent overlapping scene fades from emitting a false completion signal.
