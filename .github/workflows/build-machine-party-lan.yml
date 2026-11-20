@@ -7,6 +7,7 @@ on:
     paths:
       - "tools/apply_machine_party_lan_patch.py"
       - "tools/optimize_mobile_performance.py"
+      - "tools/test_mobile_optimizer.py"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
 
@@ -23,6 +24,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
+
+      - name: Unit-test mobile optimizer before building
+        run: python3 -m unittest -v tools/test_mobile_optimizer.py
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
