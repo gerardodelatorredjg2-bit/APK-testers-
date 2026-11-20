@@ -149,7 +149,7 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             project = Path(tmp)
             shader = project / "shaders" / "spatial" / "grass_sway.gdshader"
             shader.parent.mkdir(parents=True)
-            shader.write_text("float t = sin(fma(TIME + COLOR.r, 2.0, COLOR.g));\\n", encoding="utf-8")
+            shader.write_text("float t = sin(fma(TIME + COLOR.r, 2.0, COLOR.g));\n", encoding="utf-8")
             self.assertTrue(module.patch_compatibility_shader(project))
             patched = shader.read_text(encoding="utf-8")
             self.assertIn("sin((TIME + COLOR.r) * 2.0 + COLOR.g)", patched)
@@ -162,8 +162,8 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             scene = project / "modules" / "pause_menu" / "pause_menu.tscn"
             scene.parent.mkdir(parents=True)
             scene.write_text(
-                '[ext_resource type="Texture2D" uid="uid://stale" path="res://textures/ui/white_border_ninepatch.png" id="9"]\\n'
-                '[ext_resource type="Script" uid="uid://valid" path="res://other.gd" id="1"]\\n',
+                '[ext_resource type="Texture2D" uid="uid://stale" path="res://textures/ui/white_border_ninepatch.png" id="9"]\n'
+                '[ext_resource type="Script" uid="uid://valid" path="res://other.gd" id="1"]\n',
                 encoding="utf-8",
             )
             self.assertTrue(module.patch_pause_menu_uid(project))
@@ -178,9 +178,9 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             manager = project / "modules" / "effect_manager" / "effect_manager.gd"
             manager.parent.mkdir(parents=True)
             manager.write_text(
-                "func _ready():\\n\\tinitialize()\\n\\tprecache()\\n"
-                "\\tvar effect_instance = effect.instantiate()\\n\\tinstanced.append(effect_instance)\\n"
-                "\\tvar instance = prefab_scenes[effect_name].instantiate()\\n\\tspawn_node.add_child(instance, true)\\n",
+                "func _ready():\n\tinitialize()\n\tprecache()\n"
+                "\tvar effect_instance = effect.instantiate()\n\tinstanced.append(effect_instance)\n"
+                "\tvar instance = prefab_scenes[effect_name].instantiate()\n\tspawn_node.add_child(instance, true)\n",
                 encoding="utf-8",
             )
             self.assertTrue(module.patch_effect_manager_for_compatibility(project))
