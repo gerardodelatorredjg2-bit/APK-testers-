@@ -118,7 +118,7 @@ func verify_circle(points: Array[Vector2]):
 \t\tvar centered: Vector2 = point - center
 \t\tcentered_input.append(centered)
 \t\taverage_distance += centered.length()
-\t\tangles.append(fposmod(atan2(centered.y, centered.x), TAU)
+\t\tangles.append(fposmod(atan2(centered.y, centered.x), TAU))
 \taverage_distance /= float(centered_input.size())
 \tif average_distance <= 0.000001:
 \t\treturn 0.0
