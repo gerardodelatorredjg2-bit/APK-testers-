@@ -302,6 +302,7 @@ jobs:
             cat "$CLIENT_LOG"
             exit 1
           fi
+          rm -f "$TEST_SCRIPT"
           trap - EXIT
           cat "$HOST_LOG"
           cat "$CLIENT_LOG"
