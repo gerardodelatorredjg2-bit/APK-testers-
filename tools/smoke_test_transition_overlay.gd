@@ -31,4 +31,7 @@ func _run() -> void:
 		return
 
 	print("TRANSITION_OVERLAY_SMOKE_PASS: overlapping fades complete once and release input")
+	overlay = null
+	await process_frame
+	await process_frame
 	quit(0)
