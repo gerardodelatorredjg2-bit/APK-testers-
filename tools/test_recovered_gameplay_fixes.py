@@ -59,3 +59,11 @@ require(mine_effect, '[sub_resource type="QuadMesh" id="QuadMesh_om174"]\nsize =
 require(mine_effect, 'scale_max = 1.0\nscale_curve = SubResource("CurveTexture_0irmn")', "mine up-smoke scale capped")
 require(mine_effect, 'scale_max = 1.0\nscale_curve = SubResource("CurveTexture_0alh5")', "mine ring-smoke scale capped")
 print("RECOVERED_GAMEPLAY_FIXES_PASS")
+
+matcher_path = root / "minigames/shape_cutter/scripts/pattern_matcher.gd"
+matcher_source = matcher_path.read_text(encoding="utf-8")
+if "\\matched += 1" in matcher_source:
+    raise SystemExit("FAIL: Shape Cutter generator emitted an invalid backslash before matched")
+if "\t\t\tmatched += 1" not in matcher_source:
+    raise SystemExit("FAIL: Shape Cutter circle counter line is missing")
+print("PASS: Shape Cutter circle counter has valid GDScript syntax")
