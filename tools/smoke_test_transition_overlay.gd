@@ -10,9 +10,9 @@ func _run() -> void:
 		quit(1)
 		return
 
-	var completion_count := 0
+	var completion_counter := [0]
 	overlay.fade_finished.connect(func() -> void:
-		completion_count += 1
+		completion_counter[0] += 1
 	)
 
 	overlay.fade_overlay(Color.BLACK, 0.25)
@@ -20,8 +20,8 @@ func _run() -> void:
 	overlay.fade_overlay(Color(0.0, 0.0, 0.0, 0.0), 0.25)
 	await create_timer(0.4).timeout
 
-	if completion_count != 1:
-		push_error("TRANSITION_OVERLAY_SMOKE_FAILED: expected one completion for overlapping fades, got " + str(completion_count))
+	if completion_counter[0] != 1:
+		push_error("TRANSITION_OVERLAY_SMOKE_FAILED: expected one completion for overlapping fades, got " + str(completion_counter[0]))
 		quit(1)
 		return
 
