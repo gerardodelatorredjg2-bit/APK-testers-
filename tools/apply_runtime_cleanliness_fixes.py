@@ -91,23 +91,28 @@ def patch_compatibility_shader(project: Path) -> bool:
 
 
 def patch_pause_menu_uid(project: Path) -> bool:
-    path = project / "modules/pause_menu/pause_menu.tscn"
-    if not path.is_file():
-        raise RuntimeError(f"Required pause menu scene not found: {path}")
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    """Remove the stale UID from every reference to this texture; keep its path."""
+    pause_scene = project / "modules/pause_menu/pause_menu.tscn"
+    if not pause_scene.is_file():
+        raise RuntimeError(f"Required pause menu scene not found: {pause_scene}")
     changed = False
-    for index, line in enumerate(lines):
-        if "path=\"res://textures/ui/white_border_ninepatch.png\"" in line:
-            updated = re.sub(r' uid="uid://[^"]+"', "", line)
-            if updated != line:
-                lines[index] = updated
-                changed = True
-            break
-    else:
-        if not any("path=\"res://textures/ui/white_border_ninepatch.png\"" in line for line in lines):
-            raise RuntimeError("Pause menu white-border texture reference not found")
-    if changed:
-        path.write_text("".join(lines), encoding="utf-8")
+    for suffix in ("*.tscn", "*.tres"):
+        for path in project.rglob(suffix):
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+            except UnicodeDecodeError:
+                continue
+            file_changed = False
+            for index, line in enumerate(lines):
+                if 'path="res://textures/ui/white_border_ninepatch.png"' not in line:
+                    continue
+                updated = re.sub(r' uid="uid://[^"]+"', "", line)
+                if updated != line:
+                    lines[index] = updated
+                    changed = True
+                    file_changed = True
+            if file_changed:
+                path.write_text("".join(lines), encoding="utf-8")
     return changed
 
 
