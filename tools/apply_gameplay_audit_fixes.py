@@ -138,3 +138,87 @@ func verify_circle(points: Array[Vector2]):
 '''
 matcher_path.write_text(matcher[:start] + new_methods + matcher[end:], encoding="utf-8")
 print("PATCHED: Shape Cutter matcher")
+
+# Reduce Shape Cutter heat-map CPU work by fading at 10 Hz and clearing idle heat.
+heat_fields = "\\n".join([
+    "var heat_fade_accumulator: float = 0.0",
+    "var heat_idle_elapsed: float = 0.0",
+    "var heat_has_content: bool = false",
+    "const HEAT_FADE_INTERVAL: float = 0.1",
+    "const HEAT_CLEAR_AFTER: float = 8.0",
+]) + "\\n"
+for rel in ("minigames/shape_cutter/scripts/cut_handler.gd", "minigames/shape_cutter/scripts/shape_cutter_test.gd"):
+    path = root / rel
+    text = path.read_text(encoding="utf-8")
+    if "func _update_heat_fade" in text:
+        print(f"SKIP heat fade already applied: {rel}")
+        continue
+    fields_marker = "var image_heat_texture: ImageTexture\\n"
+    if text.count(fields_marker) != 1:
+        raise SystemExit(f"{rel}: heat field insertion point missing")
+    text = text.replace(fields_marker, fields_marker + heat_fields, 1)
+    process_marker = "func _process(delta: float) -> void :\\n"
+    helper = "\\n".join([
+        "func _update_heat_fade(delta: float) -> void:",
+        "\\tif not heat_has_content:",
+        "\\t\\treturn",
+        "",
+        "\\theat_idle_elapsed += delta",
+        "\\theat_fade_accumulator += delta",
+        "",
+        "\\tif heat_idle_elapsed >= HEAT_CLEAR_AFTER:",
+        "\\t\\timage_heat.fill(Color.BLACK)",
+        "\\t\\timage_heat_texture.update(image_heat)",
+        "\\t\\theat_has_content = false",
+        "\\t\\theat_idle_elapsed = 0.0",
+        "\\t\\theat_fade_accumulator = 0.0",
+        "\\t\\treturn",
+        "",
+        "\\tif heat_fade_accumulator < HEAT_FADE_INTERVAL:",
+        "\\t\\treturn",
+        "",
+        "\\tvar fade_elapsed: float = heat_fade_accumulator",
+        "\\theat_fade_accumulator = 0.0",
+        "\\tvar fade_amount: float = 1.0 - exp(-fade_elapsed)",
+        "\\tfor y in range(image_heat.get_height()):",
+        "\\t\\tfor x in range(image_heat.get_width()):",
+        "\\t\\t\\timage_heat.set_pixel(x, y, image_heat.get_pixel(x, y).darkened(fade_amount))",
+        "\\timage_heat_texture.update(image_heat)",
+    ]) + "\\n\\n"
+    if text.count(process_marker) != 1:
+        raise SystemExit(f"{rel}: process insertion point missing")
+    text = text.replace(process_marker, helper + process_marker, 1)
+    if rel.endswith("cut_handler.gd"):
+        reset_marker = "\\timage_heat.fill(Color.BLACK)\\n"
+        if text.count(reset_marker) < 1:
+            raise SystemExit(f"{rel}: reset marker missing")
+        reset_start = text.index("func reset_images():")
+        reset_end = text.index("\\nfunc _update_heat_fade", reset_start)
+        chunk = text[reset_start:reset_end]
+        if chunk.count(reset_marker) != 1:
+            raise SystemExit(f"{rel}: reset heat marker count mismatch")
+        chunk = chunk.replace(reset_marker, reset_marker + "\\theat_has_content = false\\n\\theat_idle_elapsed = 0.0\\n\\theat_fade_accumulator = 0.0\\n", 1)
+        text = text[:reset_start] + chunk + text[reset_end:]
+        old_loop = "\\tfor y in 256:\\n\\t\\tfor x in 256:\\n\\t\\t\\timage_heat.set_pixel(\\n\\t\\t\\t\\tx, y, image_heat.get_pixel(x, y).darkened(delta)\\n\\t\\t\\t)\\n\\timage_heat_texture.update(image_heat)\\n"
+        if text.count(old_loop) != 1:
+            raise SystemExit(f"{rel}: expected one heat fade loop")
+        text = text.replace(old_loop, "\\t_update_heat_fade(delta)\\n", 1)
+        stroke_marker = "\\timage_heat.blend_rect(\\n"
+        if text.count(stroke_marker) != 1:
+            raise SystemExit(f"{rel}: heat stroke marker count mismatch")
+        text = text.replace(stroke_marker, "\\theat_has_content = true\\n\\theat_idle_elapsed = 0.0\\n" + stroke_marker, 1)
+    else:
+        cancel_marker = "\\t\\timage.fill(Color.DIM_GRAY)\\n\\t\\timage_heat.fill(Color.BLACK)\\n"
+        if text.count(cancel_marker) != 1:
+            raise SystemExit(f"{rel}: debug cancel marker count mismatch")
+        text = text.replace(cancel_marker, cancel_marker + "\\t\\theat_has_content = false\\n\\t\\theat_idle_elapsed = 0.0\\n\\t\\theat_fade_accumulator = 0.0\\n", 1)
+        stroke_marker = "\\t\\timage_heat.blend_rect(\\n"
+        if text.count(stroke_marker) != 1:
+            raise SystemExit(f"{rel}: debug heat stroke marker count mismatch")
+        text = text.replace(stroke_marker, "\\t\\t\\theat_has_content = true\\n\\t\\t\\theat_idle_elapsed = 0.0\\n" + stroke_marker, 1)
+        old_loop = "\\tfor y in 256:\\n\\t\\tfor x in 256:\\n\\t\\t\\timage_heat.set_pixel(\\n\\t\\t\\t\\tx, y, image_heat.get_pixel(x, y).darkened(delta)\\n\\t\\t\\t)\\n\\timage_heat_texture.update(image_heat)\\n"
+        if text.count(old_loop) != 1:
+            raise SystemExit(f"{rel}: expected one debug heat fade loop")
+        text = text.replace(old_loop, "\\t_update_heat_fade(delta)\\n", 1)
+    path.write_text(text, encoding="utf-8")
+    print(f"PATCHED heat fade: {rel}")
