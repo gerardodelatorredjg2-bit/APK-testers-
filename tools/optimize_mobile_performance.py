@@ -18,15 +18,27 @@ settings = {
     "application/run/max_fps": "30",
 }
 lines = project.read_text(encoding="utf-8").splitlines()
-for key, value in settings.items():
-    pattern = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
-    matches = [i for i, line in enumerate(lines) if pattern.match(line)]
-    replacement = f"{key}={value}"
+
+def set_project_setting(section: str, key: str, value: str) -> None:
+    header = f"[{section}]"
+    start = next((i for i, line in enumerate(lines) if line.strip() == header), -1)
+    if start < 0:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.extend([header, f"{key}={value}"])
+        return
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].strip().startswith("[") and lines[i].strip().endswith("]")), len(lines))
+    pattern = re.compile(r"^\\s*" + re.escape(key) + r"\\s*=")
+    matches = [i for i in range(start + 1, end) if pattern.match(lines[i])]
     if matches:
-        lines[matches[-1]] = replacement
+        lines[matches[-1]] = f"{key}={value}"
     else:
-        lines.append(replacement)
-project.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        lines.insert(end, f"{key}={value}")
+
+for key, value in settings.items():
+    section = key.split("/", 1)[0]
+    set_project_setting(section, key, value)
+project.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
 
 # Existing runtime optimizers can override project defaults. Force their mobile
 # render scale to 50%, keep a stable 30 FPS target, and cap dynamic lights.
