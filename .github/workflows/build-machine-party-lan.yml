@@ -262,6 +262,7 @@ jobs:
           mkdir -p build
           HOST_LOG="$PWD/build/lan-host-smoke.log"
           CLIENT_LOG="$PWD/build/lan-client-smoke.log"
+          # The driver looks up the NetworkManager autoload from the SceneTree root.
           TEST_SCRIPT="$PROJECT/lan_loopback_smoke.gd"
           cp "$PWD/tools/lan_loopback_smoke.gd" "$TEST_SCRIPT"
           export GODOT_SILENCE_ROOT_WARNING=1
