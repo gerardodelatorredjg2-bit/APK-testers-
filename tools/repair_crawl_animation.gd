@@ -13,6 +13,13 @@ const ANIMATION_FILES := [
 const PLAYER_SCENE := "res://minigames/exploding_collar_race/components/player/exploding_collar_race_player.tscn"
 const SKELETON_PATH := "Visuals/main character2/Armature torso cut off/character torso cut off4/Armature/Skeleton3D"
 
+func _cleanup_project_autoloads() -> void:
+	for child in root.get_children():
+		if is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await process_frame
+
 func _initialize() -> void:
 	call_deferred("_repair")
 
@@ -113,8 +120,7 @@ func _repair() -> void:
 	player.queue_free()
 	player = null
 	packed = null
-	await process_frame
-	await process_frame
+	await _cleanup_project_autoloads()
 	quit(0)
 
 func _write_text(path: String, contents: String) -> bool:
