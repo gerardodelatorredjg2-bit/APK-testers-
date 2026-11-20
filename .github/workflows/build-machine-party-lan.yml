@@ -10,6 +10,7 @@ on:
       - "tools/optimize_mobile_performance.py"
       - "tools/test_mobile_optimizer.py"
       - "tools/smoke_test_minigame_scenes.gd"
+      - "tools/audit_recovered_minigames.py"
       - "tools/lan_loopback_smoke.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
@@ -84,6 +85,7 @@ jobs:
           echo "===== AUDIT: Shape Cutter test and PatternMatcher references ====="
           if [ -f "$PROJECT/minigames/shape_cutter/scripts/shape_cutter_test.gd" ]; then sed -n '1,180p' "$PROJECT/minigames/shape_cutter/scripts/shape_cutter_test.gd"; fi
           grep -RIn --include='*.gd' 'class_name PatternMatcher\|pattern_points\|PatternPoints' "$PROJECT/minigames/shape_cutter" | head -60 || true
+          python3 tools/audit_recovered_minigames.py "$PROJECT" | tee build/recovered-minigame-audit.txt
           echo "===== AUDIT: affected texture import metadata ====="
           find "$PROJECT" -type f -name '*.import' \
             \( -iname '*smoke_07*' -o -iname '*Techno_03*' -o -iname '*blood11*' -o -iname '*server_rack_seamless*' \) \
