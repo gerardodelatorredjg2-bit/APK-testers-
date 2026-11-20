@@ -1,0 +1,400 @@
+--- a/modules/multiplayer/network_manager.gd
++++ b/modules/multiplayer/network_manager.gd
+@@ -74,6 +74,11 @@
+ 
+ func _exit_tree() -> void :
+ 
++	# ENet may already have been closed by leave_lobby()/backend cleanup.
++	# get_unique_id() is invalid once the MultiplayerAPI is disconnected.
++	if not is_active():
++		return
++
+ 	on_peer_disconnected.emit(multiplayer.get_unique_id())
+ 
+ func set_game_scene(_game_scene: PackedScene):
+--- a/minigames/escalator_pit/components/player/scripts/escalator_pit_player.gd
++++ b/minigames/escalator_pit/components/player/scripts/escalator_pit_player.gd
+@@ -220,7 +220,7 @@
+ 		if not (player_presence.network_id == multiplayer.get_unique_id()):
+ 			return
+ 
+-	character_animation_tree.set("parameters/run_blend/blend_amount", clamp(0.0, 1.5, abs(escalator_speed + speed)))
++	character_animation_tree.set("parameters/run_blend/blend_amount", clampf(abs(escalator_speed + speed), 0.0, 1.0))
+ 
+ 	var calc_speed = speed
+ 	path_follow_3d.progress_ratio = clamp(
+--- a/minigames/chisel_gauntlet_multiplayer/scripts/chisel_gauntlet.gd
++++ b/minigames/chisel_gauntlet_multiplayer/scripts/chisel_gauntlet.gd
+@@ -143,10 +143,11 @@
+ 			input_sum += p.dead_input
+ 			counter += 1
+ 
+-	if counter < 0:
+-		return
+-
+-	input_sum /= float(players.size())
++	if counter == 0:
++		return
++
++	# Only players that submitted dead-camera input contribute to input_sum.
++	input_sum /= float(counter)
+ 
+ 	dead_camera_pivot.rotate_y(input_sum.x * delta)
+ 	dead_camera.rotate_object_local(Vector3.RIGHT, input_sum.y * delta)
+--- a/minigames/shape_cutter/scripts/pattern_matcher.gd
++++ b/minigames/shape_cutter/scripts/pattern_matcher.gd
+@@ -55,150 +55,117 @@
+ 
+ func verify_shape(points: Array[Vector2], pattern: Pattern):
+ 
++	if points.size() < 3 or not PatternPoints.has(pattern):
++		return 0.0
++
+ 	var pattern_sections: Dictionary[int, int]
+-	for i in int(PatternPoints[pattern].size() - 1):
++	for i in range(int(PatternPoints[pattern].size() - 1)):
+ 		pattern_sections[i] = 0
+ 
+ 	var matched_points: Array[Vector2]
+ 	var matched_point_divinations: Array[float]
+-	var pattern_points = PatternPoints[pattern]
++	var pattern_points: Array = PatternPoints[pattern].duplicate()
+ 	if pattern_scale.has(pattern):
+-		pattern_points = pattern_points.map( func(p):
+-			return p * pattern_scale[pattern]
+-		)
++		for i in pattern_points.size():
++			pattern_points[i] = pattern_points[i] * pattern_scale[pattern]
+ 
++	var sum: Vector2 = Vector2.ZERO
++	for point in points:
++		sum += point
++	var center: Vector2 = sum / float(points.size())
+ 
+-	var furthest_distance = 0.0
+-	var sum = points[0]
+-
+-	for i in range(1, points.size(), 1):
+-		sum += points[i]
+-		if points[i].length() > furthest_distance:
+-			furthest_distance = points[i].length()
+-
+-	var center = sum / points.size()
+-	var centered_input = points.duplicate()
+-	centered_input.map( func(p):
+-		return p - center
+-	)
+-
++	# Array.map() returns a new array; it does not modify the original one.
++	# Build centered input explicitly so drawings made away from the origin work.
++	var centered_input: Array[Vector2] = []
++	for point in points:
++		centered_input.append(point - center)
+ 
+ 	for i in centered_input.size():
+ 		var closest_segment: int = -1
+ 		var closest_match: float = 10.0
+ 		for j in range(0, pattern_points.size() - 1):
+-
+-			var from_input = Vector2.ZERO
+-			var to_input = centered_input[i].normalized()
+-			var from_pattern = pattern_points[j]
+-			var to_pattern = pattern_points[j + 1]
+-
++			var from_input := Vector2.ZERO
++			var to_input: Vector2 = centered_input[i].normalized()
++			var from_pattern: Vector2 = pattern_points[j]
++			var to_pattern: Vector2 = pattern_points[j + 1]
+ 			var result = Geometry2D.segment_intersects_segment(
+-				from_input, to_input, 
++				from_input, to_input,
+ 				from_pattern, to_pattern
+ 			)
+ 
+ 			if result:
+-				var distance = (result - centered_input[i]).length()
++				var distance: float = (result - centered_input[i]).length()
+ 				if distance <= matched_tresshold:
+ 					pattern_sections[j] += 1
+ 					matched_points.append(centered_input[i])
+ 					matched_point_divinations.append(distance)
+ 					break
+-
+ 				elif distance < closest_match:
+ 					closest_match = distance
+ 					closest_segment = j
+ 
+-		if closest_match < 10.0:
+-			if closest_segment < 0:
+-				continue
++		if closest_match < 10.0 and closest_segment < 0:
++			continue
+ 
+-	var avg = 0
++	var avg: float = 0.0
+ 	if not matched_points.is_empty():
+-		for i in matched_point_divinations:
+-			avg += i
+-		avg /= matched_point_divinations.size()
++		for distance in matched_point_divinations:
++			avg += distance
++		avg /= float(matched_point_divinations.size())
+ 
+-	var low_tolerance = avg - divination_tolerance
+-	var high_tolerance = avg + divination_tolerance
+-	var within_tolerance = 0
+-	for i in matched_point_divinations:
+-		if i >= low_tolerance and i <= high_tolerance:
++	var low_tolerance: float = avg - divination_tolerance
++	var high_tolerance: float = avg + divination_tolerance
++	var within_tolerance: int = 0
++	for distance in matched_point_divinations:
++		if distance >= low_tolerance and distance <= high_tolerance:
+ 			within_tolerance += 1
+ 
+-	var tolerance_percent = ((float(within_tolerance) / float(points.size())) * 100.0)
+-
++	var tolerance_percent: float = (float(within_tolerance) / float(points.size())) * 100.0
+ 	var score: float = tolerance_percent
+-	var section_penalty: float = 100.0 / pattern_sections.size()
+-	for k in pattern_sections.keys():
+-		if pattern_sections[k] <= 0:
++	var section_penalty: float = 100.0 / float(pattern_sections.size())
++	for section in pattern_sections.keys():
++		if pattern_sections[section] <= 0:
+ 			score = max(score - section_penalty, 0.0)
+ 
+ 	return score
+ 
+ func verify_circle(points: Array[Vector2]):
+ 
++	if points.size() < 8:
++		return 0.0
+ 
+-	var min_rot: float = 0.0
+-	var max_rot: float = 0.0
+-	var furthest_distance = 0.0
+-	var sum = points[0]
++	var sum: Vector2 = Vector2.ZERO
++	for point in points:
++		sum += point
++	var center: Vector2 = sum / float(points.size())
+ 
+-	for i in range(1, points.size(), 1):
+-		sum += points[i]
+-		if points[i].length() > furthest_distance:
+-			furthest_distance = points[i].length()
++	var centered_input: Array[Vector2] = []
++	var average_distance: float = 0.0
++	var angles: Array[float] = []
++	for point in points:
++		var centered_point: Vector2 = point - center
++		centered_input.append(centered_point)
++		average_distance += centered_point.length()
++		angles.append(fposmod(atan2(centered_point.y, centered_point.x), TAU)
++		)
++	average_distance /= float(centered_input.size())
+ 
+-	var center = sum / points.size()
+-	var centered_input = points.duplicate()
+-	centered_input.map( func(p):
+-		return p - center
+-	)
++	if average_distance <= 0.000001:
++		return 0.0
+ 
+-
+-	var average_distance = centered_input[0].length()
+-	for i in range(1, centered_input.size()):
+-		var rot = atan2(centered_input[i].x, centered_input[i].y)
+-		if rot < min_rot:
+-			min_rot = rot
+-		elif rot > max_rot:
+-			max_rot = rot
+-		average_distance += centered_input[i].length()
+-	average_distance /= centered_input.size()
+-
++	angles.sort()
++	var largest_gap: float = angles[0] + TAU - angles[-1]
++	for i in range(1, angles.size()):
++		largest_gap = max(largest_gap, angles[i] - angles[i - 1])
++	var angular_coverage: float = clampf(1.0 - (largest_gap / TAU), 0.0, 1.0)
+ 
+ 	var target_circumference: float = 0.4
+-	var difference_from_target: Array[float]
+-	var difference_from_average: Array[float]
+-	for i in centered_input.size():
+-		difference_from_average.append(
+-			abs(average_distance - centered_input[i].length())
+-		)
+-		difference_from_target.append(
+-			abs(target_circumference - centered_input[i].length())
+-		)
+-
+-	var _average_from_self: float = 0.0
+-	for i in difference_from_average:
+-		_average_from_self += i
+-	_average_from_self /= float(difference_from_average.size())
+-
+-	var _average_from_target: float = 0.0
+-	for i in difference_from_target:
+-		_average_from_target += i
+-	_average_from_target /= float(difference_from_target.size())
+-
+ 	var matched: int = 0
+-	for i in centered_input.size():
+-		if difference_from_target[i] <= matched_tresshold:
++	for point in centered_input:
++		if abs(target_circumference - point.length()) <= matched_tresshold:
+ 			matched += 1
+ 
+-	var circularity: float = abs(min_rot - max_rot) / TAU
+-	var tolerated: float = float(matched) / float(centered_input.size())
+-	var score: float = (tolerated * circularity) * 100.0
+-
+-	return score
++	var radial_accuracy: float = float(matched) / float(centered_input.size())
++	return radial_accuracy * angular_coverage * 100.0
+ 
+ func check_against_pattern(points: Array[Vector2], pattern: Pattern):
+ 
+--- a/minigames/shape_cutter/scripts/cut_handler.gd
++++ b/minigames/shape_cutter/scripts/cut_handler.gd
+@@ -7,6 +7,11 @@
+ var cut_image: Image
+ var image_texture_mask: ImageTexture
+ var image_heat_texture: ImageTexture
++var heat_fade_accumulator: float = 0.0
++var heat_idle_elapsed: float = 0.0
++var heat_has_content: bool = false
++const HEAT_FADE_INTERVAL: float = 0.1
++const HEAT_CLEAR_AFTER: float = 8.0
+ 
+ @export var cut_image_resolution: int = 32
+ @export var image_resolution: int = 256
+@@ -76,6 +81,35 @@
+ 
+ 	image_heat = Image.create_empty(256, 256, false, Image.FORMAT_LA8)
+ 	image_heat.fill(Color.BLACK)
++	heat_has_content = false
++	heat_idle_elapsed = 0.0
++	heat_fade_accumulator = 0.0
++
++func _update_heat_fade(delta: float) -> void:
++	if not heat_has_content:
++		return
++
++	heat_idle_elapsed += delta
++	heat_fade_accumulator += delta
++
++	if heat_idle_elapsed >= HEAT_CLEAR_AFTER:
++		image_heat.fill(Color.BLACK)
++		image_heat_texture.update(image_heat)
++		heat_has_content = false
++		heat_idle_elapsed = 0.0
++		heat_fade_accumulator = 0.0
++		return
++
++	if heat_fade_accumulator < HEAT_FADE_INTERVAL:
++		return
++
++	var fade_elapsed: float = heat_fade_accumulator
++	heat_fade_accumulator = 0.0
++	var fade_amount: float = 1.0 - exp(-fade_elapsed)
++	for y in range(image_heat.get_height()):
++		for x in range(image_heat.get_width()):
++			image_heat.set_pixel(x, y, image_heat.get_pixel(x, y).darkened(fade_amount))
++	image_heat_texture.update(image_heat)
+ 
+ func _process(delta: float) -> void :
+ 
+@@ -155,12 +189,7 @@
+ 		em.transparency = 1.0 - cut_ratio
+ 		em.transparency = 1.0 - cut_ratio
+ 
+-	for y in 256:
+-		for x in 256:
+-			image_heat.set_pixel(
+-				x, y, image_heat.get_pixel(x, y).darkened(delta)
+-			)
+-	image_heat_texture.update(image_heat)
++	_update_heat_fade(delta)
+ 
+ func verify_pattern():
+ 
+@@ -235,6 +264,8 @@
+ 				int(_normalized.y * image_resolution) - cut_image_resolution * 0.5, 
+ 			)
+ 		)
++	heat_has_content = true
++	heat_idle_elapsed = 0.0	
+ 	image_heat.blend_rect(
+ 		cut_image, 
+ 		Rect2i(0, 0, cut_image_resolution, cut_image_resolution), 
+--- a/minigames/shape_cutter/scripts/shape_cutter_test.gd
++++ b/minigames/shape_cutter/scripts/shape_cutter_test.gd
+@@ -5,6 +5,11 @@
+ var cut_image: Image
+ var image_texture_mask: ImageTexture
+ var image_heat_texture: ImageTexture
++var heat_fade_accumulator: float = 0.0
++var heat_idle_elapsed: float = 0.0
++var heat_has_content: bool = false
++const HEAT_FADE_INTERVAL: float = 0.1
++const HEAT_CLEAR_AFTER: float = 8.0
+ 
+ @export var cut_image_resolution: int = 32
+ @export var image_resolution: int = 256
+@@ -94,6 +99,32 @@
+ 			))
+ 
+ 	debug_im.surface_end()
++
++func _update_heat_fade(delta: float) -> void:
++	if not heat_has_content:
++		return
++
++	heat_idle_elapsed += delta
++	heat_fade_accumulator += delta
++
++	if heat_idle_elapsed >= HEAT_CLEAR_AFTER:
++		image_heat.fill(Color.BLACK)
++		image_heat_texture.update(image_heat)
++		heat_has_content = false
++		heat_idle_elapsed = 0.0
++		heat_fade_accumulator = 0.0
++		return
++
++	if heat_fade_accumulator < HEAT_FADE_INTERVAL:
++		return
++
++	var fade_elapsed: float = heat_fade_accumulator
++	heat_fade_accumulator = 0.0
++	var fade_amount: float = 1.0 - exp(-fade_elapsed)
++	for y in range(image_heat.get_height()):
++		for x in range(image_heat.get_width()):
++			image_heat.set_pixel(x, y, image_heat.get_pixel(x, y).darkened(fade_amount))
++	image_heat_texture.update(image_heat)
+ 
+ func _process(delta: float) -> void :
+ 
+@@ -127,6 +158,9 @@
+ 
+ 		image.fill(Color.DIM_GRAY)
+ 		image_heat.fill(Color.BLACK)
++		heat_has_content = false
++		heat_idle_elapsed = 0.0
++		heat_fade_accumulator = 0.0
+ 
+ 		image_texture_mask.update(image)
+ 		image_heat_texture.update(image_heat)
+@@ -167,6 +201,8 @@
+ 					int(normalized.y * image_resolution) - cut_image_resolution * 0.5, 
+ 				)
+ 			)
++			heat_has_content = true
++			heat_idle_elapsed = 0.0
+ 			image_heat.blend_rect(
+ 				cut_image, 
+ 				Rect2i(0, 0, cut_image_resolution, cut_image_resolution), 
+ 
