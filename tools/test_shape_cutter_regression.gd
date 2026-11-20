@@ -1,6 +1,7 @@
 extends SceneTree
 
-const MatcherScript = preload("res://minigames/shape_cutter/scripts/pattern_matcher.gd")
+var MatcherScript: Script
+
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -10,6 +11,10 @@ func _fail(message: String) -> void:
 	quit(1)
 
 func _run() -> void:
+	MatcherScript = load("res://minigames/shape_cutter/scripts/pattern_matcher.gd")
+	if MatcherScript == null:
+		_fail("PatternMatcher script failed to load; see Godot parser diagnostics above")
+		return
 	var matcher = MatcherScript.new()
 	var rectangle: Array[Vector2] = []
 	var offset := Vector2(3.25, -2.75)
