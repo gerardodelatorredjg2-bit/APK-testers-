@@ -1,0 +1,91 @@
+extends SceneTree
+
+const TEST_TIMEOUT_SECONDS := 25.0
+const HOST_GRACE_SECONDS := 1.2
+
+var role := ""
+var address := ""
+var finished := false
+var passed := false
+var result_message := ""
+
+func _initialize() -> void:
+	var args := OS.get_cmdline_user_args()
+	if args.is_empty():
+		push_error("Usage: -- host | -- client <ip:port>")
+		quit(2)
+		return
+	role = str(args[0])
+	if role == "client":
+		if args.size() < 2:
+			push_error("Client mode requires host IP:PORT")
+			quit(2)
+			return
+		address = str(args[1])
+	elif role != "host":
+		push_error("Unknown LAN smoke role: " + role)
+		quit(2)
+		return
+	call_deferred("_run_test")
+
+func _run_test() -> void:
+	await process_frame
+	NetworkManager.active_backend_type = NetworkManager.NetworkBackendType.Lan
+	NetworkManager.on_matchmaking_error.connect(_on_matchmaking_error)
+	NetworkManager.join_refused.connect(_on_join_refused)
+	if role == "host":
+		NetworkManager.on_server_created.connect(_on_server_created)
+		NetworkManager.on_peer_connected.connect(_on_host_peer_connected)
+		NetworkManager.start_host("CI LAN Host")
+	else:
+		NetworkManager.join_allowed.connect(_on_client_join_allowed)
+		NetworkManager.start_client("CI LAN Client", address)
+
+	var started_at := Time.get_ticks_msec()
+	while not finished and (Time.get_ticks_msec() - started_at) < int(TEST_TIMEOUT_SECONDS * 1000.0):
+		await create_timer(0.1).timeout
+
+	if passed and role == "host":
+		# Keep the server alive briefly so the client can receive its allow-join RPC.
+		await create_timer(HOST_GRACE_SECONDS).timeout
+
+	if not passed:
+		result_message = "timed out waiting for LAN handshake"
+		push_error("LAN_LOOPBACK_FAILED: " + result_message)
+
+	if NetworkManager.active_backend:
+		NetworkManager.leave_lobby()
+
+	if passed:
+		print("LAN_LOOPBACK_PASS:", role, ":", result_message)
+		quit(0)
+	else:
+		quit(1)
+
+func _on_server_created() -> void:
+	var backend = NetworkManager.active_backend
+	if backend == null or backend.direct_connect_address.is_empty():
+		_on_matchmaking_error("Host did not publish a direct LAN address")
+		return
+	print("LAN_TEST_HOST_READY=", backend.direct_connect_address)
+
+func _on_host_peer_connected(network_id: int) -> void:
+	var backend = NetworkManager.active_backend
+	if backend != null and backend.connected_players.size() >= 2 and network_id != 1:
+		passed = true
+		finished = true
+		result_message = "host accepted peer " + str(network_id)
+
+func _on_client_join_allowed(_reconnect: bool, _game_in_progress: bool, _debug_only: bool) -> void:
+	passed = true
+	finished = true
+	result_message = "client completed player handshake"
+
+func _on_join_refused(network_id: int, reason: int) -> void:
+	_on_matchmaking_error("Join refused for peer %d (reason %d)" % [network_id, reason])
+
+func _on_matchmaking_error(message: String) -> void:
+	finished = true
+	passed = false
+	result_message = message
+	push_error("LAN_LOOPBACK_ERROR: " + message)
