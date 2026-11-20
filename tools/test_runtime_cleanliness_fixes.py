@@ -185,7 +185,7 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             manager.parent.mkdir(parents=True)
             manager.write_text(
                 "func _ready():\n\tinitialize()\n\tprecache()\n"
-                "\tvar effect_instance = effect.instantiate()\n\tinstanced.append(effect_instance)\n"
+                "\t\tvar effect_instance = effect.instantiate()\n\t\tinstanced.append(effect_instance)\n"
                 "\tvar instance = prefab_scenes[effect_name].instantiate()\n\tspawn_node.add_child(instance, true)\n",
                 encoding="utf-8",
             )
