@@ -38,7 +38,7 @@ for path in root.rglob("*.gd"):
     if "mobilegamesettings" not in name and "allinonemobileoptimizer" not in name:
         continue
     source = path.read_text(encoding="utf-8")
-    updated = re.sub(r"(scaling_3d_scale\s*=\s*)[0-9]+(?:\\.[0-9]+)?", r"\g<1>0.5", source)
+    updated = re.sub(r"(scaling_3d_scale\s*=\s*)[0-9]+(?:\.[0-9]+)?", r"\g<1>0.5", source)
     updated = re.sub(r"(target_mobile_fps\s*=\s*)[0-9]+", r"\g<1>30", updated)
     updated = re.sub(r"(max_lights\s*=\s*)[0-9]+", r"\g<1>2", updated)
     if updated != source:
