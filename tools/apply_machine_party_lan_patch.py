@@ -449,13 +449,19 @@ patch(
 )
 
 
-# The player swaps to its separate torso rig after the first mine hit.\n# The rig's crawl AnimationTree and imported clips remain untouched.\n\n# The physical in-game jumbotron reads a SubViewportTexture. The recovered
-# scene left its update mode at 0 (disabled), so the cube/instruction feed stays
-# black even though the camera and screen nodes are present. Keep it rendering.
+# The player swaps to its separate torso rig after the first mine hit.\n# The rig's crawl AnimationTree and imported clips remain untouched.\n\n# The physical in-game jumbotron reads a ViewportTexture from a SubViewport.
+# It is consumed by 3D screen materials; force continuous updates and explicitly
+# activate its camera so the feed cannot remain stale/black on Android.
 patch(
     "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
     '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\nsize = Vector2i(702, 512)',
     '[node name="SubViewport_jumbotron feed" type="SubViewport" parent="."]\nsize = Vector2i(702, 512)\nrender_target_update_mode = 4',
+)
+
+patch(
+    "minigames/chisel_gauntlet_multiplayer/chisel_gauntlet.tscn",
+    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\\nfov = 41.3',
+    '[node name="camera_jumbotron feed" type="Camera3D" parent="SubViewport_jumbotron feed/camera parent jumbotron feed"]\\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0107689, 1.4122)\\ncurrent = true\\nfov = 41.3',
 )
 
 # Disable only optional full-screen SCREEN_TEXTURE post-processing for Android.
