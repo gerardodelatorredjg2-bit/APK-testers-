@@ -56,13 +56,71 @@ jobs:
       - name: Upload extracted project files (source and scenes)
         run: |
           set -euo pipefail
-          mkdir -p source-bundle
-          while IFS= read -r f; do
-            cp --parents "$f" source-bundle/
-          done < source-inventory.txt
-          # Compressed bundle now includes project.godot, scenes, scripts, textures,
-          # models, audio and import source assets, not just text files.
-          tar -czf godot-source-bundle.tar.gz -C source-bundle .
+          # Archive the extracted project directly. The previous cp --parents staging
+          # step could silently omit the root project.godot on the uploaded bundle.
+          test -s project/project.godot
+          rm -f godot-source-bundle.tar.gz
+          tar -czf godot-source-bundle.tar.gz -C . project
+          tar -tzf godot-source-bundle.tar.gz | grep -Eq '(^|/)project/project\\.godot
+      - name: Split source bundle into download-safe parts
+        run: |
+          set -euo pipefail
+          split -b 350M -d -a 2 godot-source-bundle.tar.gz source-part-
+          ls -lh source-part-*
+      - name: Upload source bundle part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-00
+          path: source-part-00
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source bundle part 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-01
+          path: source-part-01
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source bundle part 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-02
+          path: source-part-02
+          compression-level: 0
+          retention-days: 5
+
+          archive_files="$(tar -tzf godot-source-bundle.tar.gz | grep -vc '/
+      - name: Split source bundle into download-safe parts
+        run: |
+          set -euo pipefail
+          split -b 350M -d -a 2 godot-source-bundle.tar.gz source-part-
+          ls -lh source-part-*
+      - name: Upload source bundle part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-00
+          path: source-part-00
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source bundle part 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-01
+          path: source-part-01
+          compression-level: 0
+          retention-days: 5
+      - name: Upload source bundle part 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-source-part-02
+          path: source-part-02
+          compression-level: 0
+          retention-days: 5
+)"
+          inventory_files="$(wc -l < source-inventory.txt)"
+          test "$archive_files" -ge "$inventory_files"
+          echo "Inventory files: $inventory_files"
+          echo "Archived files: $archive_files"
           ls -lh godot-source-bundle.tar.gz
       - name: Split source bundle into download-safe parts
         run: |
