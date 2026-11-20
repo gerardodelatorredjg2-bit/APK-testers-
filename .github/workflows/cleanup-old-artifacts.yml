@@ -2,12 +2,6 @@ name: Clean up old Actions artifacts
 
 on:
   workflow_dispatch:
-    inputs:
-      older_than_days:
-        description: "Delete artifacts older than this many days (recovery and resource audit are always preserved)"
-        required: true
-        default: "14"
-        type: string
 
 permissions:
   actions: write
@@ -17,45 +11,47 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete old, non-protected artifacts
+      - name: Remove failed builds and redundant artifacts safely
         uses: actions/github-script@v7
         with:
           script: |
-            const rawDays = Number.parseInt(core.getInput('older_than_days'), 10);
-            if (!Number.isInteger(rawDays) || rawDays < 1 || rawDays > 3650) {
-              core.setFailed('older_than_days must be an integer between 1 and 3650.');
-              return;
-            }
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
-            const protectedNames = new Set([
-              'machine-party-recovery',
-              'godot-resource-audit'
+            const [artifacts, runs] = await Promise.all([
+              github.paginate(github.rest.actions.listArtifactsForRepo, { owner, repo, per_page: 100 }),
+              github.paginate(github.rest.actions.listWorkflowRunsForRepo, { owner, repo, per_page: 100 })
             ]);
-            const cutoff = Date.now() - rawDays * 24 * 60 * 60 * 1000;
 
-            const artifacts = await github.paginate(
-              github.rest.actions.listArtifactsForRepo,
-              { owner: context.repo.owner, repo: context.repo.repo, per_page: 100 }
-            );
-
-            const candidates = artifacts.filter(a =>
-              !a.expired &&
-              !protectedNames.has(a.name) &&
-              new Date(a.created_at).getTime() < cutoff
-            );
-
-            core.info(`Found ${artifacts.length} artifacts in total.`);
-            core.info(`Keeping protected artifacts: ${[...protectedNames].join(', ')}`);
-            core.info(`Age cutoff: ${new Date(cutoff).toISOString()}`);
-            core.info(`Deleting ${candidates.length} artifact(s).`);
-
-            for (const artifact of candidates) {
-              core.info(`Deleting "${artifact.name}" (ID ${artifact.id}, created ${artifact.created_at}, ${artifact.size_in_bytes} bytes)`);
-              await github.rest.actions.deleteArtifact({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                artifact_id: artifact.id
-              });
+            const runById = new Map(runs.map(r => [r.id, r]));
+            const newestByName = new Map();
+            for (const a of artifacts) {
+              if (a.expired) continue;
+              const prior = newestByName.get(a.name);
+              if (!prior || new Date(a.created_at) > new Date(prior.created_at)) newestByName.set(a.name, a);
             }
 
-            core.notice(`Cleanup complete. Deleted ${candidates.length} old artifact(s); protected artifacts were not touched.`);
+            const keepIds = new Set();
+            for (const name of ['machine-party-recovery', 'machine-party-lan-universal', 'godot-resource-audit', 'mobile-performance-input-audit']) {
+              const newest = newestByName.get(name);
+              if (newest) keepIds.add(newest.id);
+            }
+
+            const deletions = artifacts.filter(a => {
+              if (a.expired || keepIds.has(a.id) || a.name === 'machine-party-recovery') return false;
+              if (['machine-party-lan-universal', 'godot-resource-audit', 'mobile-performance-input-audit', 'machine-party-android-emulator-report'].includes(a.name)) return true;
+              const run = runById.get(a.workflow_run?.id);
+              return run && ['failure', 'cancelled', 'timed_out', 'action_required'].includes(run.conclusion);
+            });
+
+            const bytes = deletions.reduce((sum, a) => sum + a.size_in_bytes, 0);
+            core.info('Preserving the recovery artifact and the newest APK, resource audit, and source audit.');
+            core.info(`Found ${artifacts.length} artifacts; preserving ${keepIds.size} newest/protected artifacts.`);
+            core.info(`Deleting ${deletions.length} redundant/failed artifacts (${(bytes / 1024 / 1024).toFixed(1)} MiB reported).`);
+
+            for (const a of deletions) {
+              core.info(`Deleting ${a.name} | ID ${a.id} | ${a.size_in_bytes} bytes | created ${a.created_at}`);
+              await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: a.id });
+            }
+
+            core.notice(`Cleanup finished: deleted ${deletions.length} artifacts. Recovery and newest retained outputs were not touched.`);
