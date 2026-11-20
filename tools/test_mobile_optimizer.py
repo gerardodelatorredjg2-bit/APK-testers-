@@ -101,8 +101,8 @@ class MobileOptimizerTests(unittest.TestCase):
         import_path = self.root / relative
         import_path.parent.mkdir(parents=True, exist_ok=True)
         original = (
-            '[remap]\\nimporter="scene"\\n\\n'
-            '[params]\\nmeshes/generate_lods=false\\nmeshes/create_shadow_meshes=true\\n'
+            '[remap]\nimporter="scene"\n\n'
+            '[params]\nmeshes/generate_lods=false\nmeshes/create_shadow_meshes=true\n'
         )
         import_path.write_text(original, encoding="utf-8")
 
