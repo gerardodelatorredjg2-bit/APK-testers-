@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Download existing recovered Machine Party project (read-only)
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           curl -fL --retry 3 \
@@ -72,12 +72,22 @@ jobs:
               low = rel.lower()
               score, why = 0, []
               for word, pts in hints.items():
-                  if word in low:
+                  if word == "player":
+                      matched = bool(re.search(r"(^|[/ _-])player($|[/ _-])", low))
+                  else:
+                      matched = word in low
+                  if matched:
                       score += pts
                       why.append("name:" + word)
               for word, pts in avoid.items():
                   if word in low:
                       score -= pts
+              if "first person" in low or "first_person" in low:
+                  score -= 150
+                  why.append("exclude:first-person-arms-rig")
+              if "third person" in low or "third_person" in low:
+                  score += 125
+                  why.append("prefer:third-person-character")
               size = p.stat().st_size
               score += max(0, 18 - min(18, (size // (1024 * 1024)) * 2))
               records[rel] = {"path": p, "score": score, "refs": 0, "why": why}
