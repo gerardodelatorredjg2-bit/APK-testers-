@@ -183,6 +183,7 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
 
 def _remove_unreferenced_remote_code(project: Path) -> list[str]:
     candidates = [
+        "modules/multiplayer/backends/enet_backend.gd",
         "modules/multiplayer/backends/steam_backend.gd",
         "modules/multiplayer/backends/relay_backend.gd",
         "modules/multiplayer/backends/relay_multiplayer_peer.gd",
@@ -276,7 +277,7 @@ def force_lan_only(project: Path) -> dict:
         count=1,
     )
     if enum_count != 1:
-        raise RuntimeError("Could not reduce NetworkBackendType to Enet + Lan")
+        raise RuntimeError("Could not reduce NetworkBackendType to LAN only")
     source = re.sub(
         r"NetworkBackendType\.(?:Enet|Steam|Online|Relay)\b",
         "NetworkBackendType.Lan",
