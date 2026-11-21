@@ -10,7 +10,6 @@ func _cleanup_project_autoloads() -> void:
 			child.queue_free()
 	for _frame in 4:
 		await process_frame
-	ResourceLoader.clear_cache()
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -20,7 +19,7 @@ func _fail(message: String) -> void:
 	quit(1)
 
 func _run() -> void:
-	MatcherScript = load("res://minigames/shape_cutter/scripts/pattern_matcher.gd")
+	MatcherScript = ResourceLoader.load("res://minigames/shape_cutter/scripts/pattern_matcher.gd", "Script", ResourceLoader.CACHE_MODE_IGNORE_DEEP) as Script
 	if MatcherScript == null:
 		_fail("PatternMatcher script failed to load; see Godot parser diagnostics above")
 		return

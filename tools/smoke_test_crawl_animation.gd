@@ -12,7 +12,6 @@ func _cleanup_project_autoloads() -> void:
 			child.queue_free()
 	for _frame in 4:
 		await process_frame
-	ResourceLoader.clear_cache()
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -22,7 +21,7 @@ func _fail(message: String) -> void:
 	quit(1)
 
 func _run() -> void:
-	var packed := load(PLAYER_SCENE) as PackedScene
+	var packed := ResourceLoader.load(PLAYER_SCENE, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE_DEEP) as PackedScene
 	if packed == null:
 		_fail("player scene failed to load")
 		return

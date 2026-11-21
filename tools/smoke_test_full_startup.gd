@@ -9,13 +9,12 @@ func _cleanup_project_autoloads() -> void:
 			child.queue_free()
 	for _frame in 4:
 		await process_frame
-	ResourceLoader.clear_cache()
 
 func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var packed := load(MAIN_SCENE_PATH) as PackedScene
+	var packed := ResourceLoader.load(MAIN_SCENE_PATH, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE_DEEP) as PackedScene
 	if packed == null:
 		push_error("FULL_STARTUP_SMOKE_FAILED: main scene could not be loaded")
 		quit(1)
