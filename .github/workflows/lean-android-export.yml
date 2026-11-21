@@ -24,8 +24,8 @@ jobs:
 
       - name: Download and verify recovered project
         env:
-          GH_TOKEN: \${{ github.token }}
-          GH_REPO: \${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           mkdir -p recovered_parts recovered_manifest
