@@ -1,4 +1,4 @@
-name: Extract recovered Godot project and inspect
+name: Extract recovered Godot project and inspect (rebuild inventory)
 on:
   workflow_dispatch:
   push:
