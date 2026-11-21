@@ -1,83 +1,152 @@
-name: Recover Machine Party Godot project
+name: Extract one original Machine Party character model
 
 on:
-  push:
-    branches:
-      - "recovery/**"
+  pull_request:
+    branches: ["recovery/lan-multiplayer"]
     paths:
       - ".github/workflows/recover-machine-party.yml"
-      - "recovery/**"
-  workflow_dispatch:
+    types: [opened, synchronize, reopened]
 
 permissions:
+  actions: read
   contents: read
-  actions: write
 
 jobs:
-  recover:
+  extract-character:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - name: Prepare workspace
-        run: |
-          mkdir -p input gdre recovered recovery-output
-          sudo apt-get update
-          sudo apt-get install -y unzip zip
-
-      - name: Download original Machine Party APK from this repository release
+      - name: Download existing recovered Machine Party project (read-only)
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
         run: |
-          gh release download machine-party-1-44240595372 \
-            --repo "$GH_REPO" \
-            --pattern "machine-party-v1.0.0.apk" \
-            --dir input
-          test -s input/machine-party-v1.0.0.apk
-          sha256sum input/machine-party-v1.0.0.apk | tee recovery-output/apk-sha256.txt
-
-      - name: Download GDRE Tools 2.7.4
-        run: |
+          set -euo pipefail
           curl -fL --retry 3 \
-            "https://github.com/GDRETools/gdsdecomp/releases/download/v2.7.4/GDRE_tools-v2.7.4-linux.zip" \
-            -o gdre-tools.zip
-          unzip -q gdre-tools.zip -d gdre
-          find gdre -maxdepth 4 -type f -printf '%p\n' | tee recovery-output/gdre-files.txt
-          GDRE_BIN="$(find gdre -type f -executable | head -n 1)"
-          test -n "$GDRE_BIN"
-          echo "GDRE_BIN=$GDRE_BIN" >> "$GITHUB_ENV"
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/\${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" \
+            -o recovery-artifact.zip
+          unzip -tq recovery-artifact.zip
+          echo "Recovery archive size: $(du -h recovery-artifact.zip | cut -f1)"
 
-      - name: Recover Godot project from APK
-        id: recover
+      - name: Extract recovered Godot project
         run: |
-          set -o pipefail
-          chmod +x "$GDRE_BIN"
-          LD_LIBRARY_PATH="$(dirname "$GDRE_BIN"):${LD_LIBRARY_PATH:-}" \
-            "$GDRE_BIN" --headless \
-            --recover="$PWD/input/machine-party-v1.0.0.apk" \
-            --output-dir="$PWD/recovered" 2>&1 | tee recovery-output/gdre-recovery.log
-          test -f recovered/project.godot
-          echo "project_found=true" >> "$GITHUB_OUTPUT"
-          echo "Scripts recovered: $(find recovered -type f -name '*.gd' | wc -l)" | tee recovery-output/summary.txt
-          echo "Scenes recovered: $(find recovered -type f -name '*.tscn' | wc -l)" | tee -a recovery-output/summary.txt
-          echo "Resources recovered: $(find recovered -type f \( -name '*.tres' -o -name '*.res' \) | wc -l)" | tee -a recovery-output/summary.txt
+          set -euo pipefail
+          inner="$(unzip -Z1 recovery-artifact.zip | grep -E '(^|/)machine-party-recovered-project[.]zip$' | head -n1)"
+          test -n "$inner"
+          unzip -p recovery-artifact.zip "$inner" > project-source.zip
+          unzip -tq project-source.zip
+          mkdir project
+          unzip -q project-source.zip -d project
+          test -s project/project.godot
+          echo "Project extracted: $(du -sh project | cut -f1)"
 
-      - name: Pack recovered project
-        if: steps.recover.outputs.project_found == 'true'
+      - name: Select one character model from original game assets
         run: |
-          cd recovered
-          zip -qr -1 ../recovery-output/machine-party-recovered-project.zip .
-          cd ..
-          ls -lh recovery-output/machine-party-recovered-project.zip
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, shutil
 
-      - name: Upload recovered project and logs
-        if: always()
+          root = Path("project")
+          glbs = sorted(root.rglob("*.glb")) + sorted(root.rglob("*.GLB"))
+          if not glbs:
+              raise SystemExit("No GLB model found in recovered Machine Party project.")
+
+          hints = {
+              "player": 140, "character": 120, "avatar": 115,
+              "humanoid": 105, "human": 95, "worker": 90,
+              "npc": 80, "person": 80, "citizen": 75,
+              "body": 55, "default": 40, "base": 35,
+              "rig": 25, "skeleton": 25
+          }
+          avoid = {
+              "level": 45, "environment": 45, "map": 35,
+              "floor": 30, "wall": 30, "building": 25,
+              "prop": 20, "weapon": 20, "vehicle": 20
+          }
+          ref_re = re.compile(r'res://([^"\s<>]+?\.glb)', re.IGNORECASE)
+          records = {}
+          for p in glbs:
+              rel = str(p.relative_to(root)).replace("\\", "/")
+              low = rel.lower()
+              score, why = 0, []
+              for word, pts in hints.items():
+                  if word == "player":
+                      matched = bool(re.search(r"(^|[/ _-])player($|[/ _-])", low))
+                  else:
+                      matched = word in low
+                  if matched:
+                      score += pts
+                      why.append("name:" + word)
+              for word, pts in avoid.items():
+                  if word in low:
+                      score -= pts
+              if "first person" in low or "first_person" in low:
+                  score -= 150
+                  why.append("exclude:first-person-arms-rig")
+              if "third person" in low or "third_person" in low:
+                  score += 125
+                  why.append("prefer:third-person-character")
+              size = p.stat().st_size
+              score += max(0, 18 - min(18, (size // (1024 * 1024)) * 2))
+              records[rel] = {"path": p, "score": score, "refs": 0, "why": why}
+
+          for scene in root.rglob("*.tscn"):
+              try:
+                  txt = scene.read_text(errors="ignore")
+              except OSError:
+                  continue
+              scene_low = str(scene.relative_to(root)).lower()
+              is_character_scene = any(w in scene_low for w in ("player", "character", "avatar", "lobby", "multiplayer"))
+              for raw in ref_re.findall(txt):
+                  key = raw.replace("\\", "/")
+                  if key not in records:
+                      continue
+                  rec = records[key]
+                  rec["refs"] += 1
+                  rec["score"] += 90 if is_character_scene else 2
+                  if is_character_scene:
+                      rec["why"].append("scene:" + str(scene.relative_to(root)))
+
+          ranked = sorted(
+              records.values(),
+              key=lambda r: (r["score"], r["refs"], -r["path"].stat().st_size),
+              reverse=True
+          )
+          best = ranked[0]
+          out = Path("out")
+          out.mkdir(exist_ok=True)
+          name = re.sub(r"[^A-Za-z0-9._-]+", "_", best["path"].stem).strip("_") or "character"
+          target = out / f"MachineParty_{name}.glb"
+          shutil.copy2(best["path"], target)
+
+          lines = [
+              "Source: recovered original Machine Party Godot project",
+              f"Original resource: {best['path']}",
+              f"Output: {target}",
+              f"Size: {target.stat().st_size} bytes",
+              f"Selection score: {best['score']}",
+              f"Scene references: {best['refs']}",
+              "Selection clues: " + (", ".join(best["why"][:8]) or "highest-ranked GLB candidate"),
+              "",
+              "Top candidates:"
+          ]
+          for rec in ranked[:15]:
+              lines.append(
+                  f"{rec['path']} | score={rec['score']} | scene_refs={rec['refs']} | bytes={rec['path'].stat().st_size}"
+              )
+          (out / "EXTRACTION_INFO.txt").write_text("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          if target.stat().st_size < 20:
+              raise SystemExit("Selected GLB is unexpectedly small.")
+          PY
+
+      - name: Upload extracted original Machine Party model
         uses: actions/upload-artifact@v4
         with:
-          name: machine-party-recovery
-          path: |
-            recovery-output/
-            recovered/
-          if-no-files-found: warn
-          compression-level: 1
-          retention-days: 30
+          name: machine-party-one-character-glb
+          path: out/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
