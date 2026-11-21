@@ -1,4 +1,4 @@
-name: Lean Machine Party clean import validation (audio fix)
+name: Lean Machine Party clean import validation (audio and LAN)
 
 on:
   push:
@@ -74,6 +74,15 @@ jobs:
           python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py
           python3 rebuild-tools/tools/apply_lean_mobile_lan.py "$PWD/project-source"
           echo "Clean project now includes mobile controls and LAN host discovery."
+
+      - name: Compress audio losslessly to a safe quality target where smaller
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python3 rebuild-tools/tools/optimize_audio_assets.py "$PWD/project-source" --quality 4.0
+          cp project-source/lean_audio_optimization.csv .
+          echo "Audio optimization completed on a disposable source copy; original recovery artifact remains unchanged."
 
       - name: Audit assets and scene references
         run: |
