@@ -14,7 +14,8 @@ func _cleanup_project_autoloads() -> void:
 		if child != self and is_instance_valid(child):
 			child.queue_free()
 	for _frame in 4:
-			await get_tree().process_frame
+		await get_tree().process_frame
+	ResourceLoader.clear_cache()
 
 func _ready() -> void:
 	call_deferred("_run_test")
