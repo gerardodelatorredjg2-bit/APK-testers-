@@ -99,6 +99,48 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             self.assertFalse(steam.exists())
             self.assertFalse(local.exists())
 
+
+    def test_legacy_achievement_calls_use_inert_compatibility_api(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = root / "project.godot"
+            config.write_text(
+                '[autoload]\\nAchievementManager="*res://autoloads/achievement_manager.gd"\\n'
+                '[application]\\nconfig/name="Machine Party"\\n',
+                encoding="utf-8",
+            )
+            manager = root / "autoloads/achievement_manager.gd"
+            manager.parent.mkdir(parents=True)
+            manager.write_text("extends Node\\n", encoding="utf-8")
+            backend = root / "modules/achievements/achievement_backend_steam.gd"
+            backend.parent.mkdir(parents=True)
+            backend.write_text("extends RefCounted\\n", encoding="utf-8")
+            player = root / "minigames/test/player.gd"
+            player.parent.mkdir(parents=True)
+            player.write_text(
+                'AchievementManager.set_achievement("ACH_07")\\n'
+                'AchievementManager.set_statistic(\\n'
+                '    "ACH_08_STAT", AchievementManager.statistics["ACH_08_STAT"] + 1\\n'
+                ')\\n'
+                'AchievementManager.reset_statistics()\\n',
+                encoding="utf-8",
+            )
+
+            report = remove_achievement_system(root)
+
+            self.assertTrue(report["achievement_system_removed"])
+            self.assertTrue(report["achievement_compatibility_shim_added"])
+            self.assertEqual(report["achievement_compatibility_call_sites"], 4)
+            self.assertFalse(report["achievement_autoload_removed"])
+            self.assertEqual(report["remaining_references"], [])
+            self.assertIn('AchievementManager="*res://autoloads/achievement_manager.gd"', config.read_text(encoding="utf-8"))
+            shim = manager.read_text(encoding="utf-8")
+            self.assertIn('func set_achievement(', shim)
+            self.assertIn('func set_statistic(', shim)
+            self.assertIn('func reset_statistics()', shim)
+            self.assertIn('"ACH_08_STAT": 0', shim)
+            self.assertFalse(backend.exists())
+
     def test_steam_extension_uid_sidecar_is_removed_with_extension(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

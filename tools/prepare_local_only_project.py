@@ -227,42 +227,26 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
     return False
 
 def remove_achievement_system(project: Path) -> dict:
-    """Remove the unused Steam achievement subsystem; the game has no achievements."""
+    """Remove the Steam achievement backend while safely stubbing legacy game calls."""
     config = project / "project.godot"
-    autoload_removed = False
-    if config.is_file():
-        original = config.read_text(encoding="utf-8", errors="replace")
-        lines = original.splitlines(keepends=True)
-        kept = []
-        in_autoload = False
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("[") and stripped.endswith("]"):
-                in_autoload = stripped.lower() == "[autoload]"
-            if in_autoload and (
-                re.search(r"(?i)achievement_manager", line)
-                or re.match(r"(?i)^\s*AchievementManager\s*=", line)
-            ):
-                autoload_removed = True
-                continue
-            kept.append(line)
-        updated = "".join(kept)
-        if updated != original:
-            config.write_text(updated, encoding="utf-8")
+    if not config.is_file():
+        raise FileNotFoundError(f"Godot project not found: {config}")
 
-    removed_files = []
-    targets = [
-        project / "autoloads/achievement_manager.gd",
-        project / "autoloads/achievement_manager.gd.uid",
-    ]
+    manager_path = project / "autoloads/achievement_manager.gd"
+    manager_uid = project / "autoloads/achievement_manager.gd.uid"
     achievement_dir = project / "modules/achievements"
+    removed_files = []
+
+    # The feature/backend is absent from the actual game. Remove its old
+    # implementation, but do not break gameplay scripts that still call its API.
     if achievement_dir.exists():
-        targets.extend(p for p in achievement_dir.rglob("*") if p.is_file())
-    for path in sorted(set(targets), key=lambda p: len(p.parts), reverse=True):
-        if path.is_file():
+        for path in sorted(
+            (p for p in achievement_dir.rglob("*") if p.is_file()),
+            key=lambda p: len(p.parts),
+            reverse=True,
+        ):
             removed_files.append(path.relative_to(project).as_posix())
             path.unlink()
-    if achievement_dir.exists():
         for directory in sorted(
             (p for p in achievement_dir.rglob("*") if p.is_dir()),
             key=lambda p: len(p.parts),
@@ -277,21 +261,23 @@ def remove_achievement_system(project: Path) -> dict:
         except OSError:
             pass
 
-    # Do not silently leave scripts pointing at a system that is not part of
-    # the game. Fail with exact paths so any real call sites can be removed
-    # deliberately without touching gameplay code.
-    reference_tokens = (
-        "AchievementManager",
+    supported_call_patterns = (
+        re.compile(r"\\bAchievementManager\\.(?:set_achievement|set_statistic|reset_statistics)\\s*\\(", re.IGNORECASE),
+        re.compile(r"\\bAchievementManager\\.statistics\\s*\\[", re.IGNORECASE),
+    )
+    unsupported_tokens = (
         "AchievementBackend",
         "achievement_manager.gd",
         "modules/achievements/",
     )
-    remaining = []
-    scan_suffixes = {".gd", ".tscn", ".tres", ".godot", ".cfg", ".import"}
+    call_sites = []
+    unresolved = []
+    scan_suffixes = {".gd", ".tscn", ".tres", ".cfg", ".import"}
     for path in project.rglob("*"):
         if (
             not path.is_file()
             or ".godot" in path.parts
+            or path in {manager_path, manager_uid}
             or path.suffix.lower() not in scan_suffixes
         ):
             continue
@@ -299,25 +285,100 @@ def remove_achievement_system(project: Path) -> dict:
             body = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        matching_lines = [
-            f"{path.relative_to(project).as_posix()}:{line_number}: {line.strip()}"
-            for line_number, line in enumerate(body.splitlines(), start=1)
-            if any(token.lower() in line.lower() for token in reference_tokens)
-        ]
-        if matching_lines:
-            remaining.extend(matching_lines)
-    if remaining:
+        for line_number, line in enumerate(body.splitlines(), start=1):
+            if "AchievementManager" in line:
+                if any(pattern.search(line) for pattern in supported_call_patterns):
+                    call_sites.append(
+                        f"{path.relative_to(project).as_posix()}:{line_number}: {line.strip()}"
+                    )
+                else:
+                    unresolved.append(
+                        f"{path.relative_to(project).as_posix()}:{line_number}: {line.strip()}"
+                    )
+            if any(token.lower() in line.lower() for token in unsupported_tokens):
+                unresolved.append(
+                    f"{path.relative_to(project).as_posix()}:{line_number}: {line.strip()}"
+                )
+
+    if unresolved:
         raise RuntimeError(
-            "References to the removed non-existent achievement feature remain: "
-            + ", ".join(remaining[:30])
+            "Unsupported references to the removed achievement backend remain: "
+            + ", ".join(unresolved[:30])
         )
+
+    config_lines = config.read_text(encoding="utf-8", errors="replace").splitlines()
+    autoload_entry = 'AchievementManager="*res://autoloads/achievement_manager.gd"'
+    updated_lines = []
+    in_autoload = False
+    autoload_found = False
+    autoload_removed = False
+    autoload_inserted = False
+    for line in config_lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_autoload and call_sites and not autoload_inserted:
+                updated_lines.append(autoload_entry)
+                autoload_inserted = True
+            in_autoload = stripped.lower() == "[autoload]"
+            autoload_found = autoload_found or in_autoload
+        if in_autoload and (
+            re.match(r"(?i)^\\s*AchievementManager\\s*=", line)
+            or re.search(r"(?i)autoloads/achievement_manager\\.gd", line)
+        ):
+            autoload_removed = True
+            continue
+        updated_lines.append(line)
+
+    compatibility_shim_added = bool(call_sites)
+    if compatibility_shim_added:
+        if in_autoload and not autoload_inserted:
+            updated_lines.append(autoload_entry)
+            autoload_inserted = True
+        elif not autoload_found:
+            updated_lines.extend(["", "[autoload]", autoload_entry])
+        manager_path.parent.mkdir(parents=True, exist_ok=True)
+        manager_path.write_text(
+            "extends Node\\n"
+            "\\n"
+            "# Compatibility shim only. This local build has no achievement UI,\\n"
+            "# remote backend, unlocks or persistent achievement storage.\\n"
+            "var statistics: Dictionary = {\\n"
+            '\\t"ACH_08_STAT": 0,\\n'
+            '\\t"ACH_04_STAT": 0,\\n'
+            "}\\n"
+            "\\n"
+            "func set_achievement(_achievement_id: Variant) -> void:\\n"
+            "\\tpass\\n"
+            "\\n"
+            "func set_statistic(statistic_name: String, value: Variant) -> void:\\n"
+            "\\tstatistics[statistic_name] = value\\n"
+            "\\n"
+            "func reset_statistics() -> void:\\n"
+            "\\tfor key in statistics.keys():\\n"
+            "\\t\\tstatistics[key] = 0\\n",
+            encoding="utf-8",
+        )
+    else:
+        if manager_path.is_file():
+            removed_files.append(manager_path.relative_to(project).as_posix())
+            manager_path.unlink()
+        if manager_uid.is_file():
+            removed_files.append(manager_uid.relative_to(project).as_posix())
+            manager_uid.unlink()
+
+    updated_config = "\\n".join(updated_lines).rstrip() + "\\n"
+    original_config = config.read_text(encoding="utf-8", errors="replace")
+    if updated_config != original_config:
+        config.write_text(updated_config, encoding="utf-8")
+
     return {
         "achievement_system_removed": True,
-        "achievement_autoload_removed": autoload_removed,
+        "achievement_autoload_removed": autoload_removed and not compatibility_shim_added,
+        "achievement_compatibility_shim_added": compatibility_shim_added,
+        "achievement_compatibility_call_sites": len(call_sites),
         "achievement_files_removed": sorted(removed_files),
         "remaining_references": [],
     }
-
 
 def _remove_unreferenced_remote_code(project: Path) -> list[str]:
     candidates = [

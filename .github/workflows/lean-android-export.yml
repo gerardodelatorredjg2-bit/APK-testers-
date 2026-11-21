@@ -55,8 +55,8 @@ jobs:
       - name: Prepare clean Android source, controls and LAN
         run: |
           set -euo pipefail
-          python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/test_prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py rebuild-tools/tools/optimize_audio_assets.py rebuild-tools/tools/test_optimize_audio_assets.py rebuild-tools/tools/prepare_local_only_project.py rebuild-tools/tools/test_prepare_local_only_project.py
-          PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_prepare_lean_project.py
+          python3 -m compileall -q rebuild-tools/tools\n          python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/test_prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py rebuild-tools/tools/optimize_audio_assets.py rebuild-tools/tools/test_optimize_audio_assets.py rebuild-tools/tools/prepare_local_only_project.py rebuild-tools/tools/test_prepare_local_only_project.py
+          PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_mobile_optimizer.py rebuild-tools/tools/test_optimize_audio_assets.py rebuild-tools/tools/test_prepare_lean_project.py rebuild-tools/tools/test_prepare_local_only_project.py rebuild-tools/tools/test_runtime_cleanliness_fixes.py
           python3 rebuild-tools/tools/prepare_lean_project.py "$PWD/project"
           python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py rebuild-tools/tools/optimize_audio_assets.py
           python3 rebuild-tools/tools/apply_lean_mobile_lan.py "$PWD/project"
@@ -70,7 +70,7 @@ jobs:
           grep -Fq 'func _show_lan_join_dialog()' project/scenes/main_menu/scripts/main_menu.gd
           grep -Fq 'func _show_lan_address_banner()' project/scenes/lobby/scripts/lobby_scene.gd
 
-      - name: Optimize audio size and repair malformed Vorbis tags
+      - name: Optimize assets and prepare LAN-only runtime
         run: |
           set -euo pipefail
           echo "[AUDIO] Installing FFmpeg and image tools..."
@@ -330,5 +330,5 @@ jobs:
             logs/
             local-optimization.json
             local-optimization.log
-          retention-days: 30
+          if-no-files-found: error\n          retention-days: 30
           compression-level: 0
