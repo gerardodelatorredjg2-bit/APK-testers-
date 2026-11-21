@@ -87,7 +87,7 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             lobby_text = lobby.read_text(encoding="utf-8")
             self.assertIn("return NetworkBackendType.Lan", manager_text)
             self.assertNotIn("return NetworkBackendType.Relay", manager_text)
-            self.assertIn("enum NetworkBackendType{\\n\\tLan\\n}", manager_text)
+            self.assertIn("enum NetworkBackendType{\n\tLan\n}", manager_text)
             self.assertNotIn("NetworkBackendType.Steam", manager_text)
             self.assertNotIn("NetworkBackendType.Online", manager_text)
             self.assertNotIn("NetworkBackendType.Relay", manager_text)
