@@ -23,6 +23,7 @@ class PrepareLeanProjectTests(unittest.TestCase):
 resource_name = "Gate"
 [resource]
 bus/1/effect/0/effect = SubResource("Capture")
+bus/1/effect/0/enabled = true
 bus/1/effect/1/effect = SubResource("Gate")
 bus/1/effect/1/enabled = true
 '''
