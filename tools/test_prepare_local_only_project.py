@@ -10,6 +10,7 @@ from tools.prepare_local_only_project import (
     remove_achievement_system,
     remove_steam_autoloads,
     remove_steam_native_files,
+    remove_steam_initialization,
     _resource_referenced_elsewhere,
     _remove_remote_backend_cases,
     _remove_unreferenced_remote_code,
@@ -160,6 +161,35 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
                 "addons/godotsteam/godotsteam.gdextension",
                 "addons/godotsteam/godotsteam.gdextension.uid",
             ])
+
+
+    def test_direct_steam_startup_calls_are_removed_only_from_two_local_startup_scripts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            globals_script = root / "autoloads/globals.gd"
+            bootstrap_script = root / "scenes/bootstrap/scripts/bootstrap.gd"
+            globals_script.parent.mkdir(parents=True)
+            bootstrap_script.parent.mkdir(parents=True)
+            globals_script.write_text(
+                "func _ready() -> void:\n"
+                "\tprint('version')\n"
+                "\tSteamworks.initialize_steam()\n"
+                "\tload_preferences()\n",
+                encoding="utf-8",
+            )
+            bootstrap_script.write_text(
+                "func _ready() -> void:\n"
+                "\tawait Steamworks.initialized\n"
+                "\tstart_game()\n",
+                encoding="utf-8",
+            )
+            report = remove_steam_initialization(root)
+            self.assertEqual(len(report["steam_startup_calls_removed"]), 2)
+            self.assertEqual(report["remaining_startup_references"], [])
+            self.assertNotIn("Steamworks", globals_script.read_text(encoding="utf-8"))
+            self.assertNotIn("Steamworks", bootstrap_script.read_text(encoding="utf-8"))
+            self.assertIn("load_preferences()", globals_script.read_text(encoding="utf-8"))
+            self.assertIn("start_game()", bootstrap_script.read_text(encoding="utf-8"))
 
     def test_steam_autoload_removed_and_global_class_ref_is_respected(self):
         with tempfile.TemporaryDirectory() as tmp:

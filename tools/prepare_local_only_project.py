@@ -168,6 +168,37 @@ def remove_steam_native_files(project: Path) -> dict:
         "steam_bytes_removed": removed_bytes,
     }
 
+
+def remove_steam_initialization(project: Path) -> dict:
+    """Remove only the two direct Steamworks startup calls that break local import."""
+    targets = {
+        "autoloads/globals.gd": "Steamworks.initialize_steam()",
+        "scenes/bootstrap/scripts/bootstrap.gd": "await Steamworks.initialized",
+    }
+    removed = []
+    unresolved = []
+    for relative, exact_call in targets.items():
+        path = project / relative
+        if not path.is_file():
+            continue
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+        updated = []
+        for line_number, line in enumerate(lines, start=1):
+            if exact_call in line:
+                removed.append(f"{relative}:{line_number}:{exact_call}")
+                continue
+            if "Steamworks" in line:
+                unresolved.append(f"{relative}:{line_number}:{line.strip()}")
+            updated.append(line)
+        if unresolved:
+            raise RuntimeError("Unexpected Steamworks references in startup scripts: " + ", ".join(unresolved))
+        new_text = "".join(updated)
+        old_text = path.read_text(encoding="utf-8", errors="replace")
+        if new_text != old_text:
+            path.write_text(new_text, encoding="utf-8")
+    return {"steam_startup_calls_removed": removed, "remaining_startup_references": unresolved}
+
+
 def _remove_remote_backend_cases(source: str) -> str:
     lines = source.splitlines(keepends=True)
     output = []
@@ -798,6 +829,7 @@ def main() -> None:
         "tracks_preserved": True,
     }
     steam = remove_steam_native_files(project)
+    steam_startup = remove_steam_initialization(project)
     achievements = remove_achievement_system(project)
     local = force_lan_only(project)
     images = optimize_images(project)
@@ -807,6 +839,7 @@ def main() -> None:
     report = {
         "music": music,
         "steam": steam,
+        "steam_startup": steam_startup,
         "achievements": achievements,
         "network": local,
         "images": images,
@@ -827,6 +860,7 @@ def main() -> None:
     print("LOCAL_ONLY_OPTIMIZATION_PASS")
     print("Music: original soundtrack retained; no music tracks silenced.")
     print(f"Steam native components removed: {steam['steam_native_files_removed']} files, {steam['steam_bytes_removed'] / 1048576:.2f} MiB.")
+    print(f"Steam startup calls removed: {len(steam_startup['steam_startup_calls_removed'])}.")
     print(f"Unused achievement subsystem removed: {len(achievements['achievement_files_removed'])} files; no game achievements added.")
     print(f"Images: {images['image_files_processed']} processed; saved {images['image_saved_bytes'] / 1048576:.2f} MiB.")
     print(f"GLB: {glbs['glb_files_seen']} inspected, {glbs['glb_files_optimized']} losslessly optimized; saved {glbs['glb_saved_bytes'] / 1048576:.2f} MiB.")
