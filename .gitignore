@@ -12,3 +12,6 @@
 /reports/private/
 __pycache__/
 *.py[cod]
+
+# Godot generated import cache (recreated by clean import)
+.godot/
