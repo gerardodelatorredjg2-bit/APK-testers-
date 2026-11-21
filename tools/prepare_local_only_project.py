@@ -139,7 +139,7 @@ def _remove_remote_backend_cases(source: str) -> str:
     lines = source.splitlines(keepends=True)
     output = []
     i = 0
-    remote_labels = {"NetworkBackendType.Steam:", "NetworkBackendType.Online:", "NetworkBackendType.Relay:"}
+    remote_labels = {"NetworkBackendType.Enet:", "NetworkBackendType.Steam:", "NetworkBackendType.Online:", "NetworkBackendType.Relay:"}
     while i < len(lines):
         line = lines[i]
         if line.strip() in remote_labels:
@@ -271,14 +271,14 @@ def force_lan_only(project: Path) -> dict:
     # other scripts are redirected to LAN below.
     source, enum_count = re.subn(
         r"enum NetworkBackendType\s*\{[^}]*\}",
-        "enum NetworkBackendType{\n\tEnet, Lan\n}",
+        "enum NetworkBackendType{\n\tLan\n}",
         source,
         count=1,
     )
     if enum_count != 1:
         raise RuntimeError("Could not reduce NetworkBackendType to Enet + Lan")
     source = re.sub(
-        r"NetworkBackendType\.(?:Steam|Online|Relay)\b",
+        r"NetworkBackendType\.(?:Enet|Steam|Online|Relay)\b",
         "NetworkBackendType.Lan",
         source,
     )
