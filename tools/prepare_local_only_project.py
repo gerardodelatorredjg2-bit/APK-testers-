@@ -370,6 +370,72 @@ def optimize_images(project: Path) -> dict:
         "image_optimizer_errors": errors,
     }
 
+def optimize_glb_files(project: Path) -> dict:
+    cli = shutil.which("gltf-transform")
+    models = sorted(p for p in project.rglob("*.glb") if ".godot" not in p.parts)
+    report = {
+        "glb_files_seen": len(models),
+        "glb_files_optimized": 0,
+        "glb_files_kept_original": 0,
+        "glb_before_bytes": 0,
+        "glb_after_bytes": 0,
+        "glb_saved_bytes": 0,
+        "glb_errors": [],
+        "optimizer_available": bool(cli),
+        "method": "lossless animation resampling and sparse zero-data encoding",
+    }
+    if not cli:
+        report["glb_files_kept_original"] = len(models)
+        report["glb_after_bytes"] = sum(p.stat().st_size for p in models)
+        report["glb_before_bytes"] = report["glb_after_bytes"]
+        return report
+
+    for source in models:
+        original_size = source.stat().st_size
+        report["glb_before_bytes"] += original_size
+        with tempfile.TemporaryDirectory(prefix="mp-glb-", dir=source.parent) as folder:
+            current = source
+            previous = None
+            try:
+                for operation in ("resample", "sparse"):
+                    output = Path(folder) / f"{operation}.glb"
+                    result = subprocess.run(
+                        [cli, operation, str(current), str(output)],
+                        capture_output=True, text=True, check=False,
+                    )
+                    if result.returncode != 0 or not output.is_file() or output.stat().st_size == 0:
+                        raise RuntimeError(
+                            f"{operation} failed: {(result.stderr or result.stdout)[-700:]}"
+                        )
+                    current = output
+                validation = subprocess.run(
+                    [cli, "validate", str(current)],
+                    capture_output=True, text=True, check=False,
+                )
+                if validation.returncode != 0:
+                    raise RuntimeError(
+                        f"glTF validation failed: {(validation.stderr or validation.stdout)[-1000:]}"
+                    )
+                final_size = current.stat().st_size
+                if final_size < original_size:
+                    temp_final = source.with_name(source.name + ".lean-tmp")
+                    shutil.copy2(current, temp_final)
+                    os.replace(temp_final, source)
+                    report["glb_files_optimized"] += 1
+                    report["glb_after_bytes"] += final_size
+                else:
+                    report["glb_files_kept_original"] += 1
+                    report["glb_after_bytes"] += original_size
+            except Exception as exc:
+                report["glb_files_kept_original"] += 1
+                report["glb_after_bytes"] += original_size
+                report["glb_errors"].append({
+                    "path": source.relative_to(project).as_posix(),
+                    "error": str(exc),
+                })
+    report["glb_saved_bytes"] = report["glb_before_bytes"] - report["glb_after_bytes"]
+    return report
+
 def asset_audit(project: Path) -> dict:
     large_models = []
     large_scenes = []
@@ -519,6 +585,7 @@ def main() -> None:
     steam = remove_steam_native_files(project)
     local = force_lan_only(project)
     images = optimize_images(project)
+    glbs = optimize_glb_files(project)
     register_graphics_autoload(project)
     audit = asset_audit(project)
     report = {
@@ -526,6 +593,7 @@ def main() -> None:
         "steam": steam,
         "network": local,
         "images": images,
+        "glb_models": glbs,
         "asset_audit": audit,
         "graphics_profiles": ["Performance (low)", "Balanced", "Visual quality (high)"],
         "notes": [
@@ -543,6 +611,7 @@ def main() -> None:
     print(f"Music: silenced {music['music_tracks_silenced']} tracks; saved {music['music_saved_bytes'] / 1048576:.1f} MiB.")
     print(f"Steam native components removed: {steam['steam_native_files_removed']} files, {steam['steam_bytes_removed'] / 1048576:.2f} MiB.")
     print(f"Images: {images['image_files_processed']} processed; saved {images['image_saved_bytes'] / 1048576:.2f} MiB.")
+    print(f"GLB: {glbs['glb_files_seen']} inspected, {glbs['glb_files_optimized']} losslessly optimized; saved {glbs['glb_saved_bytes'] / 1048576:.2f} MiB.")
     print(f"Network mode: {local['network_mode']}; mobile graphics profiles: 3.")
     print(f"Shader compatibility items flagged: {len(audit['shader_compatibility_review'])}")
     print(f"Missing scene resources: {len(audit['missing_external_scene_resources'])}")
