@@ -145,6 +145,12 @@ def remove_steam_native_files(project: Path) -> dict:
                 removed_files += 1
                 removed_bytes += size
                 removed_paths.append(path.relative_to(project).as_posix())
+                sidecar = Path(str(path) + ".uid")
+                if sidecar.is_file():
+                    removed_bytes += sidecar.stat().st_size
+                    sidecar.unlink()
+                    removed_files += 1
+                    removed_paths.append(sidecar.relative_to(project).as_posix())
             except FileNotFoundError:
                 pass
     # Remove only directories made empty by deleting native binaries.
