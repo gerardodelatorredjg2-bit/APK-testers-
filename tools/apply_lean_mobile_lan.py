@@ -630,6 +630,24 @@ func _show_lan_address_banner() -> void:
         "Controls editor safe margins",
     )
 
+    # SSAO is unavailable in Godot's Compatibility renderer. Disable it in
+    # the disposable Android copy to avoid a guaranteed unsupported-effect
+    # warning and unnecessary setup work; desktop Forward+ source stays intact.
+    ssao_disabled = 0
+    for scene_or_environment in list(project.rglob("*.tscn")) + list(project.rglob("*.tres")):
+        if ".godot" in scene_or_environment.relative_to(project).parts:
+            continue
+        source_text = scene_or_environment.read_text(encoding="utf-8", errors="replace")
+        compatible_text, replacements = __import__("re").subn(
+            r"(?m)^ssao_enabled = true$",
+            "ssao_enabled = false",
+            source_text,
+        )
+        if replacements:
+            scene_or_environment.write_text(compatible_text, encoding="utf-8")
+            ssao_disabled += replacements
+    print(f"Disabled {ssao_disabled} SSAO flags unsupported by Android Compatibility renderer.")
+
     # Optional Steam extensions are not part of the Android LAN build.
     # Guard every lookup so a missing singleton never blocks app startup.
     for script_path in project.rglob("*.gd"):
