@@ -67,6 +67,7 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             manager = root / "modules/multiplayer/network_manager.gd"
             manager.parent.mkdir(parents=True)
             manager.write_text(
+                "enum NetworkBackendType{\n\tEnet, Steam, Online, Relay, Lan\n}\n"
                 "func backend_type_for_join_code(code: String) -> NetworkBackendType:\n"
                 "\treturn NetworkBackendType.Relay\n"
                 "\nfunc next_function() -> void:\n\tpass\n",
@@ -86,6 +87,10 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             lobby_text = lobby.read_text(encoding="utf-8")
             self.assertIn("return NetworkBackendType.Lan", manager_text)
             self.assertNotIn("return NetworkBackendType.Relay", manager_text)
+            self.assertIn("Enet, Lan", manager_text)
+            self.assertNotIn("NetworkBackendType.Steam", manager_text)
+            self.assertNotIn("NetworkBackendType.Online", manager_text)
+            self.assertNotIn("NetworkBackendType.Relay", manager_text)
             self.assertIn("active_backend_type = NetworkManager.NetworkBackendType.Lan", lobby_text)
             self.assertNotIn("NetworkBackendType.Relay", lobby_text)
             self.assertEqual(result["network_mode"], "LAN_ONLY")
