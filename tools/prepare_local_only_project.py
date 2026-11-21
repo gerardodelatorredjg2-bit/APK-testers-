@@ -302,7 +302,7 @@ def force_lan_only(project: Path) -> dict:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         new_text = re.sub(
-            r"NetworkManager\.NetworkBackendType\.(?:Steam|Online|Relay)\b",
+            r"NetworkManager\.NetworkBackendType\.(?:Enet|Steam|Online|Relay)\b",
             "NetworkManager.NetworkBackendType.Lan",
             text,
         )
