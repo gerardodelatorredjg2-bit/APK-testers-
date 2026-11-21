@@ -23,18 +23,49 @@ def prepare_bus_layout(path: Path) -> bool:
         return False
     text = path.read_text(encoding="utf-8")
     before = text
-    # AudioEffectGate belongs to a native GDExtension that is not shipped for
-    # Android. Retain AudioEffectCapture so the VOIP capture bus still exists.
-    text = re.sub(
-        r'\n\[sub_resource type="AudioEffectGate"[^\]]*\]\nresource_name = "Gate"\n',
-        "\n",
+
+    # Resolve Gate subresource IDs first, then remove only the exact bus/effect
+    # slots that reference those IDs. Never remove enabled flags for Capture,
+    # filters, or any unrelated built-in effect.
+    gate_ids = re.findall(
+        r'(?m)^\\[sub_resource type="AudioEffectGate" id="([^"]+)"\\]$',
         text,
     )
-    text = re.sub(r'(?m)^bus/\d+/effect/\d+/effect = SubResource\("AudioEffectGate_[^"]+"\)\n', "", text)
-    text = re.sub(r'(?m)^bus/\d+/effect/\d+/enabled = (?:true|false)\n', "", text)
-    # load_steps = resource plus all remaining subresources.
-    subresources = len(re.findall(r'(?m)^\[sub_resource ', text))
-    text = re.sub(r'(?m)^(\[gd_resource[^\n]*load_steps=)\d+', lambda m: m.group(1) + str(subresources + 1), text, count=1)
+    for gate_id in gate_ids:
+        slots = re.findall(
+            rf'(?m)^bus/(\\d+)/effect/(\\d+)/effect = SubResource\\("{re.escape(gate_id)}"\\)$',
+            text,
+        )
+        for bus_index, effect_index in slots:
+            text = re.sub(
+                rf'(?m)^bus/{bus_index}/effect/{effect_index}/effect = SubResource\\("{re.escape(gate_id)}"\\)\\n?',
+                "",
+                text,
+            )
+            text = re.sub(
+                rf'(?m)^bus/{bus_index}/effect/{effect_index}/enabled = (?:true|false)\\n?',
+                "",
+                text,
+            )
+
+        # Remove the complete section for this unavailable custom effect.
+        text = re.sub(
+            rf'(?ms)^\\[sub_resource type="AudioEffectGate" id="{re.escape(gate_id)}"\\]\\n.*?(?=^\\[|\\Z)',
+            "",
+            text,
+            count=1,
+        )
+
+    # Keep the resource header's load_steps consistent with all remaining
+    # subresources (the resource itself contributes one step).
+    subresources = len(re.findall(r'(?m)^\\[sub_resource ', text))
+    text = re.sub(
+        r'(?m)^(\\[gd_resource[^\\n]*load_steps=)\\d+',
+        lambda m: m.group(1) + str(subresources + 1),
+        text,
+        count=1,
+    )
+
     if text != before:
         path.write_text(text, encoding="utf-8")
         return True
