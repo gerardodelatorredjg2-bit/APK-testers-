@@ -181,125 +181,99 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
             return True
     return False
 
-def _patch_local_achievement_backend(project: Path) -> dict:
-    """Redirect Steam achievement references to the local backend.
-
-    Some recovered projects define the local backend with a global class;
-    others expose only a script resource. Support both forms. When there is no
-    global class, add a local preload alias in every GDScript that used the
-    Steam global so construction and type annotations remain resolvable.
-    """
-    manager = project / "autoloads/achievement_manager.gd"
-    local_backend = project / "modules/achievements/backends/achievement_backend_local.gd"
-    local_backend_rel = "modules/achievements/backends/achievement_backend_local.gd"
-    steam_backend_rel = "modules/achievements/backends/achievement_backend_steam.gd"
-    if not manager.is_file():
-        return {"backend_class": None, "backend_uses_preload": False, "patched_files": []}
-    if not local_backend.is_file():
-        raise FileNotFoundError(f"Local achievements backend not found: {local_backend}")
-
-    local_source = local_backend.read_text(encoding="utf-8", errors="replace")
-    class_match = re.search(
-        r"(?m)^class_name\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:#.*)?$",
-        local_source,
-    )
-    uses_preload = class_match is None
-    local_class = (
-        class_match.group(1)
-        if class_match
-        else "_MachinePartyLocalAchievementBackend"
-    )
-    resource_path = "res://" + local_backend_rel
-    preload_declaration = f'const {local_class} = preload("{resource_path}")'
-
-    def add_preload_alias(source: str) -> str:
-        if not uses_preload or re.search(
-            rf"(?m)^\s*const\s+{re.escape(local_class)}\s*=", source
-        ):
-            return source
-        lines = source.splitlines(keepends=True)
-        header_indices = [
-            i for i, line in enumerate(lines)
-            if re.match(r"^\s*(?:extends|class_name)\s+", line)
-        ]
-        insert_at = max(header_indices) + 1 if header_indices else 0
-        insertion = preload_declaration + "\n"
-        if insert_at > 0 and lines[insert_at - 1].strip():
-            insertion = "\n" + insertion
-        if insert_at < len(lines) and lines[insert_at].strip():
-            insertion += "\n"
-        lines.insert(insert_at, insertion)
-        return "".join(lines)
-
-    patched_files = []
-    for path in project.rglob("*"):
-        if not path.is_file() or ".godot" in path.relative_to(project).parts:
-            continue
-        relative = path.relative_to(project).as_posix()
-        if relative == steam_backend_rel:
-            # Do not rewrite the Steam backend's own declaration.
-            continue
-        if path.suffix.lower() not in {".gd", ".tscn", ".tres", ".godot", ".cfg", ".import"}:
-            continue
-        try:
-            original = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        updated = original.replace(
-            "achievement_backend_steam.gd",
-            "achievement_backend_local.gd",
-        )
-        if path.suffix.lower() == ".gd":
-            if uses_preload:
-                updated = updated.replace(
-                    "extends AchievementBackendSteam",
-                    f'extends "{resource_path}"',
-                )
-            updated = updated.replace("AchievementBackendSteam", local_class)
-            if local_class in updated:
-                updated = add_preload_alias(updated)
+def remove_achievement_system(project: Path) -> dict:
+    """Remove the unused Steam achievement subsystem; the game has no achievements."""
+    config = project / "project.godot"
+    autoload_removed = False
+    if config.is_file():
+        original = config.read_text(encoding="utf-8", errors="replace")
+        lines = original.splitlines(keepends=True)
+        kept = []
+        in_autoload = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                in_autoload = stripped.lower() == "[autoload]"
+            if in_autoload and (
+                re.search(r"(?i)achievement_manager", line)
+                or re.match(r"(?i)^\s*AchievementManager\s*=", line)
+            ):
+                autoload_removed = True
+                continue
+            kept.append(line)
+        updated = "".join(kept)
         if updated != original:
-            path.write_text(updated, encoding="utf-8")
-            patched_files.append(relative)
+            config.write_text(updated, encoding="utf-8")
 
-    manager_text = manager.read_text(encoding="utf-8", errors="replace")
-    if "AchievementBackendSteam" in manager_text or "achievement_backend_steam.gd" in manager_text:
-        raise RuntimeError(
-            "Steam achievement backend reference remains in achievement_manager.gd "
-            "after local backend redirection."
-        )
-    # Fail early if any non-Steam script still depends on the removed global.
-    unresolved = []
-    for path in project.rglob("*.gd"):
-        if not path.is_file() or path.relative_to(project).as_posix() == steam_backend_rel:
+    removed_files = []
+    targets = [
+        project / "autoloads/achievement_manager.gd",
+        project / "autoloads/achievement_manager.gd.uid",
+    ]
+    achievement_dir = project / "modules/achievements"
+    if achievement_dir.exists():
+        targets.extend(p for p in achievement_dir.rglob("*") if p.is_file())
+    for path in sorted(set(targets), key=lambda p: len(p.parts), reverse=True):
+        if path.is_file():
+            removed_files.append(path.relative_to(project).as_posix())
+            path.unlink()
+    if achievement_dir.exists():
+        for directory in sorted(
+            (p for p in achievement_dir.rglob("*") if p.is_dir()),
+            key=lambda p: len(p.parts),
+            reverse=True,
+        ):
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        try:
+            achievement_dir.rmdir()
+        except OSError:
+            pass
+
+    # Do not silently leave scripts pointing at a system that is not part of
+    # the game. Fail with exact paths so any real call sites can be removed
+    # deliberately without touching gameplay code.
+    reference_tokens = (
+        "AchievementManager",
+        "AchievementBackend",
+        "achievement_manager.gd",
+        "modules/achievements/",
+    )
+    remaining = []
+    scan_suffixes = {".gd", ".tscn", ".tres", ".godot", ".cfg", ".import"}
+    for path in project.rglob("*"):
+        if (
+            not path.is_file()
+            or ".godot" in path.parts
+            or path.suffix.lower() not in scan_suffixes
+        ):
             continue
         try:
             body = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if "AchievementBackendSteam" in body:
-            unresolved.append(path.relative_to(project).as_posix())
-    if unresolved:
+        if any(token.lower() in body.lower() for token in reference_tokens):
+            remaining.append(path.relative_to(project).as_posix())
+    if remaining:
         raise RuntimeError(
-            "Unpatched Steam achievement class references remain: "
-            + ", ".join(unresolved[:20])
+            "References to the removed non-existent achievement feature remain: "
+            + ", ".join(remaining[:30])
         )
     return {
-        "backend_class": local_class,
-        "backend_uses_preload": uses_preload,
-        "patched_files": patched_files,
+        "achievement_system_removed": True,
+        "achievement_autoload_removed": autoload_removed,
+        "achievement_files_removed": sorted(removed_files),
+        "remaining_references": [],
     }
 
+
 def _remove_unreferenced_remote_code(project: Path) -> list[str]:
-    # Fix both the old script-path reference and the global class identifier
-    # before evaluating which Steam/relay scripts are safe to delete.
-    _patch_local_achievement_backend(project)
     candidates = [
-        "modules/multiplayer/backends/enet_backend.gd",
         "modules/multiplayer/backends/steam_backend.gd",
         "modules/multiplayer/backends/relay_backend.gd",
         "modules/multiplayer/backends/relay_multiplayer_peer.gd",
-        "modules/achievements/backends/achievement_backend_steam.gd",
     ]
     candidate_set = set(candidates) | {p + ".uid" for p in candidates}
     removed = []
@@ -440,7 +414,6 @@ def force_lan_only(project: Path) -> dict:
     # Steam/relay backend scripts artificially referenced during cleanup.
     legacy_menu_disabled = _disable_legacy_online_menu(project)
     remote_code_removed = _remove_unreferenced_remote_code(project)
-    shape_test_removed = _remove_unreferenced_shape_cutter_test(project)
     manager_text = manager.read_text(encoding="utf-8")
     if "return NetworkBackendType.Lan" not in manager_text:
         raise RuntimeError("LAN-only join-code routing was not applied")
@@ -457,7 +430,7 @@ def force_lan_only(project: Path) -> dict:
         ),
         "remote_backend_scripts_removed": remote_code_removed,
         "legacy_online_menu_disabled": legacy_menu_disabled,
-        "unreferenced_debug_test_resources_removed": shape_test_removed,
+        "unreferenced_debug_test_resources_removed": [],
         "local_network_shutdown_guard_added": "_local_safe_multiplayer_unique_id()" in manager_text,
         "local_routing_scripts_patched": sorted(set(patched_scripts)),
         "android_internet_permission_retained_for_lan_sockets": True,
@@ -708,6 +681,7 @@ def main() -> None:
         raise SystemExit("ffmpeg is required to replace music with silent placeholders")
     music = silence_music(project, ffmpeg)
     steam = remove_steam_native_files(project)
+    achievements = remove_achievement_system(project)
     local = force_lan_only(project)
     images = optimize_images(project)
     glbs = optimize_glb_files(project)
@@ -716,6 +690,7 @@ def main() -> None:
     report = {
         "music": music,
         "steam": steam,
+        "achievements": achievements,
         "network": local,
         "images": images,
         "glb_models": glbs,
@@ -735,6 +710,7 @@ def main() -> None:
     print("LOCAL_ONLY_OPTIMIZATION_PASS")
     print(f"Music: silenced {music['music_tracks_silenced']} tracks; saved {music['music_saved_bytes'] / 1048576:.1f} MiB.")
     print(f"Steam native components removed: {steam['steam_native_files_removed']} files, {steam['steam_bytes_removed'] / 1048576:.2f} MiB.")
+    print(f"Unused achievement subsystem removed: {len(achievements['achievement_files_removed'])} files; no game achievements added.")
     print(f"Images: {images['image_files_processed']} processed; saved {images['image_saved_bytes'] / 1048576:.2f} MiB.")
     print(f"GLB: {glbs['glb_files_seen']} inspected, {glbs['glb_files_optimized']} losslessly optimized; saved {glbs['glb_saved_bytes'] / 1048576:.2f} MiB.")
     print(f"Network mode: {local['network_mode']}; mobile graphics profiles: 3.")
