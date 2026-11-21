@@ -211,6 +211,8 @@ jobs:
             exit 1
           fi
           timeout 180 "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" --script "$PWD/rebuild-tools/tools/smoke_test_rebuild_minigame_scenes.gd" 2>&1 | tee logs/minigame-scenes.log
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/minigame-scenes.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/minigame-errors.txt || true
+          test ! -s logs/minigame-errors.txt
           grep -q "MINIGAME_SCENE_LOAD_PASS" logs/minigame-scenes.log
           if grep -Fq "Invalid comment in Ogg Vorbis file" logs/import.log logs/main-boot.log logs/minigame-scenes.log; then
             echo "Malformed Vorbis metadata warning remains."
@@ -283,6 +285,10 @@ jobs:
           trap - EXIT
           grep -q 'LAN_LOOPBACK_PASS:host:' "$HOST_LOG"
           grep -q 'LAN_LOOPBACK_PASS:client:' "$CLIENT_LOG"
+          for smoke_log in "$HOST_LOG" "$CLIENT_LOG"; do
+            grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" "$smoke_log" | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > "$smoke_log.errors" || true
+            test ! -s "$smoke_log.errors"
+          done
           cat "$HOST_LOG"
           cat "$CLIENT_LOG"
 
@@ -292,6 +298,8 @@ jobs:
           GODOT_BIN="$(cat godot-bin-path)"
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 60m "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/project/build/MachineParty-Lean-Android.apk" 2>&1 | tee logs/android-export.log
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script|Failed loading resource|ERROR:" logs/android-export.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/export-errors.txt || true
+          test ! -s logs/export-errors.txt
           test -s project/build/MachineParty-Lean-Android.apk
           unzip -tq project/build/MachineParty-Lean-Android.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose project/build/MachineParty-Lean-Android.apk
