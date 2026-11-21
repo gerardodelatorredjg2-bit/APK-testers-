@@ -5,7 +5,8 @@ func _cleanup_project_autoloads() -> void:
 		if is_instance_valid(child):
 			child.queue_free()
 	for _frame in 4:
-		await process_frame
+			await process_frame
+	ResourceLoader.clear_cache()
 
 func _initialize() -> void:
 	call_deferred("_run")

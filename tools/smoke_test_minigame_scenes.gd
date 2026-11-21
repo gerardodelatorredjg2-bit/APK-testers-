@@ -40,7 +40,8 @@ func _cleanup_project_autoloads() -> void:
 		if is_instance_valid(child):
 			child.queue_free()
 	for _frame in 4:
-		await process_frame
+			await process_frame
+	ResourceLoader.clear_cache()
 
 func _run_scene_smoke_test() -> void:
 	_collect_scenes("res://minigames")
