@@ -1,0 +1,55 @@
+name: Compress existing Machine Party APK (7z Ultra)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  compress-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Download already-built APK artifact (no rebuild)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh run download 44961776260 --repo "$GH_REPO" --name machine-party-local-optimized-android-apk --dir downloaded
+          APK="$(find downloaded -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          mkdir -p input
+          cp "$APK" input/MachineParty-Lean-Android.apk
+          sha256sum input/MachineParty-Lean-Android.apk | tee original.sha256
+          unzip -tq input/MachineParty-Lean-Android.apk
+
+      - name: Compress APK with 7-Zip Ultra settings
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends p7zip-full
+          7z a -t7z -mx=9 -m0=LZMA2 -md=64m -mmt=on -ms=on MachineParty-Lean-Android.7z input/MachineParty-Lean-Android.apk
+          7z t MachineParty-Lean-Android.7z
+          stat -c '7Z_BYTES=%s' MachineParty-Lean-Android.7z
+          du -h input/MachineParty-Lean-Android.apk MachineParty-Lean-Android.7z
+
+      - name: Verify compressed archive preserves APK byte-for-byte
+        run: |
+          set -euo pipefail
+          mkdir verify
+          7z x -y -overify MachineParty-Lean-Android.7z
+          sha256sum --check original.sha256
+          cmp input/MachineParty-Lean-Android.apk verify/input/MachineParty-Lean-Android.apk
+
+      - name: Upload compressed 7z
+        if: success()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: machine-party-apk-7z-ultra
+          path: MachineParty-Lean-Android.7z
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
