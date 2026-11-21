@@ -267,6 +267,21 @@ def force_lan_only(project: Path) -> dict:
     )
     source = source[:start] + replacement + source[end:]
     source = _remove_remote_backend_cases(source)
+    # Reduce the backend enum to local transports only. Stale references in
+    # other scripts are redirected to LAN below.
+    source, enum_count = re.subn(
+        r"enum NetworkBackendType\s*\{[^}]*\}",
+        "enum NetworkBackendType{\n\tEnet, Lan\n}",
+        source,
+        count=1,
+    )
+    if enum_count != 1:
+        raise RuntimeError("Could not reduce NetworkBackendType to Enet + Lan")
+    source = re.sub(
+        r"NetworkBackendType\.(?:Steam|Online|Relay)\b",
+        "NetworkBackendType.Lan",
+        source,
+    )
     # Guard the shutdown path: Godot throws if get_unique_id() is queried after
     # the LAN peer has already been closed during scene teardown.
     if "multiplayer.get_unique_id()" in source:
@@ -287,10 +302,14 @@ def force_lan_only(project: Path) -> dict:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         new_text = re.sub(
-            r"(?m)^(\s*NetworkManager\.active_backend_type\s*=\s*)"
-            r"NetworkManager\.NetworkBackendType\.(?:Steam|Online|Relay|Enet)\s*$",
-            r"\1NetworkManager.NetworkBackendType.Lan",
+            r"NetworkManager\.NetworkBackendType\.(?:Steam|Online|Relay)\b",
+            "NetworkManager.NetworkBackendType.Lan",
             text,
+        )
+        new_text = re.sub(
+            r"(?m)^(\s*NetworkManager\.active_backend_type\s*=\s*)NetworkManager\.NetworkBackendType\.Enet\s*$",
+            r"\1NetworkManager.NetworkBackendType.Lan",
+            new_text,
         )
         if new_text != text:
             path.write_text(new_text, encoding="utf-8")
@@ -323,11 +342,11 @@ def force_lan_only(project: Path) -> dict:
         "network_mode": "LAN_ONLY",
         "remote_join_code_fallback_disabled": True,
         "remote_backend_cases_removed": all(
-            label not in manager_text
-            for label in (
-                "NetworkBackendType.Steam:",
-                "NetworkBackendType.Online:",
-                "NetworkBackendType.Relay:",
+            token not in manager_text
+            for token in (
+                "NetworkBackendType.Steam",
+                "NetworkBackendType.Online",
+                "NetworkBackendType.Relay",
             )
         ),
         "remote_backend_scripts_removed": remote_code_removed,
