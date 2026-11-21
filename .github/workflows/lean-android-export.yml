@@ -195,6 +195,70 @@ jobs:
           timeout 180 "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" --script "$PWD/rebuild-tools/tools/smoke_test_rebuild_minigame_scenes.gd" 2>&1 | tee logs/minigame-scenes.log
           grep -q "MINIGAME_SCENE_LOAD_PASS" logs/minigame-scenes.log
 
+      - name: Test real LAN host-client ENet handshake
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat godot-bin-path)"
+          mkdir -p logs
+          HOST_LOG="$PWD/logs/lan-host-smoke.log"
+          CLIENT_LOG="$PWD/logs/lan-client-smoke.log"
+          PROJECT_CONFIG="$PWD/project/project.godot"
+          CONFIG_BACKUP="$PWD/logs/project.godot.before-lan-smoke"
+          TEST_SCRIPT="$PWD/project/lan_loopback_smoke.gd"
+          TEST_SCENE="$PWD/project/lan_loopback_smoke.tscn"
+          cp "$PROJECT_CONFIG" "$CONFIG_BACKUP"
+          cleanup() {
+            if [ -n "${HOST_PID:-}" ]; then kill "$HOST_PID" 2>/dev/null || true; fi
+            cp "$CONFIG_BACKUP" "$PROJECT_CONFIG"
+            rm -f "$TEST_SCRIPT" "$TEST_SCENE"
+          }
+          trap cleanup EXIT
+          cp "$PWD/rebuild-tools/tools/lan_loopback_smoke.gd" "$TEST_SCRIPT"
+          cat > "$TEST_SCENE" <<'EOF'
+          [gd_scene load_steps=2 format=3]
+          [ext_resource type="Script" path="res://lan_loopback_smoke.gd" id="1"]
+          [node name="LanLoopbackSmoke" type="Node"]
+          script = ExtResource("1")
+          EOF
+          python3 - "$PROJECT_CONFIG" <<'PY'
+          import sys
+          from pathlib import Path
+          p = Path(sys.argv[1])
+          lines = p.read_text(encoding="utf-8").splitlines()
+          keys = [i for i, line in enumerate(lines) if line.startswith("run/main_scene=")]
+          if len(keys) != 1:
+              raise SystemExit(f"Expected one run/main_scene setting, got {len(keys)}")
+          lines[keys[0]] = 'run/main_scene="res://lan_loopback_smoke.tscn"'
+          p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 45s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" -- host >"$HOST_LOG" 2>&1 &
+          HOST_PID=$!
+          for attempt in $(seq 1 100); do
+            if grep -q 'LAN_TEST_HOST_READY=' "$HOST_LOG"; then break; fi
+            if ! kill -0 "$HOST_PID" 2>/dev/null; then
+              wait "$HOST_PID" || true
+              cat "$HOST_LOG"
+              exit 1
+            fi
+            sleep 0.2
+          done
+          HOST_ADDRESS="$(sed -n 's/^LAN_TEST_HOST_READY=//p' "$HOST_LOG" | tail -n 1)"
+          test -n "$HOST_ADDRESS" || { cat "$HOST_LOG"; exit 1; }
+          echo "Testing LAN address: $HOST_ADDRESS"
+          if ! timeout 30s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
+            cat "$CLIENT_LOG"; cat "$HOST_LOG"; exit 1
+          fi
+          if ! wait "$HOST_PID"; then cat "$HOST_LOG"; cat "$CLIENT_LOG"; exit 1; fi
+          HOST_PID=""
+          cp "$CONFIG_BACKUP" "$PROJECT_CONFIG"
+          rm -f "$TEST_SCRIPT" "$TEST_SCENE"
+          trap - EXIT
+          grep -q 'LAN_LOOPBACK_PASS:host:' "$HOST_LOG"
+          grep -q 'LAN_LOOPBACK_PASS:client:' "$CLIENT_LOG"
+          cat "$HOST_LOG"
+          cat "$CLIENT_LOG"
+
       - name: Export Android universal APK
         run: |
           set -euo pipefail
