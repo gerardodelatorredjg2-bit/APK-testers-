@@ -43,7 +43,7 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             self.assertEqual(sfx.read_bytes(), b"keep this exact sound effect")
 
 
-    def test_remote_backend_switch_cases_are_removed_but_enet_and_lan_remain(self):
+    def test_remote_backend_switch_cases_are_removed_and_lan_remains(self):
         source = (
             "match active_backend_type:\n"
             "\tNetworkBackendType.Enet:\n"
@@ -56,7 +56,7 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             "\t\tset_active_backend(preload(\"res://modules/multiplayer/backends/lan_enet_backend.gd\"))\n"
         )
         cleaned = _remove_remote_backend_cases(source)
-        self.assertIn("NetworkBackendType.Enet:", cleaned)
+        self.assertNotIn("NetworkBackendType.Enet:", cleaned)
         self.assertIn("NetworkBackendType.Lan:", cleaned)
         self.assertNotIn("NetworkBackendType.Steam:", cleaned)
         self.assertNotIn("NetworkBackendType.Relay:", cleaned)
@@ -87,7 +87,7 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             lobby_text = lobby.read_text(encoding="utf-8")
             self.assertIn("return NetworkBackendType.Lan", manager_text)
             self.assertNotIn("return NetworkBackendType.Relay", manager_text)
-            self.assertIn("Enet, Lan", manager_text)
+            self.assertIn("enum NetworkBackendType{\\n\\tLan\\n}", manager_text)
             self.assertNotIn("NetworkBackendType.Steam", manager_text)
             self.assertNotIn("NetworkBackendType.Online", manager_text)
             self.assertNotIn("NetworkBackendType.Relay", manager_text)
