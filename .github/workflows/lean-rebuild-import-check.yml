@@ -62,7 +62,11 @@ jobs:
           set -euo pipefail
           PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_prepare_lean_project.py
           python3 rebuild-tools/tools/prepare_lean_project.py "$PWD/project-source"
-          echo "Prepared project copy for the first Android-compatible import."
+          python3 rebuild-tools/tools/prepare_lean_project.py "$PWD/project-source"
+          python3 -m py_compile rebuild-tools/tools/apply_lean_mobile_lan.py
+          python3 rebuild-tools/tools/apply_lean_mobile_lan.py "$PWD/project-source"
+          python3 rebuild-tools/tools/apply_lean_mobile_lan.py "$PWD/project-source"
+          echo "Prepared Android project; source and LAN patch are idempotent."
 
       - name: Install lean mobile UI and Wi-Fi LAN features
         run: |
