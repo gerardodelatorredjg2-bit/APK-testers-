@@ -299,8 +299,13 @@ def remove_achievement_system(project: Path) -> dict:
             body = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if any(token.lower() in body.lower() for token in reference_tokens):
-            remaining.append(path.relative_to(project).as_posix())
+        matching_lines = [
+            f"{path.relative_to(project).as_posix()}:{line_number}: {line.strip()}"
+            for line_number, line in enumerate(body.splitlines(), start=1)
+            if any(token.lower() in line.lower() for token in reference_tokens)
+        ]
+        if matching_lines:
+            remaining.extend(matching_lines)
     if remaining:
         raise RuntimeError(
             "References to the removed non-existent achievement feature remain: "
@@ -724,10 +729,12 @@ def main() -> None:
     project = args.project.resolve()
     if not (project / "project.godot").is_file():
         raise SystemExit(f"Godot project not found: {project}")
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise SystemExit("ffmpeg is required to replace music with silent placeholders")
-    music = silence_music(project, ffmpeg)
+    # Keep the original soundtrack; audio compression runs separately and remains audible.
+    music = {
+        "music_tracks_silenced": 0,
+        "music_saved_bytes": 0,
+        "tracks_preserved": True,
+    }
     steam = remove_steam_native_files(project)
     achievements = remove_achievement_system(project)
     local = force_lan_only(project)
@@ -745,7 +752,7 @@ def main() -> None:
         "asset_audit": audit,
         "graphics_profiles": ["Performance (low)", "Balanced", "Visual quality (high)"],
         "notes": [
-            "Music tracks are silent placeholders; sound effects and ambience are retained.",
+            "Original soundtrack, effects and ambience are retained; no tracks are silenced.",
             "Android INTERNET permission stays enabled because Android requires it for local UDP/ENet sockets.",
             "PNG optimization is lossless; JPEG optimization strips metadata without re-encoding image pixels.",
             "GLB geometry is not decimated automatically to avoid breaking rigging, animations or collision shapes.",
@@ -756,7 +763,7 @@ def main() -> None:
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     print("LOCAL_ONLY_OPTIMIZATION_PASS")
-    print(f"Music: silenced {music['music_tracks_silenced']} tracks; saved {music['music_saved_bytes'] / 1048576:.1f} MiB.")
+    print("Music: original soundtrack retained; no music tracks silenced.")
     print(f"Steam native components removed: {steam['steam_native_files_removed']} files, {steam['steam_bytes_removed'] / 1048576:.2f} MiB.")
     print(f"Unused achievement subsystem removed: {len(achievements['achievement_files_removed'])} files; no game achievements added.")
     print(f"Images: {images['image_files_processed']} processed; saved {images['image_saved_bytes'] / 1048576:.2f} MiB.")
