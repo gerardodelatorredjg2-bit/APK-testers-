@@ -2,6 +2,10 @@ name: Compress existing Machine Party APK (7z Ultra)
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["lean-machine-party-rebuild"]
+    paths:
+      - ".github/workflows/compress-existing-apk-7z.yml"
 
 permissions:
   actions: read
