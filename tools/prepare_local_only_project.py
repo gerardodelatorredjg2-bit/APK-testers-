@@ -181,7 +181,70 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
             return True
     return False
 
+def _patch_local_achievement_backend(project: Path) -> dict:
+    """Redirect the Steam achievement class to the real local backend class.
+
+    The recovered achievement manager may reference the Steam backend by its
+    global GDScript class name rather than by its script filename. Replacing
+    only the filename leaves an unresolved identifier after Steam code is
+    removed. Derive the local class name from the local backend source itself.
+    """
+    manager = project / "autoloads/achievement_manager.gd"
+    local_backend = project / "modules/achievements/backends/achievement_backend_local.gd"
+    steam_backend_rel = "modules/achievements/backends/achievement_backend_steam.gd"
+    if not manager.is_file():
+        return {"backend_class": None, "patched_files": []}
+    if not local_backend.is_file():
+        raise FileNotFoundError(f"Local achievements backend not found: {local_backend}")
+
+    local_source = local_backend.read_text(encoding="utf-8", errors="replace")
+    class_match = re.search(
+        r"(?m)^class_name\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:#.*)?$",
+        local_source,
+    )
+    if not class_match:
+        raise RuntimeError(
+            "Local achievements backend has no class_name declaration: "
+            f"{local_backend.relative_to(project).as_posix()}"
+        )
+    local_class = class_match.group(1)
+
+    patched_files = []
+    for path in project.rglob("*"):
+        if not path.is_file() or ".godot" in path.relative_to(project).parts:
+            continue
+        relative = path.relative_to(project).as_posix()
+        if relative == steam_backend_rel:
+            # Do not rename the Steam script's own class declaration.
+            continue
+        if path.suffix.lower() not in {".gd", ".tscn", ".tres", ".godot", ".cfg", ".import"}:
+            continue
+        try:
+            original = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        updated = re.sub(r"\bAchievementBackendSteam\b", local_class, original)
+        updated = updated.replace(
+            "achievement_backend_steam.gd",
+            "achievement_backend_local.gd",
+        )
+        if updated != original:
+            path.write_text(updated, encoding="utf-8")
+            patched_files.append(relative)
+
+    remaining = manager.read_text(encoding="utf-8", errors="replace")
+    if "AchievementBackendSteam" in remaining or "achievement_backend_steam.gd" in remaining:
+        raise RuntimeError(
+            "Steam achievement backend reference remains in achievement_manager.gd "
+            "after local backend redirection."
+        )
+    return {"backend_class": local_class, "patched_files": patched_files}
+
+
 def _remove_unreferenced_remote_code(project: Path) -> list[str]:
+    # Fix both the old script-path reference and the global class identifier
+    # before evaluating which Steam/relay scripts are safe to delete.
+    _patch_local_achievement_backend(project)
     candidates = [
         "modules/multiplayer/backends/enet_backend.gd",
         "modules/multiplayer/backends/steam_backend.gd",
@@ -190,15 +253,6 @@ def _remove_unreferenced_remote_code(project: Path) -> list[str]:
         "modules/achievements/backends/achievement_backend_steam.gd",
     ]
     candidate_set = set(candidates) | {p + ".uid" for p in candidates}
-    # Force achievements to the local backend before checking/removing Steam.
-    achievements = project / "autoloads/achievement_manager.gd"
-    if achievements.is_file():
-        text = achievements.read_text(encoding="utf-8", errors="replace")
-        text = text.replace(
-            "achievement_backend_steam.gd",
-            "achievement_backend_local.gd",
-        )
-        achievements.write_text(text, encoding="utf-8")
     removed = []
     for rel in candidates:
         target = project / rel

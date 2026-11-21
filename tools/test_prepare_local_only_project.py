@@ -8,6 +8,8 @@ from tools.prepare_local_only_project import (
     is_music_asset,
     silence_music,
     _remove_remote_backend_cases,
+    _patch_local_achievement_backend,
+    _remove_unreferenced_remote_code,
 )
 
 class LocalOnlyOptimizationTests(unittest.TestCase):
@@ -60,6 +62,38 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
         self.assertIn("NetworkBackendType.Lan:", cleaned)
         self.assertNotIn("NetworkBackendType.Steam:", cleaned)
         self.assertNotIn("NetworkBackendType.Relay:", cleaned)
+
+
+    def test_steam_achievement_class_is_redirected_to_local_before_removal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manager = root / "autoloads/achievement_manager.gd"
+            manager.parent.mkdir(parents=True)
+            manager.write_text(
+                'extends Node\\nvar backend = AchievementBackendSteam.new()\\n'
+                'const BACKEND_PATH = "res://modules/achievements/backends/achievement_backend_steam.gd"\\n',
+                encoding="utf-8",
+            )
+            local = root / "modules/achievements/backends/achievement_backend_local.gd"
+            local.parent.mkdir(parents=True)
+            local.write_text(
+                "extends RefCounted\\nclass_name AchievementBackendLocal\\n",
+                encoding="utf-8",
+            )
+            steam = root / "modules/achievements/backends/achievement_backend_steam.gd"
+            steam.write_text(
+                "extends RefCounted\\nclass_name AchievementBackendSteam\\n",
+                encoding="utf-8",
+            )
+            result = _patch_local_achievement_backend(root)
+            patched = manager.read_text(encoding="utf-8")
+            self.assertEqual(result["backend_class"], "AchievementBackendLocal")
+            self.assertIn("AchievementBackendLocal.new()", patched)
+            self.assertIn("achievement_backend_local.gd", patched)
+            self.assertNotIn("AchievementBackendSteam", patched)
+            removed = _remove_unreferenced_remote_code(root)
+            self.assertIn("modules/achievements/backends/achievement_backend_steam.gd", removed)
+            self.assertFalse(steam.exists())
 
     def test_join_code_routing_and_lobby_are_lan_only(self):
         with tempfile.TemporaryDirectory() as tmp:
