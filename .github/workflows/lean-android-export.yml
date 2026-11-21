@@ -264,7 +264,7 @@ jobs:
           set -euo pipefail
           GODOT_BIN="$(cat godot-bin-path)"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 60m "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" --export-release "Android Universal (ARMv7 + ARM64)" "$PWD/project/build/MachineParty-Lean-Android.apk" 2>&1 | tee logs/android-export.log
+          timeout 60m "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/project/build/MachineParty-Lean-Android.apk" 2>&1 | tee logs/android-export.log
           test -s project/build/MachineParty-Lean-Android.apk
           unzip -tq project/build/MachineParty-Lean-Android.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose project/build/MachineParty-Lean-Android.apk
