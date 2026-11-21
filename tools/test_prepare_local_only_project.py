@@ -70,17 +70,17 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             manager = root / "autoloads/achievement_manager.gd"
             manager.parent.mkdir(parents=True)
             manager.write_text(
-                'extends Node\\nvar backend = AchievementBackendSteam.new()\\n'
-                'const BACKEND_PATH = "res://modules/achievements/backends/achievement_backend_steam.gd"\\n',
+                'extends Node\nvar backend = AchievementBackendSteam.new()\n'
+                'const BACKEND_PATH = "res://modules/achievements/backends/achievement_backend_steam.gd"\n',
                 encoding="utf-8",
             )
             local = root / "modules/achievements/backends/achievement_backend_local.gd"
             local.parent.mkdir(parents=True)
             # The recovered local backend is a script resource, not a global class.
-            local.write_text("extends RefCounted\\n", encoding="utf-8")
+            local.write_text("extends RefCounted\n", encoding="utf-8")
             steam = root / "modules/achievements/backends/achievement_backend_steam.gd"
             steam.write_text(
-                "extends RefCounted\\nclass_name AchievementBackendSteam\\n",
+                "extends RefCounted\nclass_name AchievementBackendSteam\n",
                 encoding="utf-8",
             )
             result = _patch_local_achievement_backend(root)

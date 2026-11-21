@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 240
     steps:
       - name: Checkout reconstruction tools
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           ref: lean-machine-party-rebuild
           path: rebuild-tools
@@ -319,7 +319,7 @@ jobs:
 
       - name: Upload local-only APK and optimization reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: machine-party-local-optimized-android-apk
           path: |
