@@ -8,6 +8,8 @@ from tools.prepare_local_only_project import (
     is_music_asset,
     silence_music,
     remove_achievement_system,
+    remove_steam_autoloads,
+    _resource_referenced_elsewhere,
     _remove_remote_backend_cases,
     _remove_unreferenced_remote_code,
 )
@@ -95,6 +97,38 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             self.assertFalse(manager.exists())
             self.assertFalse(steam.exists())
             self.assertFalse(local.exists())
+
+    def test_steam_autoload_removed_and_global_class_ref_is_respected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = root / "project.godot"
+            config.write_text(
+                '[autoload]\nSteamworks="*res://modules/steamworks/steamworks.gd"\n'
+                '[application]\nconfig/name="Machine Party"\n',
+                encoding="utf-8",
+            )
+            steamworks = root / "modules/steamworks/steamworks.gd"
+            steamworks.parent.mkdir(parents=True)
+            steamworks.write_text(
+                "extends Node\nclass_name Steamworks\n", encoding="utf-8"
+            )
+            consumer = root / "autoloads/steam_game_hooks.gd"
+            consumer.parent.mkdir(parents=True)
+            consumer.write_text(
+                "extends Node\nvar api: Steamworks\n", encoding="utf-8"
+            )
+
+            report = remove_steam_autoloads(root)
+
+            self.assertEqual(report["steam_autoloads_removed"], ["Steamworks"])
+            self.assertNotIn("Steamworks=", config.read_text(encoding="utf-8"))
+            self.assertTrue(
+                _resource_referenced_elsewhere(
+                    root,
+                    Path("modules/steamworks/steamworks.gd"),
+                    {"modules/steamworks/steamworks.gd"},
+                )
+            )
 
     def test_unreferenced_remote_cleanup_keeps_lan_enet_backend(self):
         with tempfile.TemporaryDirectory() as tmp:
