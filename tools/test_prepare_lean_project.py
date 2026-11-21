@@ -35,6 +35,8 @@ bus/1/effect/1/enabled = true
             self.assertEqual(len(report["removed_optional_extensions"]), 3)
             self.assertEqual(len(report["bus_layouts_without_native_gate"]), 2)
             self.assertIn("AudioEffectCapture", (p / "bus_layout.tres").read_text())
+            self.assertIn('bus/1/effect/0/enabled = true', (p / "bus_layout.tres").read_text())
+            self.assertIn('bus/1/effect/0/enabled = true', (p / "default_bus_layout.tres").read_text())
             self.assertNotIn("AudioEffectGate", (p / "bus_layout.tres").read_text())
             self.assertIn("intermission_control_input_label.tscn", src.read_text())
             self.assertIn('renderer/rendering_method.mobile="gl_compatibility"', (p / "project.godot").read_text())
