@@ -630,16 +630,18 @@ func _show_lan_address_banner() -> void:
         "Controls editor safe margins",
     )
 
-    # Avoid missing-Steam singleton failures after optional desktop extensions
-    # have been omitted by the lean Android preparation step.
-    steamworks = project / "modules/steamworks/steamworks.gd"
-    if steamworks.is_file():
-        replace_once(
-            steamworks,
-            'steam = Engine.get_singleton("Steam")',
-            'steam = Engine.get_singleton("Steam") if Engine.has_singleton("Steam") else null',
-            "Optional Steam singleton guard",
+    # Optional Steam extensions are not part of the Android LAN build.
+    # Guard every lookup so a missing singleton never blocks app startup.
+    for script_path in project.rglob("*.gd"):
+        if ".godot" in script_path.relative_to(project).parts:
+            continue
+        script_text = script_path.read_text(encoding="utf-8", errors="replace")
+        safe_text = script_text.replace(
+            'Engine.get_singleton("Steam")',
+            'Engine.get_singleton("Steam") if Engine.has_singleton("Steam") else null',
         )
+        if safe_text != script_text:
+            script_path.write_text(safe_text, encoding="utf-8")
 
     # Feature assertions prevent a silently incomplete output copy.
     checks = {
