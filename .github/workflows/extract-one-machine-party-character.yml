@@ -67,18 +67,28 @@ jobs:
               "floor": 30, "wall": 30, "building": 25,
               "prop": 20, "weapon": 20, "vehicle": 20
           }
-          ref_re = re.compile(r'res://([^"\\s<>]+?\\.glb)', re.IGNORECASE)
+          ref_re = re.compile(r'res://([^"\s<>]+?\.glb)', re.IGNORECASE)
           records = {str(p.relative_to(root)): {"path": p, "score": 0, "refs": 0, "why": []} for p in glbs}
           for rel, rec in records.items():
               low = rel.lower()
+              if "first person" in low or "first_person" in low:
+                  rec["score"] -= 150
+                  rec["why"].append("exclude:first-person-arms-rig")
+              if "third person" in low or "third_person" in low:
+                  rec["score"] += 125
+                  rec["why"].append("prefer:third-person-character")
               for word, pts in hints.items():
+                  if word == "player":
+                      matched = bool(re.search(r"(^|[/ _-])player($|[/ _-])", low))
+                  else:
+                      matched = word in low
+                  if matched:
+                      rec["score"] += pts
+                      rec["why"].append(f"name:{word}")
                   if word in low:
                       rec["score"] += pts
                       rec["why"].append(f"name:{word}")
               for word, pts in avoid.items():
-                  if word in low:
-                      rec["score"] -= pts
-              # Prefer a compact stand-alone character asset when names are otherwise similar.
               size = rec["path"].stat().st_size
               rec["score"] += max(0, 18 - min(18, size // (1024 * 1024) * 2))
 
