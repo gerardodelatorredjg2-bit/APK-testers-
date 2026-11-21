@@ -182,18 +182,19 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
     return False
 
 def _patch_local_achievement_backend(project: Path) -> dict:
-    """Redirect the Steam achievement class to the real local backend class.
+    """Redirect Steam achievement references to the local backend.
 
-    The recovered achievement manager may reference the Steam backend by its
-    global GDScript class name rather than by its script filename. Replacing
-    only the filename leaves an unresolved identifier after Steam code is
-    removed. Derive the local class name from the local backend source itself.
+    Some recovered projects define the local backend with a global class;
+    others expose only a script resource. Support both forms. When there is no
+    global class, add a local preload alias in every GDScript that used the
+    Steam global so construction and type annotations remain resolvable.
     """
     manager = project / "autoloads/achievement_manager.gd"
     local_backend = project / "modules/achievements/backends/achievement_backend_local.gd"
+    local_backend_rel = "modules/achievements/backends/achievement_backend_local.gd"
     steam_backend_rel = "modules/achievements/backends/achievement_backend_steam.gd"
     if not manager.is_file():
-        return {"backend_class": None, "patched_files": []}
+        return {"backend_class": None, "backend_uses_preload": False, "patched_files": []}
     if not local_backend.is_file():
         raise FileNotFoundError(f"Local achievements backend not found: {local_backend}")
 
@@ -202,12 +203,33 @@ def _patch_local_achievement_backend(project: Path) -> dict:
         r"(?m)^class_name\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:#.*)?$",
         local_source,
     )
-    if not class_match:
-        raise RuntimeError(
-            "Local achievements backend has no class_name declaration: "
-            f"{local_backend.relative_to(project).as_posix()}"
-        )
-    local_class = class_match.group(1)
+    uses_preload = class_match is None
+    local_class = (
+        class_match.group(1)
+        if class_match
+        else "_MachinePartyLocalAchievementBackend"
+    )
+    resource_path = "res://" + local_backend_rel
+    preload_declaration = f'const {local_class} = preload("{resource_path}")'
+
+    def add_preload_alias(source: str) -> str:
+        if not uses_preload or re.search(
+            rf"(?m)^\s*const\s+{re.escape(local_class)}\s*=", source
+        ):
+            return source
+        lines = source.splitlines(keepends=True)
+        header_indices = [
+            i for i, line in enumerate(lines)
+            if re.match(r"^\s*(?:extends|class_name)\s+", line)
+        ]
+        insert_at = max(header_indices) + 1 if header_indices else 0
+        insertion = preload_declaration + "\n"
+        if insert_at > 0 and lines[insert_at - 1].strip():
+            insertion = "\n" + insertion
+        if insert_at < len(lines) and lines[insert_at].strip():
+            insertion += "\n"
+        lines.insert(insert_at, insertion)
+        return "".join(lines)
 
     patched_files = []
     for path in project.rglob("*"):
@@ -215,7 +237,7 @@ def _patch_local_achievement_backend(project: Path) -> dict:
             continue
         relative = path.relative_to(project).as_posix()
         if relative == steam_backend_rel:
-            # Do not rename the Steam script's own class declaration.
+            # Do not rewrite the Steam backend's own declaration.
             continue
         if path.suffix.lower() not in {".gd", ".tscn", ".tres", ".godot", ".cfg", ".import"}:
             continue
@@ -223,23 +245,45 @@ def _patch_local_achievement_backend(project: Path) -> dict:
             original = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        updated = re.sub(r"\bAchievementBackendSteam\b", local_class, original)
-        updated = updated.replace(
+        updated = original.replace(
             "achievement_backend_steam.gd",
             "achievement_backend_local.gd",
         )
+        if path.suffix.lower() == ".gd":
+            updated = re.sub(r"\bAchievementBackendSteam\b", local_class, updated)
+            if local_class in updated:
+                updated = add_preload_alias(updated)
         if updated != original:
             path.write_text(updated, encoding="utf-8")
             patched_files.append(relative)
 
-    remaining = manager.read_text(encoding="utf-8", errors="replace")
-    if "AchievementBackendSteam" in remaining or "achievement_backend_steam.gd" in remaining:
+    manager_text = manager.read_text(encoding="utf-8", errors="replace")
+    if "AchievementBackendSteam" in manager_text or "achievement_backend_steam.gd" in manager_text:
         raise RuntimeError(
             "Steam achievement backend reference remains in achievement_manager.gd "
             "after local backend redirection."
         )
-    return {"backend_class": local_class, "patched_files": patched_files}
-
+    # Fail early if any non-Steam script still depends on the removed global.
+    unresolved = []
+    for path in project.rglob("*.gd"):
+        if not path.is_file() or path.relative_to(project).as_posix() == steam_backend_rel:
+            continue
+        try:
+            body = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if "AchievementBackendSteam" in body:
+            unresolved.append(path.relative_to(project).as_posix())
+    if unresolved:
+        raise RuntimeError(
+            "Unpatched Steam achievement class references remain: "
+            + ", ".join(unresolved[:20])
+        )
+    return {
+        "backend_class": local_class,
+        "backend_uses_preload": uses_preload,
+        "patched_files": patched_files,
+    }
 
 def _remove_unreferenced_remote_code(project: Path) -> list[str]:
     # Fix both the old script-path reference and the global class identifier
