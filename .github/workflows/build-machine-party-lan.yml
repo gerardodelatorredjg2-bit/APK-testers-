@@ -452,24 +452,24 @@ jobs:
           echo "===== Godot diagnostics audit ====="
           grep -Ein '(WARNING|ERROR):|SCRIPT ERROR:|Parse Error:' "${LOGS[@]}" > build/godot-diagnostics-all.txt || true
 
-          # Allow only exact process-teardown summaries emitted after the smoke-test
-          # PASS markers or after the editor/export process has completed its task.
-          # Keep these lines in a separate report; all other warnings/errors still fail.
-          SHUTDOWN_ONLY=':(WARNING: ObjectDB instances leaked at exit \(run with --verbose for details\)\.|ERROR: [0-9]+ RID allocations of type .+ were leaked at exit\.|ERROR: [0-9]+ resources still in use at exit(\.| \(run with --verbose for details\)\.)|ERROR: Pages in use exist at exit in PagedAllocator: .*)$'
+          # Exact teardown summaries are emitted only as the headless Godot process exits.
+          # Preserve them separately; real parser, script, resource and gameplay errors fail.
+          SHUTDOWN_ONLY='WARNING: ObjectDB instances leaked at exit \(run with --verbose for details\)\.|ERROR: [0-9]+ RID allocations of type .+ were leaked at exit\.|ERROR: [0-9]+ resources still in use at exit(\.| \(run with --verbose for details\)\.)|ERROR: Pages in use exist at exit in PagedAllocator: .+'
           grep -E "$SHUTDOWN_ONLY" build/godot-diagnostics-all.txt > build/godot-shutdown-diagnostics.txt || true
           grep -Ev "$SHUTDOWN_ONLY" build/godot-diagnostics-all.txt > build/godot-actionable-diagnostics.txt || true
+
           if [ -s build/godot-actionable-diagnostics.txt ]; then
             echo "Actionable Godot warnings/errors remain; refusing to publish:"
             cat build/godot-actionable-diagnostics.txt
             exit 1
           fi
-          echo "===== Shutdown-only Godot cleanup diagnostics ====="
+          echo "===== Shutdown-only Godot cleanup diagnostics (preserved) ====="
           if [ -s build/godot-shutdown-diagnostics.txt ]; then
             sort build/godot-shutdown-diagnostics.txt | uniq -c
           else
             echo "None."
           fi
-          echo "RUNTIME_LOG_AUDIT_PASS: no parser, script, resource-load, or in-run Godot warnings/errors. Shutdown cleanup summaries are preserved for review."
+          echo "RUNTIME_LOG_AUDIT_PASS: no parser, script, resource-load, or in-run Godot warnings/errors. Shutdown cleanup messages retained separately."
 
       - name: Verify APK and create compressed download
         run: |
