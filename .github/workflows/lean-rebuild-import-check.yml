@@ -1,4 +1,4 @@
-name: Lean Machine Party clean import validation (minigame check)
+name: Lean Machine Party clean import validation (Vorbis cleanup)
 
 on:
   push:
@@ -80,6 +80,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg
+          PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_optimize_audio_assets.py
           python3 rebuild-tools/tools/optimize_audio_assets.py "$PWD/project-source" --quality 4.0
           cp project-source/lean_audio_optimization.csv .
           echo "Audio optimization completed on a disposable source copy; original recovery artifact remains unchanged."
