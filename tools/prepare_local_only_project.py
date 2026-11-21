@@ -199,7 +199,7 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
         except OSError:
             target_source = ""
         class_match = re.search(
-            r"(?m)^class_name\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            r"(?m)^class_name\s+([A-Za-z_][A-Za-z0-9_]*)",
             target_source,
         )
         if class_match:
