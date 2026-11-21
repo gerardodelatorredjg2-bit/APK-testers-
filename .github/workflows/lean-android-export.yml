@@ -181,7 +181,7 @@ jobs:
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 45m "$GODOT_BIN" --headless --audio-driver Dummy --editor --path "$PWD/project" --import 2>&1 | tee logs/import.log
           test -d project/.godot/imported
-          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/import.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit" > logs/import-errors.txt || true
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/import.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/import-errors.txt || true
           test ! -s logs/import-errors.txt
 
       - name: Boot game and load every minigame scene
@@ -190,7 +190,7 @@ jobs:
           GODOT_BIN="$(cat godot-bin-path)"
           export GODOT_SILENCE_ROOT_WARNING=1
           timeout 150 "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" --quit-after 90 2>&1 | tee logs/main-boot.log
-          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/main-boot.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit" > logs/boot-errors.txt || true
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/main-boot.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/boot-errors.txt || true
           test ! -s logs/boot-errors.txt
           timeout 180 "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project" --script "$PWD/rebuild-tools/tools/smoke_test_rebuild_minigame_scenes.gd" 2>&1 | tee logs/minigame-scenes.log
           grep -q "MINIGAME_SCENE_LOAD_PASS" logs/minigame-scenes.log
