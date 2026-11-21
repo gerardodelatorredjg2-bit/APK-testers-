@@ -662,6 +662,37 @@ func _show_lan_address_banner() -> void:
         if safe_text != script_text:
             script_path.write_text(safe_text, encoding="utf-8")
 
+    # The original menu script assigned Control.size while the node used
+    # full-rect anchors, which triggers a Godot layout warning. Recompute the
+    # offsets instead so the intended size is represented by the anchors.
+    menu_visual_script = project / "scripts/components/menu visuals/menu_visual_manager.gd"
+    if menu_visual_script.is_file():
+        replace_once(
+            menu_visual_script,
+            "margin_container.size = size_required",
+            "set_margin_container_size(size_required)",
+            "CJK menu bounds",
+        )
+        replace_once(
+            menu_visual_script,
+            "margin_container.size = size_default",
+            "set_margin_container_size(size_default)",
+            "Default menu bounds",
+        )
+        append_once(
+            menu_visual_script,
+            "func set_margin_container_size(target_size: Vector2)",
+            '''
+func set_margin_container_size(target_size: Vector2) -> void:
+	var parent_size: Vector2 = margin_container.get_parent_area_size()
+	var anchor_width: float = margin_container.anchor_right - margin_container.anchor_left
+	var anchor_height: float = margin_container.anchor_bottom - margin_container.anchor_top
+	margin_container.offset_right = margin_container.offset_left + target_size.x - parent_size.x * anchor_width
+	margin_container.offset_bottom = margin_container.offset_top + target_size.y - parent_size.y * anchor_height
+''',
+            "Anchor-safe menu visual bounds",
+        )
+
     # Feature assertions prevent a silently incomplete output copy.
     checks = {
         "controls_android.gd": [
