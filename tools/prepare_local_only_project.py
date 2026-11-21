@@ -251,8 +251,13 @@ def _patch_local_achievement_backend(project: Path) -> dict:
         )
         if path.suffix.lower() == ".gd":
             if uses_preload:
-                updated = re.sub(
-                    r'(?m)^(\s*extends\s+)AchievementBackendSteam(\s*(?:#.*)?)
+                updated = updated.replace(
+                    "extends AchievementBackendSteam",
+                    f'extends "{resource_path}"',
+                )
+            updated = re.sub(r"\\bAchievementBackendSteam\\b", local_class, updated)
+            if local_class in updated:
+                updated = add_preload_alias(updated)
         if updated != original:
             path.write_text(updated, encoding="utf-8")
             patched_files.append(relative)
