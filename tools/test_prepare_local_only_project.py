@@ -7,6 +7,7 @@ from tools.prepare_local_only_project import (
     force_lan_only,
     is_music_asset,
     silence_music,
+    _remove_remote_backend_cases,
 )
 
 class LocalOnlyOptimizationTests(unittest.TestCase):
@@ -40,6 +41,25 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             self.assertTrue(music.exists())
             self.assertLess(music.stat().st_size, old_size)
             self.assertEqual(sfx.read_bytes(), b"keep this exact sound effect")
+
+
+    def test_remote_backend_switch_cases_are_removed_but_enet_and_lan_remain(self):
+        source = (
+            "match active_backend_type:\n"
+            "\tNetworkBackendType.Enet:\n"
+            "\t\tset_active_backend(preload(\"res://modules/multiplayer/backends/enet_backend.gd\"))\n"
+            "\tNetworkBackendType.Steam:\n"
+            "\t\tset_active_backend(preload(\"res://modules/multiplayer/backends/steam_backend.gd\"))\n"
+            "\tNetworkBackendType.Relay:\n"
+            "\t\tset_active_backend(preload(\"res://modules/multiplayer/backends/relay_backend.gd\"))\n"
+            "\tNetworkBackendType.Lan:\n"
+            "\t\tset_active_backend(preload(\"res://modules/multiplayer/backends/lan_enet_backend.gd\"))\n"
+        )
+        cleaned = _remove_remote_backend_cases(source)
+        self.assertIn("NetworkBackendType.Enet:", cleaned)
+        self.assertIn("NetworkBackendType.Lan:", cleaned)
+        self.assertNotIn("NetworkBackendType.Steam:", cleaned)
+        self.assertNotIn("NetworkBackendType.Relay:", cleaned)
 
     def test_join_code_routing_and_lobby_are_lan_only(self):
         with tempfile.TemporaryDirectory() as tmp:
