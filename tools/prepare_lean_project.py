@@ -28,29 +28,29 @@ def prepare_bus_layout(path: Path) -> bool:
     # slots that reference those IDs. Never remove enabled flags for Capture,
     # filters, or any unrelated built-in effect.
     gate_ids = re.findall(
-        r'(?m)^\\[sub_resource type="AudioEffectGate" id="([^"]+)"\\]$',
+        r'(?m)^\[sub_resource type="AudioEffectGate" id="([^"]+)"\]$',
         text,
     )
     for gate_id in gate_ids:
         slots = re.findall(
-            rf'(?m)^bus/(\\d+)/effect/(\\d+)/effect = SubResource\\("{re.escape(gate_id)}"\\)$',
+            rf'(?m)^bus/(\d+)/effect/(\d+)/effect = SubResource\("{re.escape(gate_id)}"\)$',
             text,
         )
         for bus_index, effect_index in slots:
             text = re.sub(
-                rf'(?m)^bus/{bus_index}/effect/{effect_index}/effect = SubResource\\("{re.escape(gate_id)}"\\)\\n?',
+                rf'(?m)^bus/{bus_index}/effect/{effect_index}/effect = SubResource\("{re.escape(gate_id)}"\)\n?',
                 "",
                 text,
             )
             text = re.sub(
-                rf'(?m)^bus/{bus_index}/effect/{effect_index}/enabled = (?:true|false)\\n?',
+                rf'(?m)^bus/{bus_index}/effect/{effect_index}/enabled = (?:true|false)\n?',
                 "",
                 text,
             )
 
         # Remove the complete section for this unavailable custom effect.
         text = re.sub(
-            rf'(?ms)^\\[sub_resource type="AudioEffectGate" id="{re.escape(gate_id)}"\\]\\n.*?(?=^\\[|\\Z)',
+            rf'(?ms)^\[sub_resource type="AudioEffectGate" id="{re.escape(gate_id)}"\]\n.*?(?=^\[|\Z)',
             "",
             text,
             count=1,
@@ -58,9 +58,9 @@ def prepare_bus_layout(path: Path) -> bool:
 
     # Keep the resource header's load_steps consistent with all remaining
     # subresources (the resource itself contributes one step).
-    subresources = len(re.findall(r'(?m)^\\[sub_resource ', text))
+    subresources = len(re.findall(r'(?m)^\[sub_resource ', text))
     text = re.sub(
-        r'(?m)^(\\[gd_resource[^\\n]*load_steps=)\\d+',
+        r'(?m)^(\[gd_resource[^\n]*load_steps=)\d+',
         lambda m: m.group(1) + str(subresources + 1),
         text,
         count=1,
