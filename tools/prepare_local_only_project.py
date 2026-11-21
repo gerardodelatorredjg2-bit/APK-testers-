@@ -95,33 +95,43 @@ def silence_music(project: Path, ffmpeg: str) -> dict:
 def remove_steam_native_files(project: Path) -> dict:
     removed_files = 0
     removed_bytes = 0
-    removed_dirs = []
-    for directory in list(project.rglob("*")):
-        if not directory.is_dir() or ".godot" in directory.parts:
-            continue
-        if directory.name.lower() in STEAM_DIRS:
-            size = sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
-            shutil.rmtree(directory)
-            removed_dirs.append(directory.relative_to(project).as_posix())
-            removed_bytes += size
+    removed_paths = []
+    native_suffixes = {".gdextension", ".so", ".dll", ".dylib", ".a", ".lib", ".aar", ".framework"}
     for path in list(project.rglob("*")):
         if not path.is_file() or ".godot" in path.parts:
             continue
-        lower = path.name.lower()
-        is_steam = (
-            path.suffix.lower() == ".gdextension" and "steam" in str(path).lower()
-        ) or any(token in lower for token in STEAM_FILE_PATTERNS)
-        if is_steam:
+        lower_name = path.name.lower()
+        lower_path = str(path).lower()
+        in_steam_addon = any(part.lower() in STEAM_DIRS for part in path.relative_to(project).parts)
+        is_native_binary = (
+            path.suffix.lower() in native_suffixes
+            and (
+                "steam" in lower_path
+                or "godotsteam" in lower_path
+                or "steam-multiplayer-peer" in lower_path
+            )
+        )
+        if is_native_binary or (path.suffix.lower() == ".gdextension" and in_steam_addon):
             try:
                 size = path.stat().st_size
                 path.unlink()
                 removed_files += 1
                 removed_bytes += size
+                removed_paths.append(path.relative_to(project).as_posix())
             except FileNotFoundError:
                 pass
+    # Remove only directories made empty by deleting native binaries.
+    for directory in sorted((p for p in project.rglob("*") if p.is_dir()),
+                            key=lambda p: len(p.parts), reverse=True):
+        if ".godot" in directory.parts:
+            continue
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
     return {
         "steam_native_files_removed": removed_files,
-        "steam_directories_removed": removed_dirs,
+        "steam_native_paths": removed_paths,
         "steam_bytes_removed": removed_bytes,
     }
 
