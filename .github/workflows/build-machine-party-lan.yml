@@ -116,15 +116,21 @@ jobs:
       - name: Apply LAN patch and prepare Android-compatible build
         run: |
           set -euo pipefail
-          python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
+          PROJECT="$PWD/downloaded/recovered"
+          # Apply the curated touchscreen controls source BEFORE patching it.
+          # Copying it afterward silently removed the HIDE/SHOW controls API.
+          cp recovered-project/controls_android.gd "$PROJECT/controls_android.gd"
+          python3 tools/apply_machine_party_lan_patch.py "$PROJECT"
           python3 tools/apply_gameplay_audit_fixes.py downloaded/recovered
           cp tools/test_shape_cutter_regression.gd downloaded/recovered/test_shape_cutter_regression.gd
           python3 tools/optimize_mobile_performance.py downloaded/recovered
           python3 tools/test_recovered_gameplay_fixes.py downloaded/recovered
           python3 -m unittest -v tools/test_runtime_cleanliness_fixes.py
           python3 tools/apply_runtime_cleanliness_fixes.py downloaded/recovered | tee build/runtime-cleanliness-fixes.log
-          cp recovered-project/controls_android.gd downloaded/recovered/controls_android.gd
           python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/apply_gameplay_audit_fixes.py tools/test_recovered_gameplay_fixes.py
+          grep -Fq 'func set_controls_visible(value: bool) -> void:' "$PROJECT/controls_android.gd"
+          grep -Fq 'func toggle_controls_visible() -> void:' "$PROJECT/controls_android.gd"
+          echo "Touchscreen HIDE/SHOW controls API survived the final source overlay."
           PROJECT="$PWD/downloaded/recovered"
           test "$(wc -l < "$PROJECT/project.godot")" -gt 300
           grep -Fqx '[application]' "$PROJECT/project.godot"
