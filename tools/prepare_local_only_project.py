@@ -135,6 +135,120 @@ def remove_steam_native_files(project: Path) -> dict:
         "steam_bytes_removed": removed_bytes,
     }
 
+def _remove_remote_backend_cases(source: str) -> str:
+    lines = source.splitlines(keepends=True)
+    output = []
+    i = 0
+    remote_labels = {"NetworkBackendType.Steam:", "NetworkBackendType.Online:", "NetworkBackendType.Relay:"}
+    while i < len(lines):
+        line = lines[i]
+        if line.strip() in remote_labels:
+            indent = len(line) - len(line.lstrip())
+            i += 1
+            while i < len(lines):
+                candidate = lines[i]
+                if candidate.strip() and not candidate.lstrip().startswith("#"):
+                    candidate_indent = len(candidate) - len(candidate.lstrip())
+                    if candidate_indent <= indent:
+                        break
+                i += 1
+            continue
+        output.append(line)
+        i += 1
+    return "".join(output)
+
+def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded: set[str]) -> bool:
+    rel = relative_path.as_posix()
+    tokens = {rel, "res://" + rel}
+    uid_file = project / (rel + ".uid")
+    if uid_file.is_file():
+        uid = uid_file.read_text(encoding="utf-8", errors="replace").strip()
+        if uid.startswith("uid://"):
+            tokens.add(uid)
+    for candidate in project.rglob("*"):
+        if not candidate.is_file() or ".godot" in candidate.parts:
+            continue
+        other_rel = candidate.relative_to(project).as_posix()
+        if other_rel in excluded or other_rel == rel or other_rel == rel + ".uid":
+            continue
+        if candidate.suffix.lower() not in {".gd", ".tscn", ".tres", ".godot", ".cfg", ".import"}:
+            continue
+        try:
+            body = candidate.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if any(token in body for token in tokens):
+            return True
+    return False
+
+def _remove_unreferenced_remote_code(project: Path) -> list[str]:
+    candidates = [
+        "modules/multiplayer/backends/steam_backend.gd",
+        "modules/multiplayer/backends/relay_backend.gd",
+        "modules/multiplayer/backends/relay_multiplayer_peer.gd",
+        "modules/achievements/backends/achievement_backend_steam.gd",
+    ]
+    candidate_set = set(candidates) | {p + ".uid" for p in candidates}
+    # Force achievements to the local backend before checking/removing Steam.
+    achievements = project / "autoloads/achievement_manager.gd"
+    if achievements.is_file():
+        text = achievements.read_text(encoding="utf-8", errors="replace")
+        text = text.replace(
+            "achievement_backend_steam.gd",
+            "achievement_backend_local.gd",
+        )
+        achievements.write_text(text, encoding="utf-8")
+    removed = []
+    for rel in candidates:
+        target = project / rel
+        if not target.is_file():
+            continue
+        if _resource_referenced_elsewhere(project, Path(rel), candidate_set):
+            continue
+        target.unlink()
+        sidecar = project / (rel + ".uid")
+        if sidecar.is_file():
+            sidecar.unlink()
+        removed.append(rel)
+    return removed
+
+def _disable_legacy_online_menu(project: Path) -> bool:
+    menu_script = project / "modules/multiplayer_lobby/multiplayer_menu.gd"
+    if not menu_script.is_file():
+        return False
+    old = menu_script.read_text(encoding="utf-8", errors="replace")
+    extends_match = re.search(r"(?m)^extends\s+([A-Za-z0-9_.]+)\s*$", old)
+    class_match = re.search(r"(?m)^class_name\s+[A-Za-z0-9_]+\s*$", old)
+    extends_line = extends_match.group(0) if extends_match else "extends Node"
+    class_line = class_match.group(0) if class_match else ""
+    # The old online/Steam join UI is superseded by the LAN HOST/JOIN overlay.
+    # Keep the resource path and global class identity, but make this legacy
+    # screen inert so it cannot initiate relay, invite or Steam flows.
+    stub = extends_line + "\n"
+    if class_line:
+        stub += class_line + "\n"
+    stub += "\nfunc _ready() -> void:\n\tqueue_free()\n"
+    menu_script.write_text(stub, encoding="utf-8")
+    return True
+
+def _remove_unreferenced_shape_cutter_test(project: Path) -> list[str]:
+    scene_rel = "minigames/shape_cutter/shape_cutter_test.tscn"
+    script_rel = "minigames/shape_cutter/scripts/shape_cutter_test.gd"
+    candidates = {scene_rel, script_rel, script_rel + ".uid"}
+    removed = []
+    for rel in (scene_rel, script_rel):
+        target = project / rel
+        if not target.is_file():
+            continue
+        if _resource_referenced_elsewhere(project, Path(rel), candidates):
+            continue
+        target.unlink()
+        sidecar = project / (rel + ".uid")
+        if sidecar.is_file():
+            sidecar.unlink()
+        removed.append(rel)
+    return removed
+
 def force_lan_only(project: Path) -> dict:
     manager = project / "modules/multiplayer/network_manager.gd"
     if not manager.is_file():
@@ -151,6 +265,19 @@ def force_lan_only(project: Path) -> dict:
         "\treturn NetworkBackendType.Lan\n"
     )
     source = source[:start] + replacement + source[end:]
+    source = _remove_remote_backend_cases(source)
+    # Guard the shutdown path: Godot throws if get_unique_id() is queried after
+    # the LAN peer has already been closed during scene teardown.
+    if "multiplayer.get_unique_id()" in source:
+        source = source.replace("multiplayer.get_unique_id()", "_local_safe_multiplayer_unique_id()")
+        if "func _local_safe_multiplayer_unique_id()" not in source:
+            source = source.rstrip() + (
+                "\n\nfunc _local_safe_multiplayer_unique_id() -> int:\n"
+                "\tvar peer: MultiplayerPeer = multiplayer.multiplayer_peer\n"
+                "\tif peer == null or peer.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:\n"
+                "\t\treturn 1\n"
+                "\treturn multiplayer.get_unique_id()\n"
+            )
     manager.write_text(source, encoding="utf-8")
 
     patched_scripts = []
@@ -168,8 +295,6 @@ def force_lan_only(project: Path) -> dict:
             path.write_text(new_text, encoding="utf-8")
             patched_scripts.append(path.relative_to(project).as_posix())
 
-    # A LAN-only build must not silently fall back to a relay when the LAN
-    # host flag is false. Keep the existing lobby flow but force its backend.
     lobby = project / "scenes/lobby/scripts/lobby_scene.gd"
     if lobby.is_file():
         text = lobby.read_text(encoding="utf-8")
@@ -187,12 +312,27 @@ def force_lan_only(project: Path) -> dict:
             lobby.write_text(text2, encoding="utf-8")
             patched_scripts.append(lobby.relative_to(project).as_posix())
 
+    remote_code_removed = _remove_unreferenced_remote_code(project)
+    legacy_menu_disabled = _disable_legacy_online_menu(project)
+    shape_test_removed = _remove_unreferenced_shape_cutter_test(project)
     manager_text = manager.read_text(encoding="utf-8")
     if "return NetworkBackendType.Lan" not in manager_text:
         raise RuntimeError("LAN-only join-code routing was not applied")
     return {
         "network_mode": "LAN_ONLY",
         "remote_join_code_fallback_disabled": True,
+        "remote_backend_cases_removed": all(
+            label not in manager_text
+            for label in (
+                "NetworkBackendType.Steam:",
+                "NetworkBackendType.Online:",
+                "NetworkBackendType.Relay:",
+            )
+        ),
+        "remote_backend_scripts_removed": remote_code_removed,
+        "legacy_online_menu_disabled": legacy_menu_disabled,
+        "unreferenced_debug_test_resources_removed": shape_test_removed,
+        "local_network_shutdown_guard_added": "_local_safe_multiplayer_unique_id()" in manager_text,
         "local_routing_scripts_patched": sorted(set(patched_scripts)),
         "android_internet_permission_retained_for_lan_sockets": True,
     }
