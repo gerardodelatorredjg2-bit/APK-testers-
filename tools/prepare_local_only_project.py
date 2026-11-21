@@ -255,7 +255,7 @@ def _patch_local_achievement_backend(project: Path) -> dict:
                     "extends AchievementBackendSteam",
                     f'extends "{resource_path}"',
                 )
-            updated = re.sub(r"\\bAchievementBackendSteam\\b", local_class, updated)
+            updated = updated.replace("AchievementBackendSteam", local_class)
             if local_class in updated:
                 updated = add_preload_alias(updated)
         if updated != original:
