@@ -198,15 +198,15 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             menu = root / "scenes/main_menu/scripts/main_menu.gd"
             menu.parent.mkdir(parents=True)
             menu.write_text(
-                "func join_from_clipboard() -> void:\\n"
-                "\\tvar is_direct: bool = clipboard.count(\":\") == 1\\n"
-                "\\tif is_direct:\\n"
-                "\\t\\tvalidate_ip_and_port()\\n"
-                "\\tvar is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18\\n"
-                "\\n"
-                "\\tif not is_direct and not is_steam_code and clipboard.length() != 6:\\n"
-                "\\t\\tshow_invalid_code()\\n"
-                "\\tjoin_lan_lobby(clipboard)\\n",
+                "func join_from_clipboard() -> void:\n"
+                "\\tvar is_direct: bool = clipboard.count(\":\") == 1\n"
+                "\\tif is_direct:\n"
+                "\\t\\tvalidate_ip_and_port()\n"
+                "\\tvar is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18\n"
+                "\n"
+                "\\tif not is_direct and not is_steam_code and clipboard.length() != 6:\n"
+                "\\t\\tshow_invalid_code()\n"
+                "\\tjoin_lan_lobby(clipboard)\n",
                 encoding="utf-8",
             )
 

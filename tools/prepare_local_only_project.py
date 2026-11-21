@@ -207,12 +207,12 @@ def remove_steam_menu_join_detection(project: Path) -> dict:
         raise FileNotFoundError(f"Main menu script not found: {path}")
     source = path.read_text(encoding="utf-8", errors="replace")
     obsolete = (
-        "\t\tvar is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18\\n"
-        "\\n"
+        "\t\tvar is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18\n"
+        "\n"
         "\t\tif not is_direct and not is_steam_code and clipboard.length() != 6:"
     )
     replacement = (
-        "\t\t# Local build accepts LAN room codes and direct IP:PORT only.\\n"
+        "\t\t# Local build accepts LAN room codes and direct IP:PORT only.\n"
         "\t\tif not is_direct and clipboard.length() != 6:"
     )
     if obsolete in source:
