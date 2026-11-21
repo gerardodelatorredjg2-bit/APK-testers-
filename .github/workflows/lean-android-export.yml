@@ -55,7 +55,8 @@ jobs:
       - name: Prepare clean Android source, controls and LAN
         run: |
           set -euo pipefail
-          python3 -m compileall -q rebuild-tools/tools\n          python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/test_prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py rebuild-tools/tools/optimize_audio_assets.py rebuild-tools/tools/test_optimize_audio_assets.py rebuild-tools/tools/prepare_local_only_project.py rebuild-tools/tools/test_prepare_local_only_project.py
+          python3 -m compileall -q rebuild-tools/tools
+          python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/test_prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py rebuild-tools/tools/optimize_audio_assets.py rebuild-tools/tools/test_optimize_audio_assets.py rebuild-tools/tools/prepare_local_only_project.py rebuild-tools/tools/test_prepare_local_only_project.py
           PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_mobile_optimizer.py rebuild-tools/tools/test_optimize_audio_assets.py rebuild-tools/tools/test_prepare_lean_project.py rebuild-tools/tools/test_prepare_local_only_project.py rebuild-tools/tools/test_runtime_cleanliness_fixes.py
           python3 rebuild-tools/tools/prepare_lean_project.py "$PWD/project"
           python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py rebuild-tools/tools/optimize_audio_assets.py
@@ -320,7 +321,7 @@ jobs:
           du -sh project/build/MachineParty-Lean-Android.apk
 
       - name: Upload local-only APK and optimization reports
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v7.0.2
         with:
           name: machine-party-local-optimized-android-apk
@@ -330,5 +331,6 @@ jobs:
             logs/
             local-optimization.json
             local-optimization.log
-          if-no-files-found: error\n          retention-days: 30
+          if-no-files-found: error
+          retention-days: 30
           compression-level: 0

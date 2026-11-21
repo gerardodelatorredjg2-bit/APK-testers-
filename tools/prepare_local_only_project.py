@@ -237,8 +237,8 @@ def remove_achievement_system(project: Path) -> dict:
     achievement_dir = project / "modules/achievements"
     removed_files = []
 
-    # The feature/backend is absent from the actual game. Remove its old
-    # implementation, but do not break gameplay scripts that still call its API.
+    # The game has no achievement feature. Remove its old backend, but preserve
+    # the small legacy API still called by some minigame scripts.
     if achievement_dir.exists():
         for path in sorted(
             (p for p in achievement_dir.rglob("*") if p.is_file()),
@@ -262,8 +262,8 @@ def remove_achievement_system(project: Path) -> dict:
             pass
 
     supported_call_patterns = (
-        re.compile(r"\\bAchievementManager\\.(?:set_achievement|set_statistic|reset_statistics)\\s*\\(", re.IGNORECASE),
-        re.compile(r"\\bAchievementManager\\.statistics\\s*\\[", re.IGNORECASE),
+        re.compile(r"\bAchievementManager\.(?:set_achievement|set_statistic|reset_statistics)\s*\(", re.IGNORECASE),
+        re.compile(r"\bAchievementManager\.statistics\s*\[", re.IGNORECASE),
     )
     unsupported_tokens = (
         "AchievementBackend",
@@ -322,8 +322,8 @@ def remove_achievement_system(project: Path) -> dict:
             in_autoload = stripped.lower() == "[autoload]"
             autoload_found = autoload_found or in_autoload
         if in_autoload and (
-            re.match(r"(?i)^\\s*AchievementManager\\s*=", line)
-            or re.search(r"(?i)autoloads/achievement_manager\\.gd", line)
+            re.match(r"(?i)^\s*AchievementManager\s*=", line)
+            or re.search(r"(?i)autoloads/achievement_manager\.gd", line)
         ):
             autoload_removed = True
             continue
@@ -338,24 +338,24 @@ def remove_achievement_system(project: Path) -> dict:
             updated_lines.extend(["", "[autoload]", autoload_entry])
         manager_path.parent.mkdir(parents=True, exist_ok=True)
         manager_path.write_text(
-            "extends Node\\n"
-            "\\n"
-            "# Compatibility shim only. This local build has no achievement UI,\\n"
-            "# remote backend, unlocks or persistent achievement storage.\\n"
-            "var statistics: Dictionary = {\\n"
-            '\\t"ACH_08_STAT": 0,\\n'
-            '\\t"ACH_04_STAT": 0,\\n'
-            "}\\n"
-            "\\n"
-            "func set_achievement(_achievement_id: Variant) -> void:\\n"
-            "\\tpass\\n"
-            "\\n"
-            "func set_statistic(statistic_name: String, value: Variant) -> void:\\n"
-            "\\tstatistics[statistic_name] = value\\n"
-            "\\n"
-            "func reset_statistics() -> void:\\n"
-            "\\tfor key in statistics.keys():\\n"
-            "\\t\\tstatistics[key] = 0\\n",
+            "extends Node\n"
+            "\n"
+            "# Compatibility shim only. This local build has no achievement UI,\n"
+            "# remote backend, unlocks or persistent achievement storage.\n"
+            "var statistics: Dictionary = {\n"
+            '\t"ACH_08_STAT": 0,\n'
+            '\t"ACH_04_STAT": 0,\n'
+            "}\n"
+            "\n"
+            "func set_achievement(_achievement_id: Variant) -> void:\n"
+            "\tpass\n"
+            "\n"
+            "func set_statistic(statistic_name: String, value: Variant) -> void:\n"
+            "\tstatistics[statistic_name] = value\n"
+            "\n"
+            "func reset_statistics() -> void:\n"
+            "\tfor key in statistics.keys():\n"
+            "\t\tstatistics[key] = 0\n",
             encoding="utf-8",
         )
     else:
@@ -366,7 +366,7 @@ def remove_achievement_system(project: Path) -> dict:
             removed_files.append(manager_uid.relative_to(project).as_posix())
             manager_uid.unlink()
 
-    updated_config = "\\n".join(updated_lines).rstrip() + "\\n"
+    updated_config = "\n".join(updated_lines).rstrip() + "\n"
     original_config = config.read_text(encoding="utf-8", errors="replace")
     if updated_config != original_config:
         config.write_text(updated_config, encoding="utf-8")
@@ -379,6 +379,7 @@ def remove_achievement_system(project: Path) -> dict:
         "achievement_files_removed": sorted(removed_files),
         "remaining_references": [],
     }
+
 
 def _remove_unreferenced_remote_code(project: Path) -> list[str]:
     candidates = [

@@ -105,24 +105,24 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             root = Path(tmp)
             config = root / "project.godot"
             config.write_text(
-                '[autoload]\\nAchievementManager="*res://autoloads/achievement_manager.gd"\\n'
-                '[application]\\nconfig/name="Machine Party"\\n',
+                '[autoload]\nAchievementManager="*res://autoloads/achievement_manager.gd"\n'
+                '[application]\nconfig/name="Machine Party"\n',
                 encoding="utf-8",
             )
             manager = root / "autoloads/achievement_manager.gd"
             manager.parent.mkdir(parents=True)
-            manager.write_text("extends Node\\n", encoding="utf-8")
+            manager.write_text("extends Node\n", encoding="utf-8")
             backend = root / "modules/achievements/achievement_backend_steam.gd"
             backend.parent.mkdir(parents=True)
-            backend.write_text("extends RefCounted\\n", encoding="utf-8")
+            backend.write_text("extends RefCounted\n", encoding="utf-8")
             player = root / "minigames/test/player.gd"
             player.parent.mkdir(parents=True)
             player.write_text(
-                'AchievementManager.set_achievement("ACH_07")\\n'
-                'AchievementManager.set_statistic(\\n'
-                '    "ACH_08_STAT", AchievementManager.statistics["ACH_08_STAT"] + 1\\n'
-                ')\\n'
-                'AchievementManager.reset_statistics()\\n',
+                'AchievementManager.set_achievement("ACH_07")\n'
+                'AchievementManager.set_statistic(\n'
+                '    "ACH_08_STAT", AchievementManager.statistics["ACH_08_STAT"] + 1\n'
+                ')\n'
+                'AchievementManager.reset_statistics()\n',
                 encoding="utf-8",
             )
 
