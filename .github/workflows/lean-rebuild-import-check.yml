@@ -1,4 +1,4 @@
-name: Lean Machine Party clean import validation
+name: Lean Machine Party clean import validation (audio fix)
 
 on:
   push:
