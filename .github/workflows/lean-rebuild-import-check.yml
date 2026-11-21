@@ -73,9 +73,109 @@ jobs:
           set -euo pipefail
           python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py
           python3 rebuild-tools/tools/apply_lean_mobile_lan.py "$PWD/project-source"
-          echo "Clean project now includes mobile controls and LAN host discovery."
+          if grep -R -n -E '^ssao_enabled = true
 
-      - name: Compress audio losslessly to a safe quality target where smaller
+      - name: Reduce audio size and normalize Vorbis metadata
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_optimize_audio_assets.py
+          python3 rebuild-tools/tools/optimize_audio_assets.py "$PWD/project-source" --quality 4.0
+          cp project-source/lean_audio_optimization.csv .
+          echo "Audio optimization completed on a disposable source copy; original recovery artifact remains unchanged."
+
+      - name: Audit assets and scene references
+        run: |
+          set -euo pipefail
+          python3 rebuild-tools/tools/audit_rebuild_assets.py "$PWD/project-source" --top 120
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, json
+          root=Path("project-source")
+          missing=[]
+          for f in list(root.rglob("*.tscn"))+list(root.rglob("*.tres")):
+              s=f.read_text(encoding="utf-8",errors="replace")
+              for p in re.findall(r'path="res://([^"]+)"',s):
+                  if not (root/p).exists(): missing.append((str(f),p))
+          globals_text=(root/"autoloads/globals.gd").read_text()
+          scenes=re.findall(r'MinigameIdentifier\.\w+:\s*"res://([^"]+\.tscn)"',globals_text)
+          absent=[p for p in scenes if not (root/p).exists()]
+          report={"missing_scene_ext_resources":missing,"minigame_scene_paths":len(scenes),"missing_minigame_scenes":absent}
+          Path("reference-check.json").write_text(json.dumps(report,indent=2))
+          print(json.dumps({"missing_scene_ext_resources":len(missing),"minigame_scene_paths":len(scenes),"missing_minigame_scenes":absent},indent=2))
+          if missing or absent: raise SystemExit(1)
+          PY
+          cp project-source/asset_inventory_summary.md .
+          cp project-source/asset_inventory.csv .
+
+      - name: Install Godot 4.5.2 headless editor
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip" -o godot.zip
+          unzip -q godot.zip -d godot-bin
+          GODOT_BIN="$(find godot-bin -type f -name 'Godot_*_linux.x86_64' | head -n1)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "$GODOT_BIN" > godot-bin-path
+
+      - name: Clean Godot 4.5.2 import
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat godot-bin-path)"
+          mkdir -p logs
+          "$GODOT_BIN" --headless --editor --path "$PWD/project-source" --quit 2>&1 | tee logs/godot-import.log
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/godot-import.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/import-errors.txt || true
+          echo "Import error lines: $(wc -l < logs/import-errors.txt)"
+          test ! -s logs/import-errors.txt
+
+      - name: Boot main scene headlessly
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat godot-bin-path)"
+          timeout 120 "$GODOT_BIN" --headless --path "$PWD/project-source" --quit-after 90 2>&1 | tee logs/main-scene-boot.log
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/main-scene-boot.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/boot-errors.txt || true
+          echo "Boot error lines: $(wc -l < logs/boot-errors.txt)"
+          test ! -s logs/boot-errors.txt
+
+      - name: Load all registered minigame scenes headlessly
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat godot-bin-path)"
+          timeout 180 "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project-source" --script "$PWD/rebuild-tools/tools/smoke_test_rebuild_minigame_scenes.gd" 2>&1 | tee logs/minigame-scenes.log
+          grep -q "MINIGAME_SCENE_LOAD_PASS" logs/minigame-scenes.log
+          if grep -Fq "Invalid comment in Ogg Vorbis file" logs/godot-import.log logs/main-scene-boot.log logs/minigame-scenes.log; then
+            echo "Malformed Vorbis metadata warning remains."
+            grep -Fn "Invalid comment in Ogg Vorbis file" logs/godot-import.log logs/main-scene-boot.log logs/minigame-scenes.log
+            exit 1
+          fi
+          if grep -Fq "SSAO can only be enabled when using the Forward+ renderer" logs/minigame-scenes.log; then
+            echo "Unsupported SSAO warning remains."
+            exit 1
+          fi
+          if grep -Eiq "SCRIPT ERROR:|Parse Error:|MINIGAME_SCENE_LOAD_FAILED" logs/minigame-scenes.log; then
+            grep -Ein "SCRIPT ERROR:|Parse Error:|MINIGAME_SCENE_LOAD_FAILED" logs/minigame-scenes.log
+            exit 1
+          fi
+
+      - name: Upload clean import audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-lean-clean-import-audit
+          path: |
+            asset_inventory_summary.md
+            asset_inventory.csv
+            reference-check.json
+            logs/
+          retention-days: 30
+ "$PWD/project-source" --include='*.tscn' --include='*.tres'; then
+            echo "Unsupported SSAO flag remains in Android Compatibility project."
+            exit 1
+          fi
+          echo "Clean project now includes mobile controls, LAN host discovery and compatible scene environments."
+
+      - name: Reduce audio size and normalize Vorbis metadata
         run: |
           set -euo pipefail
           sudo apt-get update -qq
