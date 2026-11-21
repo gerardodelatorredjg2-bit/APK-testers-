@@ -1,9 +1,11 @@
 import struct
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from tools.optimize_audio_assets import has_invalid_vorbis_comments
+from tools.optimize_audio_assets import has_invalid_vorbis_comments, run_ffmpeg
 
 def ogg_page(packet: bytes, sequence: int) -> bytes:
     segments = [255] * (len(packet) // 255)
@@ -45,6 +47,31 @@ class VorbisCommentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = self.write_fake_ogg(Path(folder), [])
             self.assertFalse(has_invalid_vorbis_comments(path))
+
+
+class FFmpegProgressTests(unittest.TestCase):
+    def test_ffmpeg_receives_hard_timeout(self):
+        completed = subprocess.CompletedProcess(args=["ffmpeg"], returncode=0, stdout="", stderr="")
+        with patch("tools.optimize_audio_assets.subprocess.run", return_value=completed) as mocked:
+            ok, detail = run_ffmpeg(
+                "ffmpeg", ["-i", "input.ogg", "output.ogg"],
+                timeout_seconds=7, heartbeat_interval_seconds=60,
+            )
+        self.assertTrue(ok)
+        self.assertEqual(detail, "")
+        self.assertEqual(mocked.call_args.kwargs["timeout"], 7)
+
+    def test_timeout_is_reported_without_crashing_optimizer(self):
+        with patch(
+            "tools.optimize_audio_assets.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="ffmpeg", timeout=1),
+        ):
+            ok, detail = run_ffmpeg(
+                "ffmpeg", ["-i", "input.ogg", "output.ogg"],
+                timeout_seconds=1, heartbeat_interval_seconds=60,
+            )
+        self.assertFalse(ok)
+        self.assertIn("timeout_after_1s", detail)
 
 if __name__ == "__main__":
     unittest.main()

@@ -72,11 +72,15 @@ jobs:
       - name: Optimize audio size and repair malformed Vorbis tags
         run: |
           set -euo pipefail
+          echo "[AUDIO] Installing FFmpeg and image tools..."
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg optipng jpegoptim
+          echo "[AUDIO] Installing glTF optimizer..."
           npm install --global @gltf-transform/cli@4.5.1
-          PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_optimize_audio_assets.py
-          python3 rebuild-tools/tools/optimize_audio_assets.py "$PWD/project" --quality 4.0
+          echo "[AUDIO] Running optimizer unit tests..."
+          PYTHONPATH="$PWD/rebuild-tools" python3 -u -m unittest -v rebuild-tools/tools/test_optimize_audio_assets.py
+          echo "[AUDIO] Starting OGG processing (180s hard timeout per FFmpeg operation)..."
+          python3 -u rebuild-tools/tools/optimize_audio_assets.py "$PWD/project" --quality 4.0 --ffmpeg-timeout 180
           cp project/lean_audio_optimization.csv audio-optimization.csv
           PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_prepare_local_only_project.py
           python3 -m py_compile rebuild-tools/tools/prepare_local_only_project.py rebuild-tools/tools/test_prepare_local_only_project.py

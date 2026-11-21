@@ -12,6 +12,8 @@ import os
 import shutil
 import struct
 import subprocess
+import threading
+import time
 from pathlib import Path
 
 def has_invalid_vorbis_comments(path: Path) -> bool:
@@ -67,17 +69,78 @@ def has_invalid_vorbis_comments(path: Path) -> bool:
         return False
     return False
 
-def run_ffmpeg(ffmpeg: str, args: list[str]) -> tuple[bool, str]:
-    result = subprocess.run(
-        [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    detail = (result.stderr or "").strip().replace("\n", " ")[:300]
-    return result.returncode == 0, detail
+DEFAULT_FFMPEG_TIMEOUT_SECONDS = 180
+DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15
 
-def optimize_audio(project: Path, quality: float = 4.0, min_bytes: int = 262144) -> dict:
+def run_ffmpeg(
+    ffmpeg: str,
+    args: list[str],
+    *,
+    timeout_seconds: int = DEFAULT_FFMPEG_TIMEOUT_SECONDS,
+    heartbeat_interval_seconds: int = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
+) -> tuple[bool, str]:
+    """Run FFmpeg with visible heartbeats and a hard per-file timeout."""
+    output_name = Path(args[-1]).name if args else "audio"
+    operation = "remux" if "copy" in args else "encode"
+    command = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *args]
+    print(
+        f"[AUDIO] FFmpeg {operation} started: {output_name} "
+        f"(timeout {timeout_seconds}s)",
+        flush=True,
+    )
+    stopped = threading.Event()
+
+    def heartbeat() -> None:
+        elapsed = 0
+        while not stopped.wait(heartbeat_interval_seconds):
+            elapsed += heartbeat_interval_seconds
+            print(
+                f"[AUDIO] Still processing {output_name}: {elapsed}s elapsed",
+                flush=True,
+            )
+
+    reporter = threading.Thread(target=heartbeat, daemon=True)
+    reporter.start()
+    started = time.monotonic()
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+        elapsed = time.monotonic() - started
+        detail = (result.stderr or "").strip().replace("\n", " ")[:300]
+        print(
+            f"[AUDIO] FFmpeg {operation} {'OK' if result.returncode == 0 else 'FAILED'}: "
+            f"{output_name} ({elapsed:.1f}s)",
+            flush=True,
+        )
+        return result.returncode == 0, detail
+    except subprocess.TimeoutExpired as exc:
+        elapsed = time.monotonic() - started
+        stderr = exc.stderr or ""
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        detail = str(stderr).strip().replace("\n", " ")[:200]
+        print(
+            f"[AUDIO] TIMEOUT after {elapsed:.1f}s on {output_name}; "
+            "keeping the original audio and continuing.",
+            flush=True,
+        )
+        return False, f"timeout_after_{timeout_seconds}s: {detail}"
+    finally:
+        stopped.set()
+        reporter.join(timeout=1)
+
+
+def optimize_audio(
+    project: Path,
+    quality: float = 4.0,
+    min_bytes: int = 262144,
+    ffmpeg_timeout_seconds: int = DEFAULT_FFMPEG_TIMEOUT_SECONDS,
+) -> dict:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg was not found; install it before audio optimization.")
@@ -89,11 +152,24 @@ def optimize_audio(project: Path, quality: float = 4.0, min_bytes: int = 262144)
     before_total = after_total = saved_total = 0
     repaired_comments = 0
     encode_savings = 0
+    sources = [
+        source for source in sorted(project.rglob("*.ogg"))
+        if ".godot" not in source.relative_to(project).parts
+    ]
+    total_bytes = sum(source.stat().st_size for source in sources)
+    print(
+        f"[AUDIO] Found {len(sources)} OGG tracks "
+        f"({total_bytes / 1048576:.1f} MiB total). Starting optimization.",
+        flush=True,
+    )
 
-    for source in sorted(project.rglob("*.ogg")):
-        if ".godot" in source.relative_to(project).parts:
-            continue
+    for index, source in enumerate(sources, start=1):
         original_bytes = source.stat().st_size
+        print(
+            f"[AUDIO] [{index}/{len(sources)}] {source.relative_to(project).as_posix()} "
+            f"({original_bytes / 1048576:.2f} MiB)",
+            flush=True,
+        )
         before_total += original_bytes
         current_bytes = original_bytes
         comment_status = "valid"
@@ -106,7 +182,7 @@ def optimize_audio(project: Path, quality: float = 4.0, min_bytes: int = 262144)
                 remux_ok, detail = run_ffmpeg(ffmpeg, [
                     "-i", str(source), "-map", "0:a:0", "-map_metadata", "-1",
                     "-vn", "-c:a", "copy", "-f", "ogg", str(temp_remux),
-                ])
+                ], timeout_seconds=ffmpeg_timeout_seconds)
                 if remux_ok and temp_remux.is_file() and temp_remux.stat().st_size > 0:
                     os.replace(temp_remux, source)
                     current_bytes = source.stat().st_size
@@ -122,7 +198,7 @@ def optimize_audio(project: Path, quality: float = 4.0, min_bytes: int = 262144)
                     "-i", str(source), "-map", "0:a:0", "-map_metadata", "-1",
                     "-vn", "-c:a", "libvorbis", "-q:a", str(quality),
                     str(temp_encode),
-                ])
+                ], timeout_seconds=ffmpeg_timeout_seconds)
                 if not encode_ok or not temp_encode.is_file() or temp_encode.stat().st_size <= 0:
                     if temp_encode.exists():
                         temp_encode.unlink()
@@ -147,6 +223,11 @@ def optimize_audio(project: Path, quality: float = 4.0, min_bytes: int = 262144)
             raise
 
         after_total += current_bytes
+        print(
+            f"[AUDIO] [{index}/{len(sources)}] done; "
+            f"{encode_status}; saved {(original_bytes - current_bytes) / 1048576:.2f} MiB",
+            flush=True,
+        )
         rows.append((
             source.relative_to(project).as_posix(),
             original_bytes,
@@ -197,10 +278,21 @@ def main() -> None:
     parser.add_argument("project", type=Path)
     parser.add_argument("--quality", type=float, default=4.0)
     parser.add_argument("--min-bytes", type=int, default=262144)
+    parser.add_argument(
+        "--ffmpeg-timeout", type=int, default=DEFAULT_FFMPEG_TIMEOUT_SECONDS,
+        help="Maximum seconds per FFmpeg operation (default: 180).",
+    )
     args = parser.parse_args()
     if not -1.0 <= args.quality <= 10.0:
         raise SystemExit("--quality must be from -1.0 to 10.0")
-    optimize_audio(args.project, quality=args.quality, min_bytes=args.min_bytes)
+    if args.ffmpeg_timeout < 1:
+        raise SystemExit("--ffmpeg-timeout must be at least 1 second")
+    optimize_audio(
+        args.project,
+        quality=args.quality,
+        min_bytes=args.min_bytes,
+        ffmpeg_timeout_seconds=args.ffmpeg_timeout,
+    )
 
 if __name__ == "__main__":
     main()
