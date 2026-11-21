@@ -40,6 +40,7 @@ jobs:
           ls -lh downloaded/recovered-gameplay-source.zip
 
       - name: Upload focused gameplay source
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: recovered-gameplay-source-review
@@ -47,4 +48,4 @@ jobs:
             downloaded/recovered-gameplay-source.zip
             downloaded/recovered-minigame-audit.txt
           compression-level: 0
-          retention-days: 3
+          retention-days: 14
