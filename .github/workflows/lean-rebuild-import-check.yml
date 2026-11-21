@@ -64,6 +64,13 @@ jobs:
           python3 rebuild-tools/tools/prepare_lean_project.py "$PWD/project-source"
           echo "Prepared project copy for the first Android-compatible import."
 
+      - name: Install lean mobile UI and Wi-Fi LAN features
+        run: |
+          set -euo pipefail
+          python3 -m py_compile rebuild-tools/tools/prepare_lean_project.py rebuild-tools/tools/apply_lean_mobile_lan.py
+          python3 rebuild-tools/tools/apply_lean_mobile_lan.py "$PWD/project-source"
+          echo "Clean project now includes mobile controls and LAN host discovery."
+
       - name: Audit assets and scene references
         run: |
           set -euo pipefail
