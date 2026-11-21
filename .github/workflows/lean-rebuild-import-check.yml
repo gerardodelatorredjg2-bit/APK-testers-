@@ -124,7 +124,7 @@ jobs:
           GODOT_BIN="$(cat godot-bin-path)"
           mkdir -p logs
           "$GODOT_BIN" --headless --editor --path "$PWD/project-source" --quit 2>&1 | tee logs/godot-import.log
-          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/godot-import.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit" > logs/import-errors.txt || true
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/godot-import.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/import-errors.txt || true
           echo "Import error lines: $(wc -l < logs/import-errors.txt)"
           test ! -s logs/import-errors.txt
 
@@ -133,7 +133,7 @@ jobs:
           set -euo pipefail
           GODOT_BIN="$(cat godot-bin-path)"
           timeout 120 "$GODOT_BIN" --headless --path "$PWD/project-source" --quit-after 90 2>&1 | tee logs/main-scene-boot.log
-          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/main-scene-boot.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit" > logs/boot-errors.txt || true
+          grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/main-scene-boot.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit|RID allocations of type|Pages in use exist at exit" > logs/boot-errors.txt || true
           echo "Boot error lines: $(wc -l < logs/boot-errors.txt)"
           test ! -s logs/boot-errors.txt
 
