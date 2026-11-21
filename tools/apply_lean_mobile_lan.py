@@ -5,6 +5,7 @@ Does not remove game content. The source recovery archive remains untouched.
 """
 from __future__ import annotations
 import argparse
+import re
 from pathlib import Path
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:
@@ -638,7 +639,7 @@ func _show_lan_address_banner() -> void:
         if ".godot" in scene_or_environment.relative_to(project).parts:
             continue
         source_text = scene_or_environment.read_text(encoding="utf-8", errors="replace")
-        compatible_text, replacements = __import__("re").subn(
+        compatible_text, replacements = re.subn(
             r"(?m)^ssao_enabled = true$",
             "ssao_enabled = false",
             source_text,
