@@ -24,7 +24,7 @@ jobs:
           curl -fL --retry 3 \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/\${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" \
             -o recovery-artifact.zip
           unzip -tq recovery-artifact.zip
           echo "Recovery archive size: $(du -h recovery-artifact.zip | cut -f1)"
