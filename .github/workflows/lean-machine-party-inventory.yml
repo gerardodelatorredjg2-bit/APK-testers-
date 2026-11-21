@@ -1,0 +1,62 @@
+name: Lean Machine Party source inventory
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lean-machine-party-rebuild
+      - name: Download original recovered project artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p source-download unpack
+          gh run download 44350091150 --repo "$GH_REPO" --name machine-party-recovery --dir source-download
+          find source-download -type f -maxdepth 5 -printf '%p (%s bytes)\n' | tee artifact-list.txt
+      - name: Find and extract Godot source
+        run: |
+          set -euo pipefail
+          find source-download -type f -name 'machine-party-recovered-project.zip' -print -quit > nested-zip.txt
+          nested="$(cat nested-zip.txt)"
+          if [ -n "$nested" ]; then
+            unzip -t "$nested" >/dev/null
+            unzip -q "$nested" -d unpack
+          else
+            find source-download -type f -name project.godot -print -quit > project-path.txt
+            project_file="$(cat project-path.txt)"
+            test -n "$project_file"
+            project_root="$(dirname "$project_file")"
+            cp -a "$project_root" unpack/recovered
+          fi
+          project_file="$(find unpack -type f -name project.godot -print -quit)"
+          test -n "$project_file"
+          echo "PROJECT_DIR=$(dirname "$project_file")" >> "$GITHUB_ENV"
+          echo "Recovered project root: $(dirname "$project_file")"
+          find unpack -type f | wc -l | tee source-file-count.txt
+          du -sh unpack | tee source-size.txt
+      - name: Audit resource sizes and exact duplicates
+        run: |
+          set -euo pipefail
+          python3 tools/audit_rebuild_assets.py "$PROJECT_DIR" --top 120
+          cp "$PROJECT_DIR/asset_inventory.csv" .
+          cp "$PROJECT_DIR/asset_inventory_summary.md" .
+          echo "Inventory reports generated."
+      - name: Upload baseline inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-rebuild-baseline
+          path: |
+            asset_inventory.csv
+            asset_inventory_summary.md
+            artifact-list.txt
+            source-file-count.txt
+            source-size.txt
+          retention-days: 30
