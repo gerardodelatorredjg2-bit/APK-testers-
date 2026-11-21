@@ -43,6 +43,11 @@ jobs:
           unzip -tq project-source.zip
           unzip -q project-source.zip -d project
           test -s project/project.godot
+          SAMPLE_GLB="$(find project -type f -iname 'duck hunt hunter armature1.glb' -print -quit)"
+          test -n "$SAMPLE_GLB"
+          mkdir -p model-sample
+          cp "$SAMPLE_GLB" model-sample/Duck-Hunt-Hunter.glb
+          test -s model-sample/Duck-Hunt-Hunter.glb
           rm -rf project/.godot recovered_parts recovered_manifest
           rm -f recovery-artifact.zip project-source.zip
           echo "Recovered project: $(du -sh project | cut -f1), $(find project -type f | wc -l) files"
@@ -145,7 +150,7 @@ jobs:
           advanced_options=false
           dedicated_server=false
           custom_features=""
-          export_filter="resources"
+          export_filter="all_resources"
           include_filter=""
           exclude_filter=""
           export_path="build/MachineParty-Lean-Android.apk"
@@ -175,6 +180,7 @@ jobs:
           permissions/internet=true
           screen/immersive_mode=true
           EOF
+          grep -Fqx 'export_filter="all_resources"' project/export_presets.cfg
           grep -Fqx 'renderer/rendering_method.mobile="gl_compatibility"' project/project.godot
           grep -Fqx 'textures/vram_compression/import_etc2_astc=true' project/project.godot
 
@@ -298,6 +304,7 @@ jobs:
           name: machine-party-lean-android-apk
           path: |
             project/build/MachineParty-Lean-Android.apk
+            model-sample/Duck-Hunt-Hunter.glb
             audio-optimization.csv
             logs/
           retention-days: 30
