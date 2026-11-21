@@ -617,6 +617,18 @@ backend_text = backend_text.replace(
 )
 backend_file.write_text(backend_text, encoding="utf-8")
 
+# Stop the UDP responder when the LAN backend is removed from the scene tree.
+# This complements the inherited multiplayer cleanup and prevents stale host adverts.
+backend_text = backend_file.read_text(encoding="utf-8")
+if "func _exit_tree() -> void:" not in backend_text:
+    backend_text = backend_text.rstrip() + '''
+
+func _exit_tree() -> void:
+	if lan_discovery:
+		lan_discovery.stop_host()
+'''
+    backend_file.write_text(backend_text, encoding="utf-8")
+
 # Put LAN HOST/JOIN inside LOCAL; retain the existing local-play modes below them.
 main_menu_path = "scenes/main_menu/scripts/main_menu.gd"
 main_menu_text = (root / main_menu_path).read_text(encoding="utf-8")
