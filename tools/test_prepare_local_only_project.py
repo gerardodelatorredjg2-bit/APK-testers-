@@ -11,6 +11,7 @@ from tools.prepare_local_only_project import (
     remove_steam_autoloads,
     remove_steam_native_files,
     remove_steam_initialization,
+    remove_steam_menu_join_detection,
     _resource_referenced_elsewhere,
     _remove_remote_backend_cases,
     _remove_unreferenced_remote_code,
@@ -190,6 +191,35 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             self.assertNotIn("Steamworks", bootstrap_script.read_text(encoding="utf-8"))
             self.assertIn("load_preferences()", globals_script.read_text(encoding="utf-8"))
             self.assertIn("start_game()", bootstrap_script.read_text(encoding="utf-8"))
+
+    def test_steam_menu_join_detection_is_removed_but_lan_and_direct_join_are_kept(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            menu = root / "scenes/main_menu/scripts/main_menu.gd"
+            menu.parent.mkdir(parents=True)
+            menu.write_text(
+                "func join_from_clipboard() -> void:\\n"
+                "\\tvar is_direct: bool = clipboard.count(\":\") == 1\\n"
+                "\\tif is_direct:\\n"
+                "\\t\\tvalidate_ip_and_port()\\n"
+                "\\tvar is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18\\n"
+                "\\n"
+                "\\tif not is_direct and not is_steam_code and clipboard.length() != 6:\\n"
+                "\\t\\tshow_invalid_code()\\n"
+                "\\tjoin_lan_lobby(clipboard)\\n",
+                encoding="utf-8",
+            )
+
+            report = remove_steam_menu_join_detection(root)
+
+            source = menu.read_text(encoding="utf-8")
+            self.assertEqual(report["steam_menu_code_checks_removed"], 1)
+            self.assertTrue(report["lan_room_code_validation_preserved"])
+            self.assertNotIn("Steamworks", source)
+            self.assertNotIn("is_steam_code", source)
+            self.assertIn("if not is_direct and clipboard.length() != 6:", source)
+            self.assertIn("validate_ip_and_port()", source)
+            self.assertIn("join_lan_lobby(clipboard)", source)
 
     def test_steam_autoload_removed_and_global_class_ref_is_respected(self):
         with tempfile.TemporaryDirectory() as tmp:

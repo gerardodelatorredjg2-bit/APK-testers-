@@ -199,6 +199,35 @@ def remove_steam_initialization(project: Path) -> dict:
     return {"steam_startup_calls_removed": removed, "remaining_startup_references": unresolved}
 
 
+
+def remove_steam_menu_join_detection(project: Path) -> dict:
+    """Remove the obsolete Steam room-code check while keeping LAN join options."""
+    path = project / "scenes/main_menu/scripts/main_menu.gd"
+    if not path.is_file():
+        raise FileNotFoundError(f"Main menu script not found: {path}")
+    source = path.read_text(encoding="utf-8", errors="replace")
+    obsolete = (
+        "\t\tvar is_steam_code: bool = Steamworks.is_initialized and clipboard.is_valid_int() and clipboard.length() == 18\\n"
+        "\\n"
+        "\t\tif not is_direct and not is_steam_code and clipboard.length() != 6:"
+    )
+    replacement = (
+        "\t\t# Local build accepts LAN room codes and direct IP:PORT only.\\n"
+        "\t\tif not is_direct and clipboard.length() != 6:"
+    )
+    if obsolete in source:
+        source = source.replace(obsolete, replacement, 1)
+        path.write_text(source, encoding="utf-8")
+        removed = 1
+    else:
+        removed = 0
+    if "Steamworks" in source or "is_steam_code" in source:
+        raise RuntimeError("Unexpected Steamworks room-code reference remains in main_menu.gd")
+    if "if not is_direct and clipboard.length() != 6:" not in source:
+        raise RuntimeError("LAN/direct-address join validation was not preserved")
+    return {"steam_menu_code_checks_removed": removed, "lan_room_code_validation_preserved": True}
+
+
 def _remove_remote_backend_cases(source: str) -> str:
     lines = source.splitlines(keepends=True)
     output = []
@@ -830,6 +859,7 @@ def main() -> None:
     }
     steam = remove_steam_native_files(project)
     steam_startup = remove_steam_initialization(project)
+    steam_menu = remove_steam_menu_join_detection(project)
     achievements = remove_achievement_system(project)
     local = force_lan_only(project)
     images = optimize_images(project)
@@ -840,6 +870,7 @@ def main() -> None:
         "music": music,
         "steam": steam,
         "steam_startup": steam_startup,
+        "steam_menu": steam_menu,
         "achievements": achievements,
         "network": local,
         "images": images,
@@ -861,6 +892,7 @@ def main() -> None:
     print("Music: original soundtrack retained; no music tracks silenced.")
     print(f"Steam native components removed: {steam['steam_native_files_removed']} files, {steam['steam_bytes_removed'] / 1048576:.2f} MiB.")
     print(f"Steam startup calls removed: {len(steam_startup['steam_startup_calls_removed'])}.")
+    print(f"Obsolete Steam menu checks removed: {steam_menu['steam_menu_code_checks_removed']}.")
     print(f"Unused achievement subsystem removed: {len(achievements['achievement_files_removed'])} files; no game achievements added.")
     print(f"Images: {images['image_files_processed']} processed; saved {images['image_saved_bytes'] / 1048576:.2f} MiB.")
     print(f"GLB: {glbs['glb_files_seen']} inspected, {glbs['glb_files_optimized']} losslessly optimized; saved {glbs['glb_saved_bytes'] / 1048576:.2f} MiB.")
