@@ -144,6 +144,10 @@ jobs:
           GODOT_BIN="$(cat godot-bin-path)"
           timeout 180 "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project-source" --script "$PWD/rebuild-tools/tools/smoke_test_rebuild_minigame_scenes.gd" 2>&1 | tee logs/minigame-scenes.log
           grep -q "MINIGAME_SCENE_LOAD_PASS" logs/minigame-scenes.log
+          if grep -Fq "Nodes with non-equal opposite anchors" logs/main-scene-boot.log; then
+            echo "Unfixed Control anchor/size warning remains in main menu."
+            exit 1
+          fi
           if grep -Fq "Invalid comment in Ogg Vorbis file" logs/godot-import.log logs/main-scene-boot.log logs/minigame-scenes.log; then
             echo "Malformed Vorbis metadata warning remains."
             grep -Fn "Invalid comment in Ogg Vorbis file" logs/godot-import.log logs/main-scene-boot.log logs/minigame-scenes.log
