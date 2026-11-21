@@ -428,7 +428,6 @@ jobs:
           grep -q 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
           export GODOT_SILENCE_ROOT_WARNING=1
           if ! timeout 30m "$GODOT_BIN" --headless \
-            --rendering-method gl_compatibility --rendering-driver opengl3 --disable-vsync \
             --audio-driver Dummy --path "$PROJECT" --verbose \
             --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/build/MachineParty-LAN-universal.apk" \
             2>&1 | tee build/android-export.log; then
