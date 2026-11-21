@@ -192,7 +192,7 @@ def _remove_remote_backend_cases(source: str) -> str:
 
 def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded: set[str]) -> bool:
     rel = relative_path.as_posix()
-    tokens = {rel, "res://" + rel}
+    tokens = {rel, "res://" + rel, relative_path.stem}
     uid_file = project / (rel + ".uid")
     if uid_file.is_file():
         uid = uid_file.read_text(encoding="utf-8", errors="replace").strip()
