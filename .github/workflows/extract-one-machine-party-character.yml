@@ -1,0 +1,153 @@
+name: Extract one original Machine Party character model
+
+on:
+  push:
+    branches: ["optimization/**"]
+    paths:
+      - ".github/workflows/extract-one-machine-party-character.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract-character:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Download the existing recovery artifact (read-only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14449215398/zip" \
+            -o recovery-artifact.zip
+          unzip -tq recovery-artifact.zip
+          echo "Recovery archive size: $(du -h recovery-artifact.zip | cut -f1)"
+
+      - name: Extract the recovered Godot project
+        run: |
+          set -euo pipefail
+          inner="$(unzip -Z1 recovery-artifact.zip | grep -E '(^|/)machine-party-recovered-project[.]zip$' | head -n1)"
+          test -n "$inner"
+          unzip -p recovery-artifact.zip "$inner" > project-source.zip
+          unzip -tq project-source.zip
+          mkdir project
+          unzip -q project-source.zip -d project
+          test -s project/project.godot
+          echo "Project extracted: $(du -sh project | cut -f1)"
+
+      - name: Select a character model from the actual game assets
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, shutil
+
+          root = Path("project")
+          glbs = sorted(root.rglob("*.glb"))
+          if not glbs:
+              glbs = sorted(root.rglob("*.GLB"))
+          if not glbs:
+              raise SystemExit("No GLB model was found in the recovered Machine Party project.")
+
+          hints = {
+              "player": 140, "character": 120, "avatar": 115,
+              "humanoid": 105, "human": 95, "worker": 90,
+              "npc": 80, "person": 80, "citizen": 75,
+              "body": 55, "default": 40, "base": 35,
+              "rig": 25, "skeleton": 25
+          }
+          avoid = {
+              "level": 45, "environment": 45, "map": 35,
+              "floor": 30, "wall": 30, "building": 25,
+              "prop": 20, "weapon": 20, "vehicle": 20
+          }
+          ref_re = re.compile(r'res://([^"\s<>]+?\.glb)', re.IGNORECASE)
+          records = {str(p.relative_to(root)): {"path": p, "score": 0, "refs": 0, "why": []} for p in glbs}
+          for rel, rec in records.items():
+              low = rel.lower()
+              if "first person" in low or "first_person" in low:
+                  rec["score"] -= 150
+                  rec["why"].append("exclude:first-person-arms-rig")
+              if "third person" in low or "third_person" in low:
+                  rec["score"] += 125
+                  rec["why"].append("prefer:third-person-character")
+              for word, pts in hints.items():
+                  if word == "player":
+                      matched = bool(re.search(r"(^|[/ _-])player($|[/ _-])", low))
+                  else:
+                      matched = word in low
+                  if matched:
+                      rec["score"] += pts
+                      rec["why"].append(f"name:{word}")
+              for word, pts in avoid.items():
+                  if word in low:
+                      rec["score"] -= pts
+              if "first person" in low or "first_person" in low:
+                  rec["score"] -= 150
+                  rec["why"].append("exclude:first-person-arms-rig")
+              if "third person" in low or "third_person" in low:
+                  rec["score"] += 125
+                  rec["why"].append("prefer:third-person-character")
+              size = rec["path"].stat().st_size
+              rec["score"] += max(0, 18 - min(18, size // (1024 * 1024) * 2))
+
+          for scene in root.rglob("*.tscn"):
+              try:
+                  txt = scene.read_text(errors="ignore")
+              except OSError:
+                  continue
+              scene_low = str(scene.relative_to(root)).lower()
+              scene_is_character = any(w in scene_low for w in ("player", "character", "avatar", "lobby", "multiplayer"))
+              for raw in ref_re.findall(txt):
+                  key = raw.replace("\\", "/")
+                  if key not in records:
+                      continue
+                  rec = records[key]
+                  rec["refs"] += 1
+                  if scene_is_character:
+                      rec["score"] += 90
+                      rec["why"].append(f"scene:{scene.relative_to(root)}")
+                  else:
+                      rec["score"] += 2
+
+          ranked = sorted(records.values(), key=lambda r: (r["score"], r["refs"], -r["path"].stat().st_size), reverse=True)
+          best = ranked[0]
+          out = Path("out")
+          out.mkdir(exist_ok=True)
+          safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", best["path"].stem).strip("_") or "character"
+          target = out / f"MachineParty_{safe_name}.glb"
+          shutil.copy2(best["path"], target)
+
+          lines = [
+              "Source project: recovered Machine Party Godot project",
+              f"Extracted source path: {best['path']}",
+              f"Output file: {target}",
+              f"Size: {target.stat().st_size} bytes",
+              f"Character score: {best['score']}",
+              f"Scene references: {best['refs']}",
+              "Selection clues: " + (", ".join(best["why"][:8]) or "No semantic name match; highest-ranked referenced GLB"),
+              "",
+              "Top candidates:"
+          ]
+          for rec in ranked[:15]:
+              lines.append(f"{rec['path']} | score={rec['score']} | scene_refs={rec['refs']} | bytes={rec['path'].stat().st_size}")
+          (out / "EXTRACTION_INFO.txt").write_text("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          if target.stat().st_size < 20:
+              raise SystemExit("Selected GLB is unexpectedly small; refusing to upload.")
+          PY
+
+      - name: Upload the single extracted Machine Party model
+        uses: actions/upload-artifact@v4
+        with:
+          name: machine-party-one-character-glb
+          path: out/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
