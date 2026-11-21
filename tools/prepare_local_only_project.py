@@ -228,6 +228,39 @@ def remove_steam_menu_join_detection(project: Path) -> dict:
     return {"steam_menu_code_checks_removed": removed, "lan_room_code_validation_preserved": True}
 
 
+
+def fix_shape_cutter_pattern_points_reference(project: Path) -> dict:
+    """Use the current PatternMatcher constant name in Shape Cutter's debug script."""
+    path = project / "minigames/shape_cutter/scripts/shape_cutter_test.gd"
+    if not path.is_file():
+        raise FileNotFoundError(f"Shape Cutter debug script not found: {path}")
+    source = path.read_text(encoding="utf-8", errors="replace")
+    obsolete = "PatternMatcher.pattern_points"
+    current = "PatternMatcher.PatternPoints"
+    occurrences = source.count(obsolete)
+    if occurrences:
+        if occurrences != 1:
+            raise RuntimeError(
+                f"Expected one obsolete Shape Cutter pattern_points reference, found {occurrences}"
+            )
+        source = source.replace(obsolete, current, 1)
+        path.write_text(source, encoding="utf-8")
+        changed = 1
+    else:
+        changed = 0
+        if current not in source:
+            raise RuntimeError(
+                "Shape Cutter debug script does not contain the expected PatternMatcher.PatternPoints API"
+            )
+    if obsolete in source or current + "[pattern]" not in source:
+        raise RuntimeError("Shape Cutter PatternMatcher constant reference was not corrected")
+    if "PatternMatcher.pattern_scale" not in source:
+        raise RuntimeError("Shape Cutter pattern_scale reference unexpectedly changed or disappeared")
+    return {
+        "pattern_points_references_fixed": changed,
+        "current_pattern_matcher_api_verified": True,
+    }
+
 def _remove_remote_backend_cases(source: str) -> str:
     lines = source.splitlines(keepends=True)
     output = []
@@ -860,6 +893,7 @@ def main() -> None:
     steam = remove_steam_native_files(project)
     steam_startup = remove_steam_initialization(project)
     steam_menu = remove_steam_menu_join_detection(project)
+    shape_cutter = fix_shape_cutter_pattern_points_reference(project)
     achievements = remove_achievement_system(project)
     local = force_lan_only(project)
     images = optimize_images(project)
@@ -871,6 +905,7 @@ def main() -> None:
         "steam": steam,
         "steam_startup": steam_startup,
         "steam_menu": steam_menu,
+        "shape_cutter": shape_cutter,
         "achievements": achievements,
         "network": local,
         "images": images,
@@ -893,6 +928,7 @@ def main() -> None:
     print(f"Steam native components removed: {steam['steam_native_files_removed']} files, {steam['steam_bytes_removed'] / 1048576:.2f} MiB.")
     print(f"Steam startup calls removed: {len(steam_startup['steam_startup_calls_removed'])}.")
     print(f"Obsolete Steam menu checks removed: {steam_menu['steam_menu_code_checks_removed']}.")
+    print(f"Shape Cutter stale PatternMatcher references corrected: {shape_cutter['pattern_points_references_fixed']}.")
     print(f"Unused achievement subsystem removed: {len(achievements['achievement_files_removed'])} files; no game achievements added.")
     print(f"Images: {images['image_files_processed']} processed; saved {images['image_saved_bytes'] / 1048576:.2f} MiB.")
     print(f"GLB: {glbs['glb_files_seen']} inspected, {glbs['glb_files_optimized']} losslessly optimized; saved {glbs['glb_saved_bytes'] / 1048576:.2f} MiB.")

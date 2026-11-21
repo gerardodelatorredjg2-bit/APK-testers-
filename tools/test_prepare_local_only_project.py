@@ -12,6 +12,7 @@ from tools.prepare_local_only_project import (
     remove_steam_native_files,
     remove_steam_initialization,
     remove_steam_menu_join_detection,
+    fix_shape_cutter_pattern_points_reference,
     _resource_referenced_elsewhere,
     _remove_remote_backend_cases,
     _remove_unreferenced_remote_code,
@@ -191,6 +192,35 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             self.assertNotIn("Steamworks", bootstrap_script.read_text(encoding="utf-8"))
             self.assertIn("load_preferences()", globals_script.read_text(encoding="utf-8"))
             self.assertIn("start_game()", bootstrap_script.read_text(encoding="utf-8"))
+
+    def test_shape_cutter_uses_current_pattern_points_constant_without_changing_other_api(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            script = root / "minigames/shape_cutter/scripts/shape_cutter_test.gd"
+            script.parent.mkdir(parents=True)
+            original = (
+                "func draw_pattern_debug():\n"
+                "\tvar pattern_points = PatternMatcher.pattern_points[pattern]\n"
+                "\tif PatternMatcher.pattern_scale.has(pattern):\n"
+                "\t\tpattern_points = pattern_points.map(func(p):\n"
+                "\t\t\treturn p * PatternMatcher.pattern_scale[pattern]\n"
+                "\t\t)\n"
+            )
+            script.write_text(original, encoding="utf-8")
+
+            report = fix_shape_cutter_pattern_points_reference(root)
+
+            updated = script.read_text(encoding="utf-8")
+            self.assertEqual(report["pattern_points_references_fixed"], 1)
+            self.assertTrue(report["current_pattern_matcher_api_verified"])
+            self.assertIn("PatternMatcher.PatternPoints[pattern]", updated)
+            self.assertNotIn("PatternMatcher.pattern_points", updated)
+            self.assertIn("PatternMatcher.pattern_scale.has(pattern)", updated)
+            self.assertIn("PatternMatcher.pattern_scale[pattern]", updated)
+
+            second_report = fix_shape_cutter_pattern_points_reference(root)
+            self.assertEqual(second_report["pattern_points_references_fixed"], 0)
+            self.assertEqual(script.read_text(encoding="utf-8"), updated)
 
     def test_steam_menu_join_detection_is_removed_but_lan_and_direct_join_are_kept(self):
         with tempfile.TemporaryDirectory() as tmp:
