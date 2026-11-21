@@ -92,6 +92,33 @@ def silence_music(project: Path, ffmpeg: str) -> dict:
         "tracks": details,
     }
 
+def remove_steam_autoloads(project: Path) -> dict:
+    """Drop autoload registrations that exclusively load Steam integrations."""
+    config = project / "project.godot"
+    if not config.is_file():
+        return {"steam_autoloads_removed": []}
+    original = config.read_text(encoding="utf-8", errors="replace")
+    lines = original.splitlines(keepends=True)
+    kept = []
+    in_autoload = False
+    removed = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_autoload = stripped.lower() == "[autoload]"
+        if in_autoload and re.search(
+            r"(?i)(steamworks|godotsteam|steam-multiplayer-peer)", line
+        ):
+            name = line.split("=", 1)[0].strip()
+            removed.append(name or line.strip())
+            continue
+        kept.append(line)
+    updated = "".join(kept)
+    if updated != original:
+        config.write_text(updated, encoding="utf-8")
+    return {"steam_autoloads_removed": sorted(removed)}
+
+
 def remove_steam_native_files(project: Path) -> dict:
     removed_files = 0
     removed_bytes = 0
@@ -165,6 +192,18 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
         uid = uid_file.read_text(encoding="utf-8", errors="replace").strip()
         if uid.startswith("uid://"):
             tokens.add(uid)
+    target = project / rel
+    if target.is_file() and target.suffix.lower() == ".gd":
+        try:
+            target_source = target.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            target_source = ""
+        class_match = re.search(
+            r"(?m)^class_name\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            target_source,
+        )
+        if class_match:
+            tokens.add(class_match.group(1))
     for candidate in project.rglob("*"):
         if not candidate.is_file() or ".godot" in candidate.parts:
             continue
@@ -177,7 +216,7 @@ def _resource_referenced_elsewhere(project: Path, relative_path: Path, excluded:
             body = candidate.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if any(token in body for token in tokens):
+        if any(token.lower() in body.lower() for token in tokens):
             return True
     return False
 
@@ -274,6 +313,7 @@ def _remove_unreferenced_remote_code(project: Path) -> list[str]:
         "modules/multiplayer/backends/steam_backend.gd",
         "modules/multiplayer/backends/relay_backend.gd",
         "modules/multiplayer/backends/relay_multiplayer_peer.gd",
+        "modules/steamworks/steamworks.gd",
     ]
     candidate_set = set(candidates) | {p + ".uid" for p in candidates}
     removed = []
@@ -412,6 +452,7 @@ def force_lan_only(project: Path) -> dict:
 
     # Disable the obsolete remote join UI first, so it no longer keeps
     # Steam/relay backend scripts artificially referenced during cleanup.
+    steam_autoloads = remove_steam_autoloads(project)
     legacy_menu_disabled = _disable_legacy_online_menu(project)
     remote_code_removed = _remove_unreferenced_remote_code(project)
     manager_text = manager.read_text(encoding="utf-8")
@@ -419,6 +460,7 @@ def force_lan_only(project: Path) -> dict:
         raise RuntimeError("LAN-only join-code routing was not applied")
     return {
         "network_mode": "LAN_ONLY",
+        "steam_autoloads_removed": steam_autoloads["steam_autoloads_removed"],
         "remote_join_code_fallback_disabled": True,
         "remote_backend_cases_removed": all(
             token not in manager_text
