@@ -9,6 +9,7 @@ from tools.prepare_local_only_project import (
     silence_music,
     remove_achievement_system,
     remove_steam_autoloads,
+    remove_steam_native_files,
     _resource_referenced_elsewhere,
     _remove_remote_backend_cases,
     _remove_unreferenced_remote_code,
@@ -97,6 +98,26 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
             self.assertFalse(manager.exists())
             self.assertFalse(steam.exists())
             self.assertFalse(local.exists())
+
+    def test_steam_extension_uid_sidecar_is_removed_with_extension(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            addon = root / "addons/godotsteam"
+            addon.mkdir(parents=True)
+            extension = addon / "godotsteam.gdextension"
+            sidecar = addon / "godotsteam.gdextension.uid"
+            extension.write_text("[configuration]\n", encoding="utf-8")
+            sidecar.write_text("uid://steam-addon\n", encoding="utf-8")
+
+            report = remove_steam_native_files(root)
+
+            self.assertFalse(extension.exists())
+            self.assertFalse(sidecar.exists())
+            self.assertEqual(report["steam_native_files_removed"], 2)
+            self.assertEqual(report["steam_native_paths"], [
+                "addons/godotsteam/godotsteam.gdextension",
+                "addons/godotsteam/godotsteam.gdextension.uid",
+            ])
 
     def test_steam_autoload_removed_and_global_class_ref_is_respected(self):
         with tempfile.TemporaryDirectory() as tmp:
