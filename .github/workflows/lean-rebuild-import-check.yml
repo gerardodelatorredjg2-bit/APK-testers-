@@ -57,6 +57,13 @@ jobs:
           rm -f recovery-artifact.zip project-source.zip
           rm -rf recovered_parts recovered_manifest
 
+      - name: Prepare disposable Android source copy
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$PWD/rebuild-tools" python3 -m unittest -v rebuild-tools/tools/test_prepare_lean_project.py
+          python3 rebuild-tools/tools/prepare_lean_project.py "$PWD/project-source"
+          echo "Prepared project copy for the first Android-compatible import."
+
       - name: Audit assets and scene references
         run: |
           set -euo pipefail
