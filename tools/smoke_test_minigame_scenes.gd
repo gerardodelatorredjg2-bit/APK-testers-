@@ -55,7 +55,7 @@ func _run_scene_smoke_test() -> void:
 	var processed_scenes := 0
 	for scene_path in scene_paths:
 		var packed_scene: Resource = ResourceLoader.load(
-			scene_path, "PackedScene", ResourceLoader.CACHE_MODE_REUSE
+			scene_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE_DEEP
 		)
 		if packed_scene == null:
 			failures.append(scene_path)

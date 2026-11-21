@@ -32,6 +32,25 @@ class RuntimeCleanlinessFixTests(unittest.TestCase):
             self.assertIn("margin_container.offset_bottom =", patched)
             self.assertFalse(module.patch_menu_visual_manager(project))
 
+
+    def test_disable_unsupported_compatibility_particle_trails_is_recursive_and_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            nested = project / "minigames" / "test"
+            nested.mkdir(parents=True)
+            scene = nested / "test.tscn"
+            scene.write_text(
+                '[node name="Particles" type="GPUParticles3D"]\n'
+                'trail_enabled = true\n',
+                encoding="utf-8",
+            )
+            resource = project / "shared_particles.tres"
+            resource.write_text("trail_enabled = true # unsupported on Compatibility\n", encoding="utf-8")
+            self.assertEqual(module.disable_unsupported_particle_trails(project), 2)
+            self.assertIn("trail_enabled = false", scene.read_text(encoding="utf-8"))
+            self.assertIn("trail_enabled = false # unsupported on Compatibility", resource.read_text(encoding="utf-8"))
+            self.assertEqual(module.disable_unsupported_particle_trails(project), 0)
+
     def test_disable_mobile_ssao_is_recursive_and_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)

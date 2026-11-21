@@ -74,6 +74,23 @@ def disable_unsupported_ssao(project: Path) -> int:
 
 
 
+
+def disable_unsupported_particle_trails(project: Path) -> int:
+    """Disable GPUParticles3D trails that the Android Compatibility renderer cannot draw."""
+    count = 0
+    pattern = re.compile(r"(?m)^(\s*trail_enabled\s*=\s*)true(\s*(?:#.*)?)$")
+    for suffix in ("*.tscn", "*.tres"):
+        for path in project.rglob(suffix):
+            try:
+                source = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            updated, replacements = pattern.subn(r"\1false\2", source)
+            if replacements:
+                path.write_text(updated, encoding="utf-8")
+                count += replacements
+    return count
+
 def patch_compatibility_shader(project: Path) -> bool:
     path = project / "shaders/spatial/grass_sway.gdshader"
     if not path.is_file():
@@ -397,12 +414,14 @@ def main() -> int:
         parser.error(f"Not a Godot project: {project}")
     menu_changed = patch_menu_visual_manager(project)
     ssao_count = disable_unsupported_ssao(project)
+    particle_trail_count = disable_unsupported_particle_trails(project)
     shader_changed = patch_compatibility_shader(project)
     pause_uid_changed = patch_pause_menu_uid(project)
     effect_manager_changed = patch_effect_manager_for_compatibility(project)
     vorbis_count, skipped_count = sanitize_vorbis_comments(project)
     print(f"MENU_ANCHOR_FIX={'applied' if menu_changed else 'already_applied'}")
     print(f"MOBILE_SSAO_DISABLED={ssao_count}")
+    print(f"COMPATIBILITY_PARTICLE_TRAILS_DISABLED={particle_trail_count}")
     print(f"COMPATIBILITY_SHADER_FMA_FIXED={shader_changed}")
     print(f"PAUSE_MENU_STALE_UID_REMOVED={pause_uid_changed}")
     print(f"EFFECT_MANAGER_COMPATIBILITY_PATCHED={effect_manager_changed}")
