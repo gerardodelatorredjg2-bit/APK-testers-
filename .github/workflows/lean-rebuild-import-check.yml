@@ -1,4 +1,4 @@
-name: Lean Machine Party clean import validation (startup check)
+name: Lean Machine Party clean import validation (minigame check)
 
 on:
   push:
@@ -136,6 +136,17 @@ jobs:
           grep -E "SCRIPT ERROR:|Parse Error:|Failed loading resource|ERROR:" logs/main-scene-boot.log | grep -Ev "ObjectDB instances leaked at exit|resources still in use at exit" > logs/boot-errors.txt || true
           echo "Boot error lines: $(wc -l < logs/boot-errors.txt)"
           test ! -s logs/boot-errors.txt
+
+      - name: Load all registered minigame scenes headlessly
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat godot-bin-path)"
+          timeout 180 "$GODOT_BIN" --headless --audio-driver Dummy --path "$PWD/project-source" --script "$PWD/rebuild-tools/tools/smoke_test_rebuild_minigame_scenes.gd" 2>&1 | tee logs/minigame-scenes.log
+          grep -q "MINIGAME_SCENE_LOAD_PASS" logs/minigame-scenes.log
+          if grep -Eiq "SCRIPT ERROR:|Parse Error:|MINIGAME_SCENE_LOAD_FAILED" logs/minigame-scenes.log; then
+            grep -Ein "SCRIPT ERROR:|Parse Error:|MINIGAME_SCENE_LOAD_FAILED" logs/minigame-scenes.log
+            exit 1
+          fi
 
       - name: Upload clean import audit
         if: always()
