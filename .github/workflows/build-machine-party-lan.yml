@@ -7,6 +7,8 @@ on:
       - "optimization/**"
     paths:
       - "tools/apply_machine_party_lan_patch.py"
+      - "tools/apply_gameplay_audit_fixes.py"
+      - "tools/test_shape_cutter_regression.gd"
       - "tools/optimize_mobile_performance.py"
       - "tools/test_mobile_optimizer.py"
       - "tools/smoke_test_minigame_scenes.gd"
@@ -16,6 +18,9 @@ on:
       - "tools/smoke_test_transition_overlay.gd"
       - "tools/repair_crawl_animation.gd"
       - "tools/lan_loopback_smoke.gd"
+      - "tools/apply_runtime_cleanliness_fixes.py"
+      - "tools/test_runtime_cleanliness_fixes.py"
+      - "tools/smoke_test_full_startup.gd"
       - ".github/workflows/build-machine-party-lan.yml"
   workflow_dispatch:
 
@@ -29,7 +34,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Checkout LAN patch tools
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref_name }}
 
@@ -37,7 +42,7 @@ jobs:
         run: python3 -m unittest -v tools/test_mobile_optimizer.py
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -58,9 +63,15 @@ jobs:
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
+      - name: Install runtime validation and packaging tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg p7zip-full
+
       - name: Install Android SDK components
         run: |
-          yes | sdkmanager --licenses >/dev/null
+          yes | sdkmanager --licenses >/dev/null 2>&1
           sdkmanager --install \
             "platform-tools" \
             "build-tools;35.0.0" \
@@ -105,11 +116,21 @@ jobs:
       - name: Apply LAN patch and prepare Android-compatible build
         run: |
           set -euo pipefail
-          python3 tools/apply_machine_party_lan_patch.py downloaded/recovered
+          PROJECT="$PWD/downloaded/recovered"
+          # Apply the curated touchscreen controls source BEFORE patching it.
+          # Copying it afterward silently removed the HIDE/SHOW controls API.
+          cp recovered-project/controls_android.gd "$PROJECT/controls_android.gd"
+          python3 tools/apply_machine_party_lan_patch.py "$PROJECT"
+          python3 tools/apply_gameplay_audit_fixes.py downloaded/recovered
+          cp tools/test_shape_cutter_regression.gd downloaded/recovered/test_shape_cutter_regression.gd
           python3 tools/optimize_mobile_performance.py downloaded/recovered
           python3 tools/test_recovered_gameplay_fixes.py downloaded/recovered
-          cp recovered-project/controls_android.gd downloaded/recovered/controls_android.gd
-          python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/test_recovered_gameplay_fixes.py
+          python3 -m unittest -v tools/test_runtime_cleanliness_fixes.py
+          python3 tools/apply_runtime_cleanliness_fixes.py downloaded/recovered | tee build/runtime-cleanliness-fixes.log
+          python3 -m py_compile tools/optimize_mobile_performance.py tools/apply_machine_party_lan_patch.py tools/apply_gameplay_audit_fixes.py tools/test_recovered_gameplay_fixes.py
+          grep -Fq 'func set_controls_visible(value: bool) -> void:' "$PROJECT/controls_android.gd"
+          grep -Fq 'func toggle_controls_visible() -> void:' "$PROJECT/controls_android.gd"
+          echo "Touchscreen HIDE/SHOW controls API survived the final source overlay."
           PROJECT="$PWD/downloaded/recovered"
           test "$(wc -l < "$PROJECT/project.godot")" -gt 300
           grep -Fqx '[application]' "$PROJECT/project.godot"
@@ -220,18 +241,32 @@ jobs:
           # already imported for desktop. Remove only the generated import cache.
           rm -rf "$PROJECT/.godot/imported"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 25m "$GODOT_BIN" --headless --editor \
-            --path "$PROJECT" --quit
+          timeout 25m "$GODOT_BIN" --headless \
+            --audio-driver Dummy --editor \
+            --path "$PROJECT" --import 2>&1 | tee build/project-import.log
           test -d "$PROJECT/.godot/imported"
           echo "Android Compatibility renderer + ETC2/ASTC texture import confirmed."
 
+      - name: Run Shape Cutter gameplay regression tests
+        run: |
+          set -euo pipefail
+          GODOT_BIN="$(cat /tmp/godot-bin-path)"
+          PROJECT="$PWD/downloaded/recovered"
+          export GODOT_SILENCE_ROOT_WARNING=1
+          timeout 90s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" --script "$PROJECT/test_shape_cutter_regression.gd" 2>&1 | tee build/shape-cutter-regression.log
+          grep -q "SHAPE_CUTTER_REGRESSION_PASS" build/shape-cutter-regression.log
+          if grep -Eiq "SCRIPT ERROR:|Parse Error:|SHAPE_CUTTER_REGRESSION_FAILED" build/shape-cutter-regression.log; then
+            echo "===== SHAPE CUTTER REGRESSION FAILURE ====="
+            grep -Ein "SCRIPT ERROR:|Parse Error:|SHAPE_CUTTER_REGRESSION_FAILED" build/shape-cutter-regression.log
+            exit 1
+          fi
       - name: Repair crawl animation bone paths
         run: |
           set -euo pipefail
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
+          timeout 90s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/repair_crawl_animation.gd" 2>&1 | tee build/crawl-animation-repair.log
           grep -q 'CRAWL_REPAIR_PASS:' build/crawl-animation-repair.log
           test -s "$PROJECT/animations/crawl_idle_overwrite_mobile.tres"
           test -s "$PROJECT/animations/crawl_overwrite_mobile.tres"
@@ -245,7 +280,7 @@ jobs:
           PROJECT="$PWD/downloaded/recovered"
           mkdir -p build
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --quit-after 180 --verbose 2>&1 | tee build/headless-startup.log; then
+          if ! timeout 90s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_full_startup.gd" --verbose 2>&1 | tee build/headless-startup.log; then
             echo "===== HEADLESS STARTUP FAILURE ====="
             tail -n 240 build/headless-startup.log
             exit 1
@@ -255,7 +290,8 @@ jobs:
             grep -Ein 'SCRIPT ERROR:|Parse Error:|Failed loading resource' build/headless-startup.log
             exit 1
           fi
-          echo "Headless startup smoke test passed (180 frames)."
+          grep -q 'FULL_STARTUP_SMOKE_PASS:' build/headless-startup.log
+          echo "Full startup smoke test passed (180 frames; graceful shutdown)."
 
       - name: Load every minigame scene headlessly
         run: |
@@ -264,7 +300,7 @@ jobs:
           PROJECT="$PWD/downloaded/recovered"
           mkdir -p build
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! timeout 5m "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_minigame_scenes.gd" 2>&1 | tee build/minigame-scenes-smoke.log; then
+          if ! timeout 5m "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_minigame_scenes.gd" 2>&1 | tee build/minigame-scenes-smoke.log; then
             echo "===== MINIGAME SCENE LOAD FAILURES ====="
             tail -n 240 build/minigame-scenes-smoke.log
             exit 1
@@ -282,7 +318,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 90s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
+          timeout 90s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_crawl_animation.gd" 2>&1 | tee build/crawl-animation-smoke.log
           grep -q 'CRAWL_ANIMATION_SMOKE_PASS:' build/crawl-animation-smoke.log
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|CRAWL_ANIMATION_SMOKE_FAILED' build/crawl-animation-smoke.log; then
             echo "===== CRAWL ANIMATION SMOKE FAILURE ====="
@@ -296,7 +332,7 @@ jobs:
           GODOT_BIN="$(cat /tmp/godot-bin-path)"
           PROJECT="$PWD/downloaded/recovered"
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
+          timeout 45s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" --script "$PWD/tools/smoke_test_transition_overlay.gd" 2>&1 | tee build/transition-overlay-smoke.log
           grep -q 'TRANSITION_OVERLAY_SMOKE_PASS:' build/transition-overlay-smoke.log
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|TRANSITION_OVERLAY_SMOKE_FAILED' build/transition-overlay-smoke.log; then
             echo "===== TRANSITION OVERLAY SMOKE FAILURE ====="
@@ -346,7 +382,7 @@ jobs:
           path.write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
           export GODOT_SILENCE_ROOT_WARNING=1
-          timeout 45s "$GODOT_BIN" --headless --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
+          timeout 45s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" -- host >"$HOST_LOG" 2>&1 &
           HOST_PID=$!
           for attempt in $(seq 1 100); do
             if grep -q 'LAN_TEST_HOST_READY=' "$HOST_LOG"; then
@@ -366,7 +402,7 @@ jobs:
             exit 1
           fi
           echo "Testing LAN address: $HOST_ADDRESS"
-          if ! timeout 30s "$GODOT_BIN" --headless --path "$PROJECT" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
+          if ! timeout 30s "$GODOT_BIN" --headless --audio-driver Dummy --path "$PROJECT" -- client "$HOST_ADDRESS" >"$CLIENT_LOG" 2>&1; then
             echo "===== LAN CLIENT FAILURE ====="
             cat "$CLIENT_LOG"
             cat "$HOST_LOG"
@@ -397,7 +433,8 @@ jobs:
           grep -q 'renderer/rendering_method.mobile="gl_compatibility"' "$PROJECT/project.godot"
           grep -q 'textures/vram_compression/import_etc2_astc=true' "$PROJECT/project.godot"
           export GODOT_SILENCE_ROOT_WARNING=1
-          if ! "$GODOT_BIN" --headless --path "$PROJECT" --verbose \
+          if ! timeout 30m "$GODOT_BIN" --headless \
+            --audio-driver Dummy --path "$PROJECT" --verbose \
             --export-debug "Android Universal (ARMv7 + ARM64)" "$PWD/build/MachineParty-LAN-universal.apk" \
             2>&1 | tee build/android-export.log; then
             echo "===== ANDROID EXPORT FAILURE DETAILS ====="
@@ -407,6 +444,23 @@ jobs:
           test -s build/MachineParty-LAN-universal.apk
           ls -lh build/MachineParty-LAN-universal.apk
 
+      - name: Record Godot shutdown diagnostics without blocking APK packaging
+        if: success()
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          LOGS=(
+            build/project-import.log build/headless-startup.log build/minigame-scenes-smoke.log
+            build/crawl-animation-repair.log build/crawl-animation-smoke.log
+            build/transition-overlay-smoke.log build/lan-host-smoke.log
+            build/lan-client-smoke.log build/shape-cutter-regression.log
+            build/android-export.log
+          )
+          grep -Ein '(WARNING|ERROR):|SCRIPT ERROR:|Parse Error:' "${LOGS[@]}" > build/godot-diagnostics-all.txt || true
+          echo "===== Godot diagnostics recorded; this step is informational only ====="
+          cat build/godot-diagnostics-all.txt || true
+          echo "This report no longer blocks APK packaging."
+
       - name: Verify APK and create compressed download
         run: |
           set -euo pipefail
@@ -415,8 +469,6 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 build/MachineParty-LAN-universal.apk
           (cd build && sha256sum MachineParty-LAN-universal.apk > APK-SHA256SUMS.txt)
 
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
           (cd build && 7z a -t7z -mx=9 -m0=lzma2:d=128m:fb=273 -mmt=2 -ms=on \
             MachineParty-LAN-universal.7z MachineParty-LAN-universal.apk APK-SHA256SUMS.txt)
           (cd build && sha256sum MachineParty-LAN-universal.7z > SHA256SUMS.txt)
@@ -445,12 +497,16 @@ jobs:
           PY
 
       - name: Upload recovered gameplay source and audit logs for deeper review
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: machine-party-gameplay-audit-source
           path: |
             downloaded/recovered-gameplay-source.zip
             build/recovered-minigame-audit.txt
+            build/runtime-cleanliness-fixes.log
+            build/project-import.log
+            build/android-export.log
             build/headless-startup.log
             build/minigame-scenes-smoke.log
             build/crawl-animation-repair.log
@@ -458,12 +514,16 @@ jobs:
             build/transition-overlay-smoke.log
             build/lan-host-smoke.log
             build/lan-client-smoke.log
+            build/shape-cutter-regression.log
+            build/godot-diagnostics-all.txt
+            build/godot-shutdown-diagnostics.txt
+            build/godot-actionable-diagnostics.txt
           if-no-files-found: warn
           compression-level: 1
-          retention-days: 7
+          retention-days: 14
 
       - name: Upload compressed package only
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: machine-party-lan-universal
           path: |
@@ -489,4 +549,3 @@ jobs:
             --title "Machine Party LAN - Android Universal (ARMv7 + ARM64)" \
             --notes "Direct APK plus compressed mirror. Universal ARMv7 (armeabi-v7a) + ARM64 (arm64-v8a). Godot 4.5.2. Debug-signed; for testing, not a production release."
 
-# Build universal ARMv7 + ARM64 LAN APK; package losslessly with ultra LZMA2.

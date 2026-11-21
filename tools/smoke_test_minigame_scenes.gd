@@ -35,6 +35,13 @@ func _collect_scenes(directory_path: String) -> void:
 		entry = directory.get_next()
 	directory.list_dir_end()
 
+func _cleanup_project_autoloads() -> void:
+	for child in root.get_children():
+		if is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await process_frame
+
 func _run_scene_smoke_test() -> void:
 	_collect_scenes("res://minigames")
 	for core_scene in CORE_GAME_SCENES:
@@ -45,19 +52,26 @@ func _run_scene_smoke_test() -> void:
 			push_error("CORE_SCENE_MISSING: " + core_scene)
 	scene_paths.sort()
 	print("MINIGAME_SCENE_SMOKE_COUNT=", scene_paths.size())
+	var processed_scenes := 0
 	for scene_path in scene_paths:
 		var packed_scene: Resource = ResourceLoader.load(
-			scene_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE
+			scene_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE_DEEP
 		)
 		if packed_scene == null:
 			failures.append(scene_path)
 			push_error("MINIGAME_SCENE_LOAD_FAILED: " + scene_path)
 		packed_scene = null
+		processed_scenes += 1
+		await process_frame
+	await process_frame
+	await process_frame
 	if failures.is_empty():
 		print("MINIGAME_SCENE_SMOKE_PASS: all ", scene_paths.size(), " scenes loaded")
+		await _cleanup_project_autoloads()
 		quit(0)
 	else:
 		push_error("MINIGAME_SCENE_SMOKE_FAILURES: " + str(failures.size()))
 		for failure in failures:
 			push_error(failure)
+		await _cleanup_project_autoloads()
 		quit(1)

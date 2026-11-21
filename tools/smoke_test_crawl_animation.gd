@@ -6,6 +6,13 @@ const TORSO_TREE := PLAYER_ROOT + "/TorsoAnimationTree"
 const TORSO_ANIM := PLAYER_ROOT + "/anim_character rig torso cut off"
 const TORSO_SKELETON := PLAYER_ROOT + "/Armature torso cut off/character torso cut off4/Armature/Skeleton3D"
 
+func _cleanup_project_autoloads() -> void:
+	for child in root.get_children():
+		if is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await process_frame
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -14,7 +21,7 @@ func _fail(message: String) -> void:
 	quit(1)
 
 func _run() -> void:
-	var packed := load(PLAYER_SCENE) as PackedScene
+	var packed := ResourceLoader.load(PLAYER_SCENE, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE_DEEP) as PackedScene
 	if packed == null:
 		_fail("player scene failed to load")
 		return
@@ -77,4 +84,10 @@ func _run() -> void:
 
 	print("CRAWL_ANIMATION_SMOKE_PASS: ", resolved_bone_tracks, " bone tracks resolved; ", animated_bones, " bones moved")
 	player.queue_free()
+	player = null
+	packed = null
+	tree = null
+	animation_player = null
+	skeleton = null
+	await _cleanup_project_autoloads()
 	quit(0)

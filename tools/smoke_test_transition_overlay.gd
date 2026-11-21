@@ -1,5 +1,12 @@
 extends SceneTree
 
+func _cleanup_project_autoloads() -> void:
+	for child in root.get_children():
+		if is_instance_valid(child):
+			child.queue_free()
+	for _frame in 4:
+		await process_frame
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -31,4 +38,6 @@ func _run() -> void:
 		return
 
 	print("TRANSITION_OVERLAY_SMOKE_PASS: overlapping fades complete once and release input")
+	overlay = null
+	await _cleanup_project_autoloads()
 	quit(0)
