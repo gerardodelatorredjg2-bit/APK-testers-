@@ -44,105 +44,83 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re, shutil
+          import json, re, struct, shutil
 
           root = Path("project")
-          glbs = sorted(root.rglob("*.glb")) + sorted(root.rglob("*.GLB"))
-          if not glbs:
-              raise SystemExit("No GLB files found in original Machine Party project.")
+          def inspect_glb(path):
+              data = path.read_bytes()
+              if len(data) < 20 or data[:4] != b"glTF":
+                  return None
+              version, total = struct.unpack_from("<II", data, 4)
+              if version != 2 or total != len(data):
+                  return None
+              offset = 12
+              doc = None
+              while offset + 8 <= len(data):
+                  size, kind = struct.unpack_from("<II", data, offset)
+                  offset += 8
+                  chunk = data[offset:offset+size]
+                  if len(chunk) != size:
+                      return None
+                  if kind == 0x4E4F534A:
+                      try: doc = json.loads(chunk.decode("utf-8").rstrip("\\x00 "))
+                      except Exception: return None
+                      break
+                  offset += size
+              if not doc:
+                  return None
+              meshes = doc.get("meshes", [])
+              vertices = 0
+              primitives = 0
+              for mesh in meshes:
+                  for prim in mesh.get("primitives", []):
+                      pos = prim.get("attributes", {}).get("POSITION")
+                      if isinstance(pos, int) and 0 <= pos < len(doc.get("accessors", [])):
+                          vertices += doc["accessors"][pos].get("count", 0)
+                          primitives += 1
+              return {"meshes": len(meshes), "vertices": vertices, "primitives": primitives,
+                      "materials": len(doc.get("materials", [])), "nodes": len(doc.get("nodes", []))}
 
-          hints = {
-              "player": 140, "character": 120, "avatar": 115,
-              "humanoid": 105, "human": 95, "worker": 90,
-              "npc": 80, "person": 80, "citizen": 75,
-              "body": 55, "default": 40, "base": 35,
-              "rig": 25, "skeleton": 25
-          }
-          avoid = {
-              "level": 45, "environment": 45, "map": 35,
-              "floor": 30, "wall": 30, "building": 25,
-              "prop": 20, "weapon": 20, "vehicle": 20
-          }
-          ref_re = re.compile(r'res://([^"\s<>]+?\.glb)', re.IGNORECASE)
-          records = {}
-
-          for p in glbs:
-              rel = str(p.relative_to(root)).replace("\\", "/")
-              low = rel.lower()
-              score, why = 0, []
-
-              for word, pts in hints.items():
-                  if word == "player":
-                      matched = bool(re.search(r"(^|[/ _-])player($|[/ _-])", low))
-                  else:
-                      matched = word in low
-                  if matched:
-                      score += pts
-                      why.append("name:" + word)
-
-              for word, pts in avoid.items():
-                  if word in low:
-                      score -= pts
-
-              # Prefer a full third-person body, not the first-person hand rig.
-              if "first person" in low or "first_person" in low:
-                  score -= 150
-                  why.append("exclude:first-person-arms-rig")
-              if "third person" in low or "third_person" in low:
-                  score += 125
-                  why.append("prefer:third-person-character")
-
-              size = p.stat().st_size
-              score += max(0, 18 - min(18, (size // (1024 * 1024)) * 2))
-              records[rel] = {"path": p, "score": score, "refs": 0, "why": why}
-
-          for scene in root.rglob("*.tscn"):
-              try:
-                  txt = scene.read_text(errors="ignore")
-              except OSError:
+          candidates = []
+          for p in sorted(root.rglob("*")):
+              if not p.is_file() or p.suffix.lower() != ".glb":
                   continue
-              scene_low = str(scene.relative_to(root)).lower()
-              character_scene = any(w in scene_low for w in ("player", "character", "avatar", "lobby"))
-              for raw in ref_re.findall(txt):
-                  key = raw.replace("\\", "/")
-                  if key not in records:
-                      continue
-                  rec = records[key]
-                  rec["refs"] += 1
-                  rec["score"] += 90 if character_scene else 2
-                  if character_scene:
-                      rec["why"].append("scene:" + str(scene.relative_to(root)))
-
-          ranked = sorted(
-              records.values(),
-              key=lambda r: (r["score"], r["refs"], -r["path"].stat().st_size),
-              reverse=True
-          )
-          best = ranked[0]
-          out = Path("out")
-          out.mkdir(exist_ok=True)
-          safe = re.sub(r"[^A-Za-z0-9._-]+", "_", best["path"].stem).strip("_") or "character"
-          target = out / f"MachineParty_{safe}.glb"
-          shutil.copy2(best["path"], target)
-
-          report = [
-              "Source: original recovered Machine Party Godot project",
-              f"Model resource: {best['path']}",
-              f"Output: {target}",
-              f"Bytes: {target.stat().st_size}",
-              f"Selection score: {best['score']}",
-              f"Scene references: {best['refs']}",
-              "Reasons: " + ", ".join(best["why"]),
-              "",
-              "Top candidates:"
-          ]
-          for item in ranked[:15]:
-              report.append(f"{item['path']} | score={item['score']} | refs={item['refs']} | bytes={item['path'].stat().st_size}")
-          (out / "EXTRACTION_INFO.txt").write_text("\n".join(report) + "\n")
-          print("\n".join(report))
-
-          if target.stat().st_size < 1000:
-              raise SystemExit("Selected model is suspiciously small; not uploading.")
+              stats = inspect_glb(p)
+              if not stats or stats["meshes"] == 0 or stats["vertices"] < 20 or stats["primitives"] == 0:
+                  print(f"REJECT no real mesh geometry: {p}")
+                  continue
+              rel = str(p.relative_to(root)).replace("\\\\", "/")
+              low = rel.lower()
+              score = 0
+              reasons = []
+              hints = {"player":140,"character":120,"avatar":115,"humanoid":105,"human":95,
+                       "worker":90,"npc":80,"person":80,"citizen":75,"body":55,"default":40,"base":35}
+              for word, points in hints.items():
+                  if word in low: score += points; reasons.append("name:"+word)
+              if "third person" in low or "third_person" in low: score += 110; reasons.append("third-person")
+              if "first person" in low or "first_person" in low or "hand" in low or "arms" in low:
+                  score -= 200; reasons.append("penalty:first-person/limbs")
+              if any(x in low for x in ("level","environment","map","floor","wall","building","prop","weapon","vehicle")):
+                  score -= 60
+              score += min(stats["vertices"]//100, 80)
+              score += min(stats["meshes"]*3, 30)
+              candidates.append({"path":p,"score":score,"stats":stats,"reasons":reasons})
+          if not candidates:
+              raise SystemExit("No valid GLB with actual mesh geometry found; refusing to upload skeleton-only GLB.")
+          ranked=sorted(candidates,key=lambda c:(c["score"],c["stats"]["vertices"],c["path"].stat().st_size),reverse=True)
+          best=ranked[0]
+          out=Path("out"); out.mkdir(exist_ok=True)
+          safe=re.sub(r"[^A-Za-z0-9._-]+","_",best["path"].stem).strip("_") or "character"
+          target=out/f"MachineParty_{safe}.glb"
+          shutil.copy2(best["path"],target)
+          report=["Source: original recovered Machine Party project",f"Selected: {best['path']}",
+                  f"Output: {target}",f"File bytes: {target.stat().st_size}",
+                  f"GLB geometry stats: {best['stats']}",f"Score: {best['score']}","",
+                  "Ranked valid candidates:"]
+          for c in ranked[:20]:
+              report.append(f"{c['path']} | score={c['score']} | stats={c['stats']} | bytes={c['path'].stat().st_size}")
+          (out/"EXTRACTION_INFO.txt").write_text("\\n".join(report)+"\\n")
+          print("\\n".join(report))
           PY
 
       - name: Upload the single extracted model
