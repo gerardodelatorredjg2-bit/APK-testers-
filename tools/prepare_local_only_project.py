@@ -235,18 +235,19 @@ def _remove_unreferenced_shape_cutter_test(project: Path) -> list[str]:
     scene_rel = "minigames/shape_cutter/shape_cutter_test.tscn"
     script_rel = "minigames/shape_cutter/scripts/shape_cutter_test.gd"
     candidates = {scene_rel, script_rel, script_rel + ".uid"}
+    if _resource_referenced_elsewhere(project, Path(scene_rel), candidates):
+        return []
+    if _resource_referenced_elsewhere(project, Path(script_rel), candidates):
+        return []
     removed = []
     for rel in (scene_rel, script_rel):
         target = project / rel
-        if not target.is_file():
-            continue
-        if _resource_referenced_elsewhere(project, Path(rel), candidates):
-            continue
-        target.unlink()
+        if target.is_file():
+            target.unlink()
+            removed.append(rel)
         sidecar = project / (rel + ".uid")
         if sidecar.is_file():
             sidecar.unlink()
-        removed.append(rel)
     return removed
 
 def force_lan_only(project: Path) -> dict:
