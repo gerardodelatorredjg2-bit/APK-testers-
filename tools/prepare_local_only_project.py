@@ -332,8 +332,10 @@ def force_lan_only(project: Path) -> dict:
             lobby.write_text(text2, encoding="utf-8")
             patched_scripts.append(lobby.relative_to(project).as_posix())
 
-    remote_code_removed = _remove_unreferenced_remote_code(project)
+    # Disable the obsolete remote join UI first, so it no longer keeps
+    # Steam/relay backend scripts artificially referenced during cleanup.
     legacy_menu_disabled = _disable_legacy_online_menu(project)
+    remote_code_removed = _remove_unreferenced_remote_code(project)
     shape_test_removed = _remove_unreferenced_shape_cutter_test(project)
     manager_text = manager.read_text(encoding="utf-8")
     if "return NetworkBackendType.Lan" not in manager_text:
