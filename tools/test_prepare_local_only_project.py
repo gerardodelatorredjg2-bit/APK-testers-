@@ -7,8 +7,8 @@ from tools.prepare_local_only_project import (
     force_lan_only,
     is_music_asset,
     silence_music,
+    remove_achievement_system,
     _remove_remote_backend_cases,
-    _patch_local_achievement_backend,
     _remove_unreferenced_remote_code,
 )
 
@@ -64,61 +64,56 @@ class LocalOnlyOptimizationTests(unittest.TestCase):
         self.assertNotIn("NetworkBackendType.Relay:", cleaned)
 
 
-    def test_steam_achievement_class_is_redirected_to_local_before_removal(self):
+    def test_nonexistent_achievement_subsystem_is_removed_not_localized(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            manager = root / "autoloads/achievement_manager.gd"
-            manager.parent.mkdir(parents=True)
-            manager.write_text(
-                'extends Node\nvar backend = AchievementBackendSteam.new()\n'
-                'const BACKEND_PATH = "res://modules/achievements/backends/achievement_backend_steam.gd"\n',
+            config = root / "project.godot"
+            config.write_text(
+                '[autoload]\nAchievementManager="*res://autoloads/achievement_manager.gd"\n'
+                '[application]\nconfig/name="Machine Party"\n',
                 encoding="utf-8",
             )
-            local = root / "modules/achievements/backends/achievement_backend_local.gd"
-            local.parent.mkdir(parents=True)
-            # The recovered local backend is a script resource, not a global class.
-            local.write_text("extends RefCounted\n", encoding="utf-8")
+            manager = root / "autoloads/achievement_manager.gd"
+            manager.parent.mkdir(parents=True)
+            manager.write_text("extends Node\n", encoding="utf-8")
             steam = root / "modules/achievements/backends/achievement_backend_steam.gd"
-            steam.write_text(
-                "extends RefCounted\nclass_name AchievementBackendSteam\n",
-                encoding="utf-8",
+            local = root / "modules/achievements/backends/achievement_backend_local.gd"
+            steam.parent.mkdir(parents=True)
+            steam.write_text("extends RefCounted\n", encoding="utf-8")
+            local.write_text("extends RefCounted\n", encoding="utf-8")
+            (steam.parent / "achievement_backend.gd").write_text(
+                "extends RefCounted\n", encoding="utf-8"
             )
-            result = _patch_local_achievement_backend(root)
-            patched = manager.read_text(encoding="utf-8")
-            self.assertEqual(result["backend_class"], "_MachinePartyLocalAchievementBackend")
-            self.assertTrue(result["backend_uses_preload"])
-            self.assertIn("_MachinePartyLocalAchievementBackend.new()", patched)
-            self.assertIn(
-                'const _MachinePartyLocalAchievementBackend = preload("res://modules/achievements/backends/achievement_backend_local.gd")',
-                patched,
-            )
-            self.assertIn("achievement_backend_local.gd", patched)
-            self.assertNotIn("AchievementBackendSteam", patched)
-            removed = _remove_unreferenced_remote_code(root)
-            self.assertIn("modules/achievements/backends/achievement_backend_steam.gd", removed)
-            self.assertFalse(steam.exists())
 
-    def test_existing_local_global_class_is_reused_without_preload_alias(self):
+            report = remove_achievement_system(root)
+
+            self.assertTrue(report["achievement_system_removed"])
+            self.assertTrue(report["achievement_autoload_removed"])
+            self.assertEqual(len(report["achievement_files_removed"]), 4)
+            self.assertEqual(report["remaining_references"], [])
+            self.assertNotIn("AchievementManager", config.read_text(encoding="utf-8"))
+            self.assertFalse(manager.exists())
+            self.assertFalse(steam.exists())
+            self.assertFalse(local.exists())
+
+    def test_unreferenced_remote_cleanup_keeps_lan_enet_backend(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            manager = root / "autoloads/achievement_manager.gd"
-            manager.parent.mkdir(parents=True)
-            manager.write_text(
-                "extends Node\nvar backend = AchievementBackendSteam.new()\n",
-                encoding="utf-8",
-            )
-            local = root / "modules/achievements/backends/achievement_backend_local.gd"
-            local.parent.mkdir(parents=True)
-            local.write_text(
-                "extends RefCounted\nclass_name AchievementBackendLocal\n",
-                encoding="utf-8",
-            )
-            result = _patch_local_achievement_backend(root)
-            patched = manager.read_text(encoding="utf-8")
-            self.assertEqual(result["backend_class"], "AchievementBackendLocal")
-            self.assertFalse(result["backend_uses_preload"])
-            self.assertIn("AchievementBackendLocal.new()", patched)
-            self.assertNotIn("preload(", patched)
+            backends = root / "modules/multiplayer/backends"
+            backends.mkdir(parents=True)
+            enet = backends / "enet_backend.gd"
+            enet.write_text("extends RefCounted\n", encoding="utf-8")
+            steam = backends / "steam_backend.gd"
+            steam.write_text("extends RefCounted\n", encoding="utf-8")
+            relay = backends / "relay_backend.gd"
+            relay.write_text("extends RefCounted\n", encoding="utf-8")
+
+            removed = _remove_unreferenced_remote_code(root)
+
+            self.assertTrue(enet.exists())
+            self.assertFalse(steam.exists())
+            self.assertFalse(relay.exists())
+            self.assertNotIn("modules/multiplayer/backends/enet_backend.gd", removed)
 
     def test_join_code_routing_and_lobby_are_lan_only(self):
         with tempfile.TemporaryDirectory() as tmp:
